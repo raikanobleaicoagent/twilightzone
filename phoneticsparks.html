@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Phonetic Sparks</title>
+    <title>Phonetic Sparks - Interactive</title>
     <style>
         /* CSS Custom Properties for theming */
         :root {
@@ -26,27 +26,7 @@
             --button-active-bg: #00ddeb;
             --button-active-text: #000;
         }
-
-        .theme-light {
-            --bg-color: #fff;
-            --text-color: #000;
-            --container-bg: rgba(245, 245, 245, 0.9);
-            --container-shadow: rgba(0, 0, 0, 0.15);
-            --panel-bg: #fff;
-            --panel-text: #000;
-            --panel-border: rgba(0, 0, 0, 0.2);
-            --heading-color: #333;
-            --heading-shadow-1: rgba(0,0,0,0.1); /* Subtle shadow for light mode */
-            --heading-shadow-2: rgba(0,0,0,0.05);
-            --heading-shadow-3: transparent;
-            --particle-color: rgba(50, 50, 100, 0.5);
-            --button-bg: #eee;
-            --button-text: #333;
-            --button-border: #ccc;
-            --button-hover-bg: #ddd;
-            --button-active-bg: #333;
-            --button-active-text: #fff;
-        }
+      
 
         .theme-cherry-blossom {
             --bg-color: #FFFAF0; /* FloralWhite - softer background */
@@ -172,7 +152,7 @@
             user-select: none;
             transition: transform 1.8s cubic-bezier(0.3, 0.8, 0.9, 1), opacity 1.8s linear, color 0.5s ease;
             will-change: transform, opacity, color;
-            z-index: 0;
+            z-index: 1000; /* Ensure particles are on top */
         }
 
         @keyframes themedNeonGlow {
@@ -206,13 +186,12 @@
         }
     </style>
 </head>
-<body class="theme-dark"> {/* Default theme */}
+<body class="theme-dark">
     <div class="container">
         <h1>Phonetic Sparks</h1>
         <div class="theme-changer">
-            <button class="theme-button active" data-theme="theme-dark">Dark</button>
-            <button class="theme-button" data-theme="theme-light">Light</button>
-            <button class="theme-button" data-theme="theme-cherry-blossom">Sakura</button>
+            <button class="theme-button active" data-theme="theme-dark">Neon Space</button>
+            <button class="theme-button" data-theme="theme-cherry-blossom">Neon Sakura</button>
         </div>
         <div class="lyrics-container">
             <div class="lyrics" id="lyrics-en">
