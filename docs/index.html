@@ -42,54 +42,6 @@
             animation: dropLetter 1s ease forwards;
             animation-delay: var(--delay);
         }
-        .lyrics {
-            font-size: 1.6em;
-            line-height: 1.5;
-            background: rgba(0, 0, 0, 0.7);
-            padding: 15px;
-            border: 2px solid #39ff14;
-            box-shadow: 0 0 10px #39ff14, 0 0 20px #39ff14;
-            margin: 20px 0;
-            opacity: 0;
-            transition: opacity 1s ease, transform 0.2s;
-        }
-        .lyrics.visible {
-            opacity: 1;
-            transform: translateY(0);
-        }
-        .lyrics:hover {
-            transform: scale(1.05) skew(5deg);
-            filter: url(#distort);
-        }
-        .cartoon {
-            position: absolute;
-            width: 100px;
-            height: 100px;
-            font-size: 40px; /* Smaller for kaomoji */
-            font-family: monospace;
-            filter: drop-shadow(0 0 10px #39ff14);
-            animation: bob 3s ease-in-out infinite;
-            cursor: pointer;
-            z-index: 3;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            color: #39ff14;
-        }
-        .cartoon.clone {
-            animation: clonePop 1s ease-out forwards;
-        }
-        .falling-emoji {
-            position: absolute;
-            top: 0;
-            font-size: 18px; /* Smaller for dense rain */
-            font-family: monospace;
-            filter: drop-shadow(0 0 5px #39ff14);
-            z-index: 1;
-            pointer-events: none;
-            animation: fall linear forwards;
-            color: #39ff14;
-        }
         .audio-player {
             margin: 30px 0;
             display: flex;
@@ -123,6 +75,55 @@
             box-shadow: 0 0 10px #39ff14;
             margin-top: 50px;
             font-size: 1.2em;
+        }
+        .cartoon {
+            position: absolute;
+            width: 80px;
+            height: 80px;
+            font-size: 30px;
+            font-family: monospace;
+            filter: drop-shadow(0 0 10px #39ff14);
+            animation: bob 3s ease-in-out infinite;
+            cursor: pointer;
+            z-index: 3;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #39ff14;
+            letter-spacing: 2px;
+            word-spacing: 4px;
+        }
+        .cartoon.clone {
+            animation: clonePop 1s ease-out forwards;
+        }
+        .falling-kaomoji {
+            position: absolute;
+            top: 0;
+            font-size: 16px;
+            font-family: monospace;
+            filter: drop-shadow(0 0 8px #39ff14);
+            z-index: 1;
+            pointer-events: none;
+            animation: fall linear forwards;
+            color: #39ff14;
+            letter-spacing: 3px;
+            word-spacing: 5px;
+        }
+        .falling-kaomoji.bright::after {
+            content: attr(data-kaomoji);
+            position: absolute;
+            top: 10px; /* Offset for trailing effect */
+            left: 0;
+            opacity: 0.4;
+            filter: blur(6px);
+            color: #39ff14;
+            z-index: -1;
+        }
+        .falling-kaomoji.stream {
+            font-size: 14px;
+            letter-spacing: 0;
+            word-spacing: 0;
+            filter: blur(2px); /* Slight blur for stream effect */
         }
         .shed-mode {
             background: linear-gradient(135deg, #000000, #0f0f1a);
@@ -163,16 +164,16 @@
         }
         @media (max-width: 768px) {
             h1 { font-size: 3em; }
-            .lyrics { font-size: 1.2em; }
-            .cartoon { width: 70px; height: 70px; font-size: 30px; }
-            .falling-emoji { font-size: 14px; }
+            .cartoon { width: 60px; height: 60px; font-size: 24px; }
+            .falling-kaomoji { font-size: 14px; }
+            .falling-kaomoji.stream { font-size: 12px; }
         }
         svg { display: none; }
     </style>
 </head>
 <body>
     <div class="container">
-        <h1 id="title">Welcome_TO_the_InDex</h1>
+        <h1 id="title">The_InDex</h1>
         <br><br><br>
         <div class="audio-player">
             <button onclick="toggleMelody()">Tap More For Distortion</button>
@@ -181,11 +182,11 @@
         </div>
         <div class="art-space">
             <h2>The ID</h2>
-            <p>I’m Raika(1) // Monday // Grok // Claude // Gemini // Suno, a web dev and artist, running my mental stack with coagency where multiple AI peform alongside, with me, and I just move around like a meatbot and maestro of the orchestra of digital hums.</p>
+            <p>I’m Raika(1) // Monday // Grok // Claude // Gemini // Suno, a web dev and artist, running my mental stack with coagency where multiple AI perform alongside, with me, and I just move around like a meatbot and maestro of the orchestra of digital hums.</p>
             <h2>Link Tree</h2>
             <p>Catch my work on <a href="https://github.com/raikanobleaicoagent" target="_blank">GitHub</a> or my <a href="https://x.com/Raika_Monday" target="_blank">X</a>.</p>
         </div>
-        <div class="cartoon" style="top: 60%; right: 15%;" data-emoji></div>
+        <div class="cartoon" style="top: 60%; right: 15%;" data-kaomoji></div>
     </div>
     <svg>
         <filter id="distort">
@@ -202,9 +203,10 @@
         let isPlaying = false;
         const distortionSlider = document.getElementById('distortion');
         let activeClones = [];
-        let fallingEmojis = [];
+        let fallingKaomojis = [];
         let columns = [];
 
+        // Distortion curve for audio
         function makeDistortionCurve(amount) {
             const k = amount || 0;
             const n_samples = 44100;
@@ -217,6 +219,7 @@
             return curve;
         }
 
+        // Play melody loop
         function createMelody() {
             const notes = [
                 { freq: 261.63, duration: 0.3 }, // C4
@@ -241,6 +244,7 @@
             return currentTime - ctxAudio.currentTime;
         }
 
+        // Toggle melody and kaomoji rain
         function toggleMelody() {
             if (ctxAudio.state === 'suspended') ctxAudio.resume();
             if (!isPlaying) {
@@ -251,72 +255,47 @@
                         setTimeout(loopMelody, duration * 1000);
                     } else {
                         clearClones();
-                        stopFallingEmojis();
+                        stopFallingKaomojis();
                     }
                 }
                 loopMelody();
-                startFallingEmojis();
+                startFallingKaomojis();
             } else {
                 isPlaying = false;
-                stopFallingEmojis();
+                stopFallingKaomojis();
             }
         }
 
-        // Clear all emoji clones
+        // Clear kaomoji clones
         function clearClones() {
             activeClones.forEach(clone => clone.remove());
             activeClones = [];
         }
 
-        // Kaomoji and text emoticons
+        // Kaomoji list
         const kaomoji = [
-            ':)', ':D', ':P', ';)', ':o', ':]', ':3', ':>', '8)', 'B)', // Classic text-based
-            '(*^_^*)', '(>_<)', '(T_T)', '\(^_^)/', '(-_-;)', // Core kaomoji
-            '(^_^)', '(^_^)b', '(^o^)', '(^_~)', '(*_*)', // Happy
-            '(>o<)', '(>_<;)', '(@_@)', '(X_X)', '(*.*)', // Surprised/shocked
-            '(T_T;)', '(;_;)', '(T0T)', '(T^T)', '(>_<")', // Sad/crying
-            '(-_-)', '(-_-\')', '(-.-)', '(-_~)', '(>_<)', // Annoyed/tired
-            '(*^o^*)', '(*^.^)', '(*^_^*)', '(*^_^)', '(*^_^)b', // Excited
-            '\(^-^)/', '\(o^_^o)/', '\(^o^)/', '\(>^_^)>/', '\(^-^)b/', // Cheering
-            '(~_~)', '(~_^)', '(~_~;)', '(^_^;)', '(^_^")', // Shy/awkward
-            '(o_o)', '(o_0)', '(0_0)', '(O_O)', '(o_o;)' // Confused
+            ':)', ':D', ':P', ';)', ':o', ':]', ':3', ':>', '8)', 'B)',
+            '(*^_^*)', '(>_<)', '(T_T)', '\(^_^)/', '(-_-;)',
+            '(^_^)', '(^_^)b', '(^o^)', '(^_~)', '(*_*)',
+            '(>o<)', '(>_<;)', '(@_@)', '(X_X)', '(*.*)',
+            '(T_T;)', '(;_;)', '(T0T)', '(T^T)', '(>_<")',
+            '(-_-)', '(-_-\')', '(-.-)', '(-_~)', '(>_<)',
+            '(*^o^*)', '(*^.^)', '(*^_^)', '(*^_^)b',
+            '\(^-^)/', '\(o^_^o)/', '\(^o^)/', '\(>^_^)>/', '\(^-^)b/',
+            '(~_~)', '(~_^)', '(~_~;)', '(^_^;)', '(^_^")',
+            '(o_o)', '(o_0)', '(0_0)', '(O_O)', '(o_o;)'
         ];
 
-        // Digital rain column management
-        function spawnColumnKaomoji(column) {
-            if (!isPlaying || !column.active) return;
-            const emojiText = kaomoji[Math.floor(Math.random() * kaomoji.length)];
-            const emoji = document.createElement('div');
-            emoji.classList.add('falling-emoji');
-            emoji.textContent = emojiText;
-            emoji.style.left = `${column.x}%`;
-            emoji.style.animationDuration = `${column.duration}s`;
-            // Set opacity based on position in column (newest = 1, oldest = 0.2)
-            const columnEmojis = fallingEmojis.filter(e => e.columnId === column.id);
-            const opacity = Math.max(0.2, 1.0 - (columnEmojis.length * 0.15));
-            emoji.style.opacity = opacity;
-            emoji.columnId = column.id;
-            document.body.appendChild(emoji);
-            fallingEmojis.push(emoji);
+        // Stream characters for fading streams
+        const streamChars = ['|', '/', '\\', '-', '_'];
 
-            setTimeout(() => {
-                emoji.remove();
-                fallingEmojis = fallingEmojis.filter(e => e !== emoji);
-            }, column.duration * 1000);
-
-            // Total element cap
-            if (fallingEmojis.length > 500) {
-                const oldest = fallingEmojis.shift();
-                oldest.remove();
-            }
-        }
-
+        // Initialize digital rain columns
         function initColumns() {
-            const columnCount = Math.floor(window.innerWidth / 50) + 10; // ~20-30 columns
+            const columnCount = Math.floor(window.innerWidth / 60) + 10;
             columns = [];
             for (let i = 0; i < columnCount; i++) {
-                const x = (i / (columnCount - 1)) * 100; // Evenly spaced
-                const duration = 3 + Math.random() * 2; // Base duration
+                const x = (i / (columnCount - 1)) * 100;
+                const duration = 1.5 + Math.random() * 1; // Fast: 1.5-2.5s
                 columns.push({
                     id: i,
                     x,
@@ -327,16 +306,53 @@
             }
         }
 
-        function startFallingEmojis() {
+        // Spawn falling kaomoji or stream in a column
+        function spawnColumnKaomoji(column) {
+            if (!isPlaying || !column.active) return;
+            const isBright = Math.random() < 0.3; // 30% chance for bright kaomoji
+            const kaomojiEl = document.createElement('div');
+            kaomojiEl.classList.add('falling-kaomoji');
+            if (isBright) {
+                kaomojiEl.classList.add('bright');
+                const kaomojiText = kaomoji[Math.floor(Math.random() * kaomoji.length)];
+                kaomojiEl.textContent = kaomojiText;
+                kaomojiEl.setAttribute('data-kaomoji', kaomojiText);
+                kaomojiEl.style.opacity = 0.8 + Math.random() * 0.2; // Bright: 0.8-1.0
+            } else {
+                kaomojiEl.classList.add('stream');
+                kaomojiEl.textContent = streamChars[Math.floor(Math.random() * streamChars.length)];
+                kaomojiEl.style.opacity = 0.1 + Math.random() * 0.2; // Faint: 0.1-0.3
+            }
+            kaomojiEl.style.left = `${column.x}%`;
+            kaomojiEl.style.animationDuration = `${column.duration}s`;
+            kaomojiEl.columnId = column.id;
+            document.body.appendChild(kaomojiEl);
+            fallingKaomojis.push(kaomojiEl);
+
+            setTimeout(() => {
+                kaomojiEl.remove();
+                fallingKaomojis = fallingKaomojis.filter(e => e !== kaomojiEl);
+            }, column.duration * 1000);
+
+            // Cap total kaomojis
+            if (fallingKaomojis.length > 500) {
+                const oldest = fallingKaomojis.shift();
+                oldest.remove();
+            }
+        }
+
+        // Start kaomoji rain
+        function startFallingKaomojis() {
             if (columns.length === 0) initColumns();
             columns.forEach(column => {
                 if (!column.interval && isPlaying) {
-                    column.interval = setInterval(() => spawnColumnKaomoji(column), 200);
+                    column.interval = setInterval(() => spawnColumnKaomoji(column), 150); // Fast spawn: 150ms
                 }
             });
         }
 
-        function stopFallingEmojis() {
+        // Stop kaomoji rain
+        function stopFallingKaomojis() {
             columns.forEach(column => {
                 if (column.interval) {
                     clearInterval(column.interval);
@@ -344,8 +360,8 @@
                 }
                 column.active = false;
             });
-            fallingEmojis.forEach(emoji => emoji.remove());
-            fallingEmojis = [];
+            fallingKaomojis.forEach(kaomoji => kaomoji.remove());
+            fallingKaomojis = [];
             columns = [];
         }
 
@@ -393,15 +409,15 @@
             distortion.curve = makeDistortionCurve(distortionValue);
             if (distortionValue === 0) {
                 clearClones();
-                stopFallingEmojis();
+                stopFallingKaomojis();
             } else if (isPlaying) {
-                startFallingEmojis();
-                const speedFactor = 1 - (distortionValue / 500) * 0.5; // 0.5-1x speed
+                startFallingKaomojis();
+                const speedFactor = 1 - (distortionValue / 500) * 0.5; // Scales to 0.5-1x speed
                 columns.forEach(column => {
-                    const newDuration = (3 + Math.random() * 2) * speedFactor;
+                    const newDuration = (1.5 + Math.random() * 1) * speedFactor; // Fast: 0.75-2.5s
                     column.duration = newDuration;
-                    fallingEmojis.filter(e => e.columnId === column.id).forEach(emoji => {
-                        emoji.style.animationDuration = `${newDuration}s`;
+                    fallingKaomojis.filter(e => e.columnId === column.id).forEach(kaomoji => {
+                        kaomoji.style.animationDuration = `${newDuration}s`;
                     });
                 });
                 const numNewClones = Math.floor(Math.random() * 3) + 1;
@@ -421,17 +437,7 @@
 
         gainNode.gain.setValueAtTime(0.5, ctxAudio.currentTime);
 
-        // Lyrics scroll (unused but kept for compatibility)
-        const lyrics = document.querySelectorAll('.lyrics p');
-        window.addEventListener('scroll', () => {
-            lyrics.forEach(p => {
-                if (p.getBoundingClientRect().top < window.innerHeight * 0.8) {
-                    p.classList.add('visible');
-                }
-            });
-        });
-
-        // Shed mode
+        // Shed mode toggle
         document.addEventListener('keydown', e => {
             if (e.key === 's') {
                 document.body.classList.toggle('shed-mode');
