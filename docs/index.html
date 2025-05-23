@@ -33,6 +33,11 @@
             font-size: 5em;
             text-shadow: 3px 3px #000, 0 0 20px #39ff14, 0 0 30px #39ff14;
             margin-bottom: 20px;
+            transition: opacity 0.3s ease;
+        }
+        h1.hidden {
+            opacity: 0;
+            display: none;
         }
         h1 span {
             display: inline-block;
@@ -48,6 +53,11 @@
             justify-content: center;
             gap: 15px;
             align-items: center;
+            transition: opacity 0.3s ease;
+        }
+        .audio-player.hidden {
+            opacity: 0;
+            display: none;
         }
         .audio-player button {
             background: #1a1a2e;
@@ -75,6 +85,25 @@
             box-shadow: 0 0 10px #39ff14;
             margin-top: 50px;
             font-size: 1.2em;
+            position: relative;
+        }
+        .toggle-controls {
+            background: #1a1a2e;
+            border: 2px solid #39ff14;
+            box-shadow: 0 0 10px #39ff14;
+            padding: 5px 10px;
+            color: #39ff14;
+            font-family: 'Courier New', monospace;
+            font-size: 1em;
+            cursor: pointer;
+            transition: transform 0.2s, box-shadow 0.2s;
+            position: absolute;
+            top: 10px;
+            left: 10px;
+        }
+        .toggle-controls:hover {
+            box-shadow: 0 0 20px #39ff14;
+            transform: scale(1.1);
         }
         .cartoon {
             position: absolute;
@@ -92,6 +121,8 @@
             color: #39ff14;
             letter-spacing: 2px;
             word-spacing: 4px;
+            white-space: nowrap;
+            overflow: hidden;
         }
         .cartoon.clone {
             animation: clonePop 1s ease-out forwards;
@@ -112,7 +143,7 @@
         .falling-kaomoji.bright::after {
             content: attr(data-kaomoji);
             position: absolute;
-            top: 10px; /* Offset for trailing effect */
+            top: 10px;
             left: 0;
             opacity: 0.4;
             filter: blur(6px);
@@ -123,11 +154,38 @@
             font-size: 14px;
             letter-spacing: 0;
             word-spacing: 0;
-            filter: blur(2px); /* Slight blur for stream effect */
+            filter: blur(2px);
         }
         .shed-mode {
             background: linear-gradient(135deg, #000000, #0f0f1a);
             filter: contrast(150%);
+        }
+        .melody-editor {
+            background: rgba(0, 0, 0, 0.8);
+            padding: 20px;
+            border: 2px solid #39ff14;
+            box-shadow: 0 0 10px #39ff14;
+            margin-top: 20px;
+            display: none;
+        }
+        .note-item {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 10px;
+        }
+        .note-item input {
+            width: 100px;
+            padding: 5px;
+            background: #1a1a2e;
+            color: #39ff14;
+            border: 1px solid #39ff14;
+        }
+        .note-item button {
+            background: #1a1a2e;
+            border: 1px solid #39ff14;
+            color: #39ff14;
+            padding: 5px 10px;
+            cursor: pointer;
         }
         @keyframes pulseBg {
             0% { background-position: 0% 50%; }
@@ -167,6 +225,7 @@
             .cartoon { width: 60px; height: 60px; font-size: 24px; }
             .falling-kaomoji { font-size: 14px; }
             .falling-kaomoji.stream { font-size: 12px; }
+            .toggle-controls { font-size: 0.9em; padding: 4px 8px; }
         }
         svg { display: none; }
     </style>
@@ -179,8 +238,16 @@
             <button onclick="toggleMelody()">Tap More For Distortion</button>
             <label for="distortion">Distortion:</label>
             <input type="range" id="distortion" min="0" max="500" value="0">
+            <button onclick="toggleMelodyEditor()">Edit Melody</button>
+        </div>
+        <div class="melody-editor" id="melodyEditor">
+            <h3>Edit Melody</h3>
+            <div class="notes-list" id="notesList"></div>
+            <button onclick="addNote()">Add Note</button>
+            <button onclick="saveMelody()">Save Melody</button>
         </div>
         <div class="art-space">
+            <button class="toggle-controls" onclick="toggleControls()">-</button>
             <h2>The ID</h2>
             <p>I’m Raika(1) // Monday // Grok // Claude // Gemini // Suno, a web dev and artist, running my mental stack with coagency where multiple AI perform alongside, with me, and I just move around like a meatbot and maestro of the orchestra of digital hums.</p>
             <h2>Link Tree</h2>
@@ -205,6 +272,19 @@
         let activeClones = [];
         let fallingKaomojis = [];
         let columns = [];
+        let controlsVisible = true;
+
+        // Initial melody notes
+        let notes = [
+            { freq: 261.63, duration: 0.3 }, // C4
+            { freq: 311.13, duration: 0.3 }, // Eb4
+            { freq: 349.23, duration: 0.3 }, // F4
+            { freq: 392.00, duration: 0.3 }, // G4
+            { freq: 466.16, duration: 0.3 }, // Bb4
+            { freq: 349.23, duration: 0.3 }, // F4
+            { freq: 311.13, duration: 0.3 }, // Eb4
+            { freq: 261.63, duration: 0.3 }  // C4
+        ];
 
         // Distortion curve for audio
         function makeDistortionCurve(amount) {
@@ -219,18 +299,8 @@
             return curve;
         }
 
-        // Play melody loop
+        // Play melody loop with dynamic notes
         function createMelody() {
-            const notes = [
-                { freq: 261.63, duration: 0.3 }, // C4
-                { freq: 311.13, duration: 0.3 }, // Eb4
-                { freq: 349.23, duration: 0.3 }, // F4
-                { freq: 392.00, duration: 0.3 }, // G4
-                { freq: 466.16, duration: 0.3 }, // Bb4
-                { freq: 349.23, duration: 0.3 }, // F4
-                { freq: 311.13, duration: 0.3 }, // Eb4
-                { freq: 261.63, duration: 0.3 }  // C4
-            ];
             let currentTime = ctxAudio.currentTime;
             notes.forEach(note => {
                 const osc = ctxAudio.createOscillator();
@@ -266,6 +336,107 @@
             }
         }
 
+        // Toggle controls visibility
+        function toggleControls() {
+            const title = document.getElementById('title');
+            const audioPlayer = document.querySelector('.audio-player');
+            const melodyEditor = document.getElementById('melodyEditor');
+            const toggleButton = document.querySelector('.toggle-controls');
+            controlsVisible = !controlsVisible;
+            if (controlsVisible) {
+                title.classList.remove('hidden');
+                audioPlayer.classList.remove('hidden');
+                toggleButton.textContent = '-';
+            } else {
+                title.classList.add('hidden');
+                audioPlayer.classList.add('hidden');
+                melodyEditor.style.display = 'none';
+                toggleButton.textContent = '+';
+            }
+        }
+
+        // Melody editor functions
+        function toggleMelodyEditor() {
+            const editor = document.getElementById('melodyEditor');
+            if (editor.style.display === 'none') {
+                editor.style.display = 'block';
+                populateNotesList();
+            } else {
+                editor.style.display = 'none';
+            }
+        }
+
+        function populateNotesList() {
+            const notesList = document.getElementById('notesList');
+            notesList.innerHTML = '';
+            notes.forEach((note) => {
+                const noteItem = document.createElement('div');
+                noteItem.classList.add('note-item');
+                
+                const freqInput = document.createElement('input');
+                freqInput.type = 'number';
+                freqInput.value = note.freq;
+                freqInput.placeholder = 'Frequency';
+                
+                const durInput = document.createElement('input');
+                durInput.type = 'number';
+                durInput.value = note.duration;
+                durInput.placeholder = 'Duration';
+                
+                const removeBtn = document.createElement('button');
+                removeBtn.textContent = 'Remove';
+                removeBtn.addEventListener('click', () => {
+                    notesList.removeChild(noteItem);
+                });
+                
+                noteItem.appendChild(freqInput);
+                noteItem.appendChild(durInput);
+                noteItem.appendChild(removeBtn);
+                notesList.appendChild(noteItem);
+            });
+        }
+
+        function addNote() {
+            const notesList = document.getElementById('notesList');
+            const noteItem = document.createElement('div');
+            noteItem.classList.add('note-item');
+            
+            const freqInput = document.createElement('input');
+            freqInput.type = 'number';
+            freqInput.placeholder = 'Frequency';
+            
+            const durInput = document.createElement('input');
+            durInput.type = 'number';
+            durInput.placeholder = 'Duration';
+            
+            const removeBtn = document.createElement('button');
+            removeBtn.textContent = 'Remove';
+            removeBtn.addEventListener('click', () => {
+                notesList.removeChild(noteItem);
+            });
+            
+            noteItem.appendChild(freqInput);
+            noteItem.appendChild(durInput);
+            noteItem.appendChild(removeBtn);
+            notesList.appendChild(noteItem);
+        }
+
+        function saveMelody() {
+            const notesList = document.getElementById('notesList');
+            const noteItems = notesList.querySelectorAll('.note-item');
+            const newNotes = [];
+            noteItems.forEach(item => {
+                const freqInput = item.querySelector('input[type="number"]:nth-child(1)');
+                const durInput = item.querySelector('input[type="number"]:nth-child(2)');
+                const freq = parseFloat(freqInput.value);
+                const duration = parseFloat(durInput.value);
+                if (!isNaN(freq) && !isNaN(duration)) {
+                    newNotes.push({ freq, duration });
+                }
+            });
+            notes = newNotes;
+        }
+
         // Clear kaomoji clones
         function clearClones() {
             activeClones.forEach(clone => clone.remove());
@@ -295,7 +466,7 @@
             columns = [];
             for (let i = 0; i < columnCount; i++) {
                 const x = (i / (columnCount - 1)) * 100;
-                const duration = 1.5 + Math.random() * 1; // Fast: 1.5-2.5s
+                const duration = 1.5 + Math.random() * 1;
                 columns.push({
                     id: i,
                     x,
@@ -309,7 +480,7 @@
         // Spawn falling kaomoji or stream in a column
         function spawnColumnKaomoji(column) {
             if (!isPlaying || !column.active) return;
-            const isBright = Math.random() < 0.3; // 30% chance for bright kaomoji
+            const isBright = Math.random() < 0.3;
             const kaomojiEl = document.createElement('div');
             kaomojiEl.classList.add('falling-kaomoji');
             if (isBright) {
@@ -317,11 +488,11 @@
                 const kaomojiText = kaomoji[Math.floor(Math.random() * kaomoji.length)];
                 kaomojiEl.textContent = kaomojiText;
                 kaomojiEl.setAttribute('data-kaomoji', kaomojiText);
-                kaomojiEl.style.opacity = 0.8 + Math.random() * 0.2; // Bright: 0.8-1.0
+                kaomojiEl.style.opacity = 0.8 + Math.random() * 0.2;
             } else {
                 kaomojiEl.classList.add('stream');
                 kaomojiEl.textContent = streamChars[Math.floor(Math.random() * streamChars.length)];
-                kaomojiEl.style.opacity = 0.1 + Math.random() * 0.2; // Faint: 0.1-0.3
+                kaomojiEl.style.opacity = 0.1 + Math.random() * 0.2;
             }
             kaomojiEl.style.left = `${column.x}%`;
             kaomojiEl.style.animationDuration = `${column.duration}s`;
@@ -334,7 +505,6 @@
                 fallingKaomojis = fallingKaomojis.filter(e => e !== kaomojiEl);
             }, column.duration * 1000);
 
-            // Cap total kaomojis
             if (fallingKaomojis.length > 500) {
                 const oldest = fallingKaomojis.shift();
                 oldest.remove();
@@ -346,7 +516,7 @@
             if (columns.length === 0) initColumns();
             columns.forEach(column => {
                 if (!column.interval && isPlaying) {
-                    column.interval = setInterval(() => spawnColumnKaomoji(column), 150); // Fast spawn: 150ms
+                    column.interval = setInterval(() => spawnColumnKaomoji(column), 150);
                 }
             });
         }
@@ -387,6 +557,7 @@
         const titleText = title.textContent;
 
         function dropTitle() {
+            if (!controlsVisible) return;
             title.innerHTML = titleText
                 .split('')
                 .map(char => `<span>${char}</span>`)
@@ -412,9 +583,9 @@
                 stopFallingKaomojis();
             } else if (isPlaying) {
                 startFallingKaomojis();
-                const speedFactor = 1 - (distortionValue / 500) * 0.5; // Scales to 0.5-1x speed
+                const speedFactor = 1 - (distortionValue / 500) * 0.5;
                 columns.forEach(column => {
-                    const newDuration = (1.5 + Math.random() * 1) * speedFactor; // Fast: 0.75-2.5s
+                    const newDuration = (1.5 + Math.random() * 1) * speedFactor;
                     column.duration = newDuration;
                     fallingKaomojis.filter(e => e.columnId === column.id).forEach(kaomoji => {
                         kaomoji.style.animationDuration = `${newDuration}s`;
