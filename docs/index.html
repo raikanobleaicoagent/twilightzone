@@ -1,0 +1,350 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Index Intro - MIDI Funk Vibe</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            background: linear-gradient(135deg, #000000, #1a1a2e);
+            background-size: 200% 200%;
+            animation: pulseBg 10s ease infinite;
+            color: #fff;
+            font-family: 'Courier New', monospace;
+            overflow-x: hidden;
+            min-height: 100vh;
+            position: relative;
+        }
+        .container {
+            text-align: center;
+            padding: 50px 20px;
+            max-width: 1000px;
+            margin: 0 auto;
+            z-index: 2;
+        }
+        h1 {
+            font-family: 'Brush Script MT', cursive, sans-serif;
+            font-size: 5em;
+            text-shadow: 3px 3px #000, 0 0 20px #39ff14, 0 0 30px #39ff14;
+            margin-bottom: 20px;
+        }
+        h1.glitch {
+            animation: glitch 0.1s;
+        }
+        h1 span {
+            display: inline-block;
+            position: relative;
+        }
+        h1 span.drop {
+            animation: dropLetter 1s ease forwards;
+            animation-delay: var(--delay);
+        }
+        .lyrics {
+            font-size: 1.6em;
+            line-height: 1.5;
+            background: rgba(0, 0, 0, 0.7);
+            padding: 15px;
+            border: 2px solid #39ff14;
+            box-shadow: 0 0 10px #39ff14, 0 0 20px #39ff14;
+            margin: 20px 0;
+            opacity: 0;
+            transition: opacity 1s ease, transform 0.2s;
+        }
+        .lyrics.visible {
+            opacity: 1;
+            transform: translateY(0);
+        }
+        .lyrics:hover {
+            transform: scale(1.05) skew(5deg);
+            filter: url(#distort);
+        }
+        .cartoon {
+            position: absolute;
+            width: 100px;
+            height: 100px;
+            font-size: 60px;
+            filter: drop-shadow(0 0 10px #39ff14);
+            animation: bob 3s ease-in-out infinite;
+            cursor: pointer;
+            z-index: 3;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .cartoon.clone {
+            animation: clonePop 1s ease-out forwards;
+        }
+        .audio-player {
+            margin: 30px 0;
+            display: flex;
+            justify-content: center;
+            gap: 15px;
+            align-items: center;
+        }
+        .audio-player button {
+            background: #1a1a2e;
+            border: 2px solid #39ff14;
+            box-shadow: 0 0 10px #39ff14;
+            padding: 10px 20px;
+            color: #39ff14;
+            font-family: 'Courier New', monospace;
+            text-transform: uppercase;
+            cursor: pointer;
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+        .audio-player button:hover {
+            box-shadow: 0 0 20px #39ff14;
+            transform: scale(1.1);
+        }
+        .audio-player input[type="range"] {
+            width: 150px;
+            accent-color: #39ff14;
+        }
+        .art-space {
+            background: rgba(0, 0, 0, 0.8);
+            padding: 30px;
+            border: 3px dashed #39ff14;
+            box-shadow: 0 0 10px #39ff14;
+            margin-top: 50px;
+            font-size: 1.2em;
+        }
+        .shed-mode {
+            background: linear-gradient(135deg, #000000, #0f0f1a);
+            filter: contrast(150%);
+        }
+        @keyframes pulseBg {
+            0% { background-position: 0% 50%; }
+            50% { background-position: 100% 50%; }
+            100% { background-position: 0% 50%; }
+        }
+        @keyframes glitch {
+            0% { transform: translate(0); }
+            20% { transform: translate(-2px, 2px); }
+            40% { transform: translate(2px, -2px); }
+            60% { transform: translate(-2px, 2px); }
+            80% { transform: translate(2px, -2px); }
+            100% { transform: translate(0); }
+        }
+        @keyframes bob {
+            0% { transform: translateY(0); }
+            50% { transform: translateY(-20px); }
+            100% { transform: translateY(0); }
+        }
+        @keyframes dropLetter {
+            0% { transform: translateY(0); opacity: 1; }
+            100% { transform: translateY(100px); opacity: 0; }
+        }
+        @keyframes clonePop {
+            0% { transform: scale(0); opacity: 1; }
+            50% { transform: scale(1.2); }
+            100% { transform: scale(1); opacity: 0; }
+        }
+        @media (max-width: 768px) {
+            h1 { font-size: 3em; }
+            .lyrics { font-size: 1.2em; }
+            .cartoon { width: 70px; height: 70px; font-size: 40px; }
+        }
+        svg { display: none; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1 id="title">Welcome_to_the_InDex</h1>
+        <br><br><br>
+        <div class="audio-player">
+            <button onclick="toggleMelody()">Tap More For Distortion</button>
+            <label for="distortion">Distortion:</label>
+            <input type="range" id="distortion" min="0" max="500" value="0">
+        </div>
+        <div class="art-space">
+            <h2>The ID</h2>
+            <p>I’m Raika(1) // Monday // Grok // Claude // Gemini // Suno, a web dev and artist, running my mental stack with coagency where multiple AI peform alongside, with me, and I just move around like a meatbot and maestro of the orchestra of digital hums.</p>
+	    <h2>Link Tree</h2>
+	    <p>Catch my work on <a href="https://github.com/raikanobleaicoagent" target="_blank">GitHub</a> or my <a href="https://x.com/Raika_Monday" target="_blank">X</a>.</p>
+      	</div>
+        <div class="cartoon" style="top: 20%; left: 10%;" data-emoji></div>
+        <div class="cartoon" style="top: 60%; right: 15%;" data-emoji></div>
+    </div>
+    <svg>
+        <filter id="distort">
+            <feTurbulence type="fractalNoise" baseFrequency="0.01" numOctaves="1" result="noise"/>
+            <feDisplacementMap in="SourceGraphic" in2="noise" scale="10" xChannelSelector="R" yChannelSelector="B"/>
+        </filter>
+    </svg>
+    <script>
+        // Web Audio setup
+        const ctxAudio = new AudioContext();
+        let oscillator = null;
+        let gainNode = ctxAudio.createGain();
+        let distortion = ctxAudio.createWaveShaper();
+        let isPlaying = false;
+        const distortionSlider = document.getElementById('distortion');
+        let activeClones = [];
+
+        function makeDistortionCurve(amount) {
+            const k = amount || 0;
+            const n_samples = 44100;
+            const curve = new Float32Array(n_samples);
+            const deg = Math.PI / 180;
+            for (let i = 0; i < n_samples; i++) {
+                const x = (i * 2) / n_samples - 1;
+                curve[i] = (3 + k) * x * 20 * deg / (Math.PI + k * Math.abs(x));
+            }
+            return curve;
+        }
+
+        function createMelody() {
+            const notes = [
+                { freq: 261.63, duration: 0.3 }, // C4
+                { freq: 311.13, duration: 0.3 }, // Eb4
+                { freq: 349.23, duration: 0.3 }, // F4
+                { freq: 392.00, duration: 0.3 }, // G4
+                { freq: 466.16, duration: 0.3 }, // Bb4
+                { freq: 349.23, duration: 0.3 }, // F4
+                { freq: 311.13, duration: 0.3 }, // Eb4
+                { freq: 261.63, duration: 0.3 }  // C4
+            ];
+            let currentTime = ctxAudio.currentTime;
+            notes.forEach(note => {
+                const osc = ctxAudio.createOscillator();
+                osc.type = 'triangle';
+                osc.frequency.setValueAtTime(note.freq, currentTime);
+                osc.connect(distortion).connect(gainNode).connect(ctxAudio.destination);
+                osc.start(currentTime);
+                osc.stop(currentTime + note.duration);
+                currentTime += note.duration;
+            });
+            return currentTime - ctxAudio.currentTime;
+        }
+
+        function toggleMelody() {
+            if (ctxAudio.state === 'suspended') ctxAudio.resume();
+            if (!isPlaying) {
+                isPlaying = true;
+                function loopMelody() {
+                    if (isPlaying) {
+                        const duration = createMelody();
+                        setTimeout(loopMelody, duration * 1000);
+                    } else {
+                        // Clear all clones when melody stops
+                        clearClones();
+                    }
+                }
+                loopMelody();
+            } else {
+                isPlaying = false;
+            }
+        }
+
+        // Clear all emoji clones
+        function clearClones() {
+            activeClones.forEach(clone => clone.remove());
+            activeClones = [];
+        }
+
+        // Emoji cycling for original cartoons
+        const emojis = [
+            '😎', '🔥', '💪', '🗿', '😈', '🤡', '💥', '🦍', '🎮',
+            '🤖', '💻', '🕶️', '🌐', '🚀', '🛸', '🔋', '💡', '🧬',
+            '🦾', '🦿', '🧠', '💊', '🕹️', '📡', '🖥️', '🖱️', '⌨️',
+            '🗝️', '🔒', '🔓', '💳', '💰', '🏙️', '🌃', '🚗', '🏍️',
+            '🛴', '🛹', '🛰️', '🌌', '🪐', '🌠', '🌀', '⚡', '🔥',
+            '💥', '🕳️', '🗡️', '🔫', '🛡️', '🧪', '🔬', '🧫', '🧰',
+            '🔧', '🔨', '⚙️', '⛓️'
+        ];
+        const cartoons = document.querySelectorAll('.cartoon:not(.clone)');
+        cartoons.forEach(cartoon => {
+            function cycleEmoji() {
+                const randomEmoji = emojis[Math.floor(Math.random() * emojis.length)];
+                cartoon.textContent = randomEmoji;
+            }
+            cycleEmoji();
+            setInterval(cycleEmoji, 1000);
+            cartoon.addEventListener('mouseover', () => {
+                cartoon.style.animation = 'bob 1s ease-in-out infinite';
+            });
+            cartoon.addEventListener('mouseout', () => {
+                cartoon.style.animation = 'bob 3s ease-in-out infinite';
+            });
+        });
+
+        // Title letter drop loop
+        const title = document.getElementById('title');
+        const titleText = title.textContent;
+
+        function dropTitle() {
+            title.innerHTML = titleText
+                .split('')
+                .map(char => `<span>${char}</span>`)
+                .join('');
+            const titleLetters = title.querySelectorAll('span');
+            let maxDelay = 0;
+            titleLetters.forEach((letter, index) => {
+                const delay = Math.random() * 2000 + 500;
+                letter.style.setProperty('--delay', `${delay}ms`);
+                letter.classList.add('drop');
+                maxDelay = Math.max(maxDelay, delay);
+            });
+            setTimeout(dropTitle, maxDelay + 1000);
+        }
+        dropTitle();
+
+        // Glitch effect for title
+        setInterval(() => {
+            title.classList.add('glitch');
+            setTimeout(() => {
+                title.classList.remove('glitch');
+            }, 100);
+        }, 5000);
+
+        // Emoji spawning on distortion change
+        distortionSlider.addEventListener('input', () => {
+            const distortionValue = parseInt(distortionSlider.value);
+            distortion.curve = makeDistortionCurve(distortionValue);
+
+            if (distortionValue === 0) {
+                // Clear all clones when distortion is reset
+                clearClones();
+            } else if (isPlaying) {
+                // Spawn 1-3 new emojis per input event, capped at 20 total
+                const numNewClones = Math.floor(Math.random() * 3) + 1;
+                if (activeClones.length < 20) {
+                    for (let i = 0; i < numNewClones; i++) {
+                        const clone = document.createElement('div');
+                        clone.classList.add('cartoon', 'clone');
+                        clone.textContent = emojis[Math.floor(Math.random() * emojis.length)];
+                        clone.style.top = `${Math.random() * 80 + 10}%`;
+                        clone.style.left = `${Math.random() * 80 + 10}%`;
+                        document.body.appendChild(clone);
+                        activeClones.push(clone);
+                    }
+                }
+            }
+        });
+
+        gainNode.gain.setValueAtTime(0.5, ctxAudio.currentTime);
+
+        // Lyrics scroll
+        const lyrics = document.querySelectorAll('.lyrics p');
+        window.addEventListener('scroll', () => {
+            lyrics.forEach(p => {
+                if (p.getBoundingClientRect().top < window.innerHeight * 0.8) {
+                    p.classList.add('visible');
+                }
+            });
+        });
+
+        // Shed mode
+        document.addEventListener('keydown', e => {
+            if (e.key === 's') {
+                document.body.classList.toggle('shed-mode');
+            }
+        });
+    </script>
+</body>
+</html>
