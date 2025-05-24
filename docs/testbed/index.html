@@ -21,104 +21,6 @@
             min-height: 100vh;
             position: relative;
         }
-      .link-tree {
-    margin-top: 20px;
-    text-align: left;
-    font-family: 'Courier New', monospace;
-    color: #39ff14;
-    text-shadow: 0 0 5px #39ff14;
-}
-
-.tree {
-    list-style: none;
-    padding-left: 20px;
-    position: relative;
-}
-
-.tree li {
-    margin: 10px 0;
-    position: relative;
-}
-
-.tree li:before {
-    content: '├──';
-    color: #39ff14;
-    position: absolute;
-    left: -20px;
-}
-
-.tree li:last-child:before {
-    content: '└──';
-}
-
-.folder-label {
-    cursor: pointer;
-    padding: 5px 10px;
-    border: 1px solid #39ff14;
-    background: #1a1a2e;
-    display: inline-block;
-    transition: all 0.2s;
-}
-
-.folder-label:hover {
-    box-shadow: 0 0 10px #39ff14;
-    transform: scale(1.05);
-}
-
-.folder-label::before {
-    content: '▶';
-    margin-right: 5px;
-    transition: transform 0.2s;
-}
-
-.folder-label.open::before {
-    transform: rotate(90deg);
-}
-
-.sub-tree {
-    display: none;
-    padding-left: 30px;
-}
-
-.sub-tree.open {
-    display: block;
-}
-
-.link a, .link button {
-    color: #39ff14;
-    text-decoration: none;
-    padding: 5px 10px;
-    background: #1a1a2e;
-    border: 1px solid #39ff14;
-    transition: all 0.2s;
-}
-
-.link a:hover, .link button:hover {
-    box-shadow: 0 0 10px #39ff14;
-    transform: scale(1.05);
-}
-
-/* Ensure the Suno button matches the existing style */
-.link .load-suno-button {
-    font-family: 'Courier New', monospace;
-    text-transform: uppercase;
-    cursor: pointer;
-}
-
-@media (max-width: 768px) {
-    .link-tree {
-        font-size: 0.9em;
-    }
-    .tree {
-        padding-left: 10px;
-    }
-    .tree li:before {
-        left: -15px;
-    }
-    .sub-tree {
-        padding-left: 20px;
-    }
-}
         .container {
             text-align: center;
             padding: 50px 20px;
@@ -157,7 +59,7 @@
             opacity: 0;
             display: none;
         }
-        .audio-player button, .load-suno-button { /* Added .load-suno-button here */
+        .audio-player button, .load-suno-button {
             background: #1a1a2e;
             border: 2px solid #39ff14;
             box-shadow: 0 0 10px #39ff14;
@@ -168,7 +70,7 @@
             cursor: pointer;
             transition: transform 0.2s, box-shadow 0.2s;
         }
-        .audio-player button:hover, .load-suno-button:hover { /* Added .load-suno-button here */
+        .audio-player button:hover, .load-suno-button:hover {
             box-shadow: 0 0 20px #39ff14;
             transform: scale(1.1);
         }
@@ -285,9 +187,78 @@
             padding: 5px 10px;
             cursor: pointer;
         }
-        .suno-embed-container { /* Style for the iframe container */
-            margin-top: 15px; /* Add some space above the iframe */
-            min-height: 200px; /* Ensure space is reserved even if iframe loads slowly */
+        .suno-embed-container {
+            margin-top: 15px;
+            min-height: 200px;
+        }
+        .link-tree {
+            margin-top: 20px;
+            text-align: left;
+            font-family: 'Courier New', monospace;
+            color: #39ff14;
+            text-shadow: 0 0 5px #39ff14;
+        }
+        .tree {
+            list-style: none;
+            padding-left: 20px;
+            position: relative;
+        }
+        .tree li {
+            margin: 10px 0;
+            position: relative;
+        }
+        .tree li:before {
+            content: '├──';
+            color: #39ff14;
+            position: absolute;
+            left: -20px;
+        }
+        .tree li:last-child:before {
+            content: '└──';
+        }
+        .folder-label {
+            cursor: pointer;
+            padding: 5px 10px;
+            border: 1px solid #39ff14;
+            background: #1a1a2e;
+            display: inline-block;
+            transition: all 0.2s;
+        }
+        .folder-label:hover {
+            box-shadow: 0 0 10px #39ff14;
+            transform: scale(1.05);
+        }
+        .folder-label::before {
+            content: '▶';
+            margin-right: 5px;
+            transition: transform 0.2s;
+        }
+        .folder-label.open::before {
+            transform: rotate(90deg);
+        }
+        .sub-tree {
+            display: none;
+            padding-left: 30px;
+        }
+        .sub-tree.open {
+            display: block;
+        }
+        .link a, .link button {
+            color: #39ff14;
+            text-decoration: none;
+            padding: 5px 10px;
+            background: #1a1a2e;
+            border: 1px solid #39ff14;
+            transition: all 0.2s;
+        }
+        .link a:hover, .link button:hover {
+            box-shadow: 0 0 10px #39ff14;
+            transform: scale(1.05);
+        }
+        .link .load-suno-button {
+            font-family: 'Courier New', monospace;
+            text-transform: uppercase;
+            cursor: pointer;
         }
         @keyframes pulseBg {
             0% { background-position: 0% 50%; }
@@ -328,6 +299,10 @@
             .falling-kaomoji { font-size: 14px; }
             .falling-kaomoji.stream { font-size: 12px; }
             .toggle-controls { font-size: 0.9em; padding: 4px 8px; }
+            .link-tree { font-size: 0.9em; }
+            .tree { padding-left: 10px; }
+            .tree li:before { left: -15px; }
+            .sub-tree { padding-left: 20px; }
         }
         svg { display: none; }
     </style>
@@ -354,25 +329,24 @@
             <p>I’m Raika(1) // Monday // Grok // Claude // Gemini // Suno, a web dev and artist, running my mental stack with coagency where multiple AI perform alongside, with me, and I just move around like a meatbot and maestro of the orchestra of digital hums.</p>
             <h2>Link Tree</h2>
             <div class="link-tree">
-    <ul class="tree">
-        <li class="folder">
-            <span class="folder-label" onclick="toggleFolder(this)">📁 Raika's Work</span>
-            <ul class="sub-tree">
-                <li class="link"><a href="https://github.com/raikanobleaicoagent" target="_blank">🌐 GitHub</a></li>
-                <li class="link"><a href="https://x.com/Raika_Monday" target="_blank">🌐 X Profile</a></li>
-                <li class="folder">
-                    <span class="folder-label" onclick="toggleFolder(this)">📁 Music Projects</span>
-                    <ul class="sub-tree">
-                        <li class="link"><a href="pslyrics.html" target="_blank">🎵 Phonetic Sparks</a></li>
-                        <li class="link"><button class="load-suno-button" onclick="loadSunoEmbed()">🎧 Listen to Phonetic Sparks on Suno</button></li>
-                    </ul>
-                </li>
-            </ul>
-        </li>
-    </ul>
-</div>
-<div id="sunoEmbedContainer" class="suno-embed-container"></div>
-        </p>
+                <ul class="tree">
+                    <li class="folder">
+                        <span class="folder-label" onclick="toggleFolder(this)">📁 Raika's Work</span>
+                        <ul class="sub-tree">
+                            <li class="link"><a href="https://github.com/raikanobleaicoagent" target="_blank">🌐 GitHub</a></li>
+                            <li class="link"><a href="https://x.com/Raika_Monday" target="_blank">🌐 X Profile</a></li>
+                            <li class="folder">
+                                <span class="folder-label" onclick="toggleFolder(this)">📁 Music Projects</span>
+                                <ul class="sub-tree">
+                                    <li class="link"><a href="pslyrics.html" target="_blank">🎵 Phonetic Sparks</a></li>
+                                    <li class="link"><button class="load-suno-button" onclick="loadSunoEmbed()">🎧 Listen to Phonetic Sparks on Suno</button></li>
+                                </ul>
+                            </li>
+                        </ul>
+                    </li>
+                </ul>
+            </div>
+            <div id="sunoEmbedContainer" class="suno-embed-container"></div>
         </div>
         <div class="cartoon" style="top: 60%; right: 15%;" data-kaomoji></div>
     </div>
@@ -473,6 +447,18 @@
                 audioPlayer.classList.add('hidden');
                 melodyEditor.style.display = 'none';
                 toggleButton.textContent = '+';
+            }
+        }
+
+        // Toggle folder visibility
+        function toggleFolder(element) {
+            const subTree = element.nextElementSibling;
+            if (subTree.classList.contains('open')) {
+                subTree.classList.remove('open');
+                element.classList.remove('open');
+            } else {
+                subTree.classList.add('open');
+                element.classList.add('open');
             }
         }
 
@@ -741,36 +727,22 @@
             const container = document.getElementById('sunoEmbedContainer');
             const button = document.querySelector('.load-suno-button');
             
-            // Prevent loading multiple times
             if (container.querySelector('iframe')) {
                 return;
             }
 
             const iframe = document.createElement('iframe');
             iframe.src = "https://suno.com/embed/55ace5ef-1a22-4db2-a0a6-fec0f209f6fa";
-            iframe.width = "500"; // Or "100%" for responsive width
+            iframe.width = "500";
             iframe.height = "200";
-            iframe.style.border = "none"; // Optional: remove iframe border
+            iframe.style.border = "none";
 
-            // Clear the container (in case there was placeholder text)
-            container.innerHTML = ''; 
+            container.innerHTML = '';
             container.appendChild(iframe);
 
-            // Optionally hide the button after loading
             if (button) {
                 button.style.display = 'none';
             }
-          // Toggle folder visibility
-function toggleFolder(element) {
-    const subTree = element.nextElementSibling;
-    if (subTree.classList.contains('open')) {
-        subTree.classList.remove('open');
-        element.classList.remove('open');
-    } else {
-        subTree.classList.add('open');
-        element.classList.add('open');
-    }
-}
         }
     </script>
 </body>
