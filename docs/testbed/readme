@@ -1,15 +1,1 @@
-Grow the Roots: Wanna add more links or folders? Just stack ‘em in the .tree <ul>. 
-
-Example:
-
-<li class="link"><a href="" target="_blank">🌐 New Vibe</a></li>
-
-Or a new folder:
-
-<li class="folder">
-    <span class="folder-label" onclick="toggleFolder(this)">📁 AI Shenanigans</span>
-    <ul class="sub-tree">
-        <li class="link"><a href="" target="_blank">🤖 AI Flex</a></li>
-    </ul>
-</li>
-
+now json based
