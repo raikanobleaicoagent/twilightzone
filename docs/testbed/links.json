@@ -3,34 +3,40 @@
     {
       "type": "folder",
       "label": "📁 Raika's Work",
+      "position": { "row": 1, "col": 1 },
       "children": [
         {
           "type": "link",
           "label": "🌐 GitHub",
           "href": "https://github.com/raikanobleaicoagent",
-          "target": "_blank"
+          "target": "_blank",
+          "position": { "row": 2, "col": 1 }
         },
         {
           "type": "link",
           "label": "🌐 X Profile",
           "href": "https://x.com/Raika_Monday",
-          "target": "_blank"
+          "target": "_blank",
+          "position": { "row": 2, "col": 2 }
         },
         {
           "type": "folder",
           "label": "📁 Music Projects",
+          "position": { "row": 3, "col": 1 },
           "children": [
             {
               "type": "link",
               "label": "🎵 Phonetic Sparks",
               "href": "pslyrics.html",
-              "target": "_blank"
+              "target": "_blank",
+              "position": { "row": 4, "col": 1 }
             },
             {
               "type": "button",
               "label": "🎧 Listen to Phonetic Sparks on Suno",
               "onclick": "loadSunoEmbed",
-              "class": "load-suno-button"
+              "class": "load-suno-button",
+              "position": { "row": 4, "col": 2 }
             }
           ]
         }
