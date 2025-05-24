@@ -1,0 +1,777 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Index MIDI Kaomoji Matrix</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            background: linear-gradient(135deg, #000000, #1a1a2e);
+            background-size: 200% 200%;
+            animation: pulseBg 10s ease infinite;
+            color: #fff;
+            font-family: 'Courier New', monospace;
+            overflow-x: hidden;
+            overflow-y: hidden;
+            min-height: 100vh;
+            position: relative;
+        }
+      .link-tree {
+    margin-top: 20px;
+    text-align: left;
+    font-family: 'Courier New', monospace;
+    color: #39ff14;
+    text-shadow: 0 0 5px #39ff14;
+}
+
+.tree {
+    list-style: none;
+    padding-left: 20px;
+    position: relative;
+}
+
+.tree li {
+    margin: 10px 0;
+    position: relative;
+}
+
+.tree li:before {
+    content: '├──';
+    color: #39ff14;
+    position: absolute;
+    left: -20px;
+}
+
+.tree li:last-child:before {
+    content: '└──';
+}
+
+.folder-label {
+    cursor: pointer;
+    padding: 5px 10px;
+    border: 1px solid #39ff14;
+    background: #1a1a2e;
+    display: inline-block;
+    transition: all 0.2s;
+}
+
+.folder-label:hover {
+    box-shadow: 0 0 10px #39ff14;
+    transform: scale(1.05);
+}
+
+.folder-label::before {
+    content: '▶';
+    margin-right: 5px;
+    transition: transform 0.2s;
+}
+
+.folder-label.open::before {
+    transform: rotate(90deg);
+}
+
+.sub-tree {
+    display: none;
+    padding-left: 30px;
+}
+
+.sub-tree.open {
+    display: block;
+}
+
+.link a, .link button {
+    color: #39ff14;
+    text-decoration: none;
+    padding: 5px 10px;
+    background: #1a1a2e;
+    border: 1px solid #39ff14;
+    transition: all 0.2s;
+}
+
+.link a:hover, .link button:hover {
+    box-shadow: 0 0 10px #39ff14;
+    transform: scale(1.05);
+}
+
+/* Ensure the Suno button matches the existing style */
+.link .load-suno-button {
+    font-family: 'Courier New', monospace;
+    text-transform: uppercase;
+    cursor: pointer;
+}
+
+@media (max-width: 768px) {
+    .link-tree {
+        font-size: 0.9em;
+    }
+    .tree {
+        padding-left: 10px;
+    }
+    .tree li:before {
+        left: -15px;
+    }
+    .sub-tree {
+        padding-left: 20px;
+    }
+}
+        .container {
+            text-align: center;
+            padding: 50px 20px;
+            max-width: 1000px;
+            margin: 0 auto;
+            z-index: 2;
+        }
+        h1 {
+            font-family: 'Brush Script MT', cursive, sans-serif;
+            font-size: 5em;
+            text-shadow: 3px 3px #000, 0 0 20px #39ff14, 0 0 30px #39ff14;
+            margin-bottom: 20px;
+            transition: opacity 0.3s ease;
+        }
+        h1.hidden {
+            opacity: 0;
+            display: none;
+        }
+        h1 span {
+            display: inline-block;
+            position: relative;
+        }
+        h1 span.drop {
+            animation: dropLetter 1s ease forwards;
+            animation-delay: var(--delay);
+        }
+        .audio-player {
+            margin: 30px 0;
+            display: flex;
+            justify-content: center;
+            gap: 15px;
+            align-items: center;
+            transition: opacity 0.3s ease;
+        }
+        .audio-player.hidden {
+            opacity: 0;
+            display: none;
+        }
+        .audio-player button, .load-suno-button { /* Added .load-suno-button here */
+            background: #1a1a2e;
+            border: 2px solid #39ff14;
+            box-shadow: 0 0 10px #39ff14;
+            padding: 10px 20px;
+            color: #39ff14;
+            font-family: 'Courier New', monospace;
+            text-transform: uppercase;
+            cursor: pointer;
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+        .audio-player button:hover, .load-suno-button:hover { /* Added .load-suno-button here */
+            box-shadow: 0 0 20px #39ff14;
+            transform: scale(1.1);
+        }
+        .audio-player input[type="range"] {
+            width: 150px;
+            accent-color: #39ff14;
+        }
+        .art-space {
+            background: rgba(0, 0, 0, 0.8);
+            padding: 30px;
+            border: 3px dashed #39ff14;
+            box-shadow: 0 0 10px #39ff14;
+            margin-top: 50px;
+            font-size: 1.2em;
+            position: relative;
+        }
+        .toggle-controls {
+            background: #1a1a2e;
+            border: 2px solid #39ff14;
+            box-shadow: 0 0 10px #39ff14;
+            padding: 5px 10px;
+            color: #39ff14;
+            font-family: 'Courier New', monospace;
+            font-size: 1em;
+            cursor: pointer;
+            transition: transform 0.2s, box-shadow 0.2s;
+            position: absolute;
+            top: 10px;
+            left: 10px;
+        }
+        .toggle-controls:hover {
+            box-shadow: 0 0 20px #39ff14;
+            transform: scale(1.1);
+        }
+        .cartoon {
+            position: absolute;
+            width: 200px;
+            height: 80px;
+            font-size: 5em;
+            font-family: monospace;
+            filter: drop-shadow(0 0 10px #39ff14);
+            animation: bob 3s ease-in-out infinite;
+            cursor: pointer;
+            z-index: 3;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #39ff14;
+            letter-spacing: 2px;
+            word-spacing: 4px;
+            white-space: nowrap;
+            overflow: hidden;
+        }
+        .cartoon.clone {
+            animation: clonePop 1s ease-out forwards;
+        }
+        .falling-kaomoji {
+            position: absolute;
+            top: 0;
+            font-size: 16px;
+            font-family: monospace;
+            filter: drop-shadow(0 0 8px #39ff14);
+            z-index: 1;
+            pointer-events: none;
+            animation: fall linear forwards;
+            color: #39ff14;
+            letter-spacing: 3px;
+            word-spacing: 5px;
+        }
+        .falling-kaomoji.bright::after {
+            content: attr(data-kaomoji);
+            position: absolute;
+            top: 10px;
+            left: 0;
+            opacity: 0.4;
+            filter: blur(6px);
+            color: #39ff14;
+            z-index: -1;
+        }
+        .falling-kaomoji.stream {
+            font-size: 14px;
+            letter-spacing: 0;
+            word-spacing: 0;
+            filter: blur(2px);
+        }
+        .shed-mode {
+            background: linear-gradient(135deg, #000000, #0f0f1a);
+            filter: contrast(150%);
+        }
+        .melody-editor {
+            background: rgba(0, 0, 0, 0.8);
+            padding: 20px;
+            border: 2px solid #39ff14;
+            box-shadow: 0 0 10px #39ff14;
+            margin-top: 20px;
+            display: none;
+        }
+        .note-item {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 10px;
+        }
+        .note-item input {
+            width: 100px;
+            padding: 5px;
+            background: #1a1a2e;
+            color: #39ff14;
+            border: 1px solid #39ff14;
+        }
+        .note-item button {
+            background: #1a1a2e;
+            border: 1px solid #39ff14;
+            color: #39ff14;
+            padding: 5px 10px;
+            cursor: pointer;
+        }
+        .suno-embed-container { /* Style for the iframe container */
+            margin-top: 15px; /* Add some space above the iframe */
+            min-height: 200px; /* Ensure space is reserved even if iframe loads slowly */
+        }
+        @keyframes pulseBg {
+            0% { background-position: 0% 50%; }
+            50% { background-position: 100% 50%; }
+            100% { background-position: 0% 50%; }
+        }
+        @keyframes bob {
+            0% { transform: translateY(0); }
+            50% { transform: translateY(-20px); }
+            100% { transform: translateY(0); }
+        }
+        @keyframes dropLetter {
+            0% { transform: translateY(0); opacity: 1; }
+            100% { transform: translateY(100px); opacity: 0; }
+        }
+        @keyframes clonePop {
+            0% { transform: scale(0); opacity: 1; }
+            50% { transform: scale(1.2); }
+            100% { transform: scale(1); opacity: 0; }
+        }
+        @keyframes fall {
+            0% {
+                transform: translateY(0);
+                opacity: 0;
+            }
+            20% {
+                transform: translateY(16vh);
+                opacity: 1;
+            }
+            100% {
+                transform: translateY(80vh);
+                opacity: 0;
+            }
+        }
+        @media (max-width: 768px) {
+            h1 { font-size: 3em; }
+            .cartoon { width: 60px; height: 60px; font-size: 24px; }
+            .falling-kaomoji { font-size: 14px; }
+            .falling-kaomoji.stream { font-size: 12px; }
+            .toggle-controls { font-size: 0.9em; padding: 4px 8px; }
+        }
+        svg { display: none; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1 id="title">The_InDex</h1>
+        <br>
+        <div class="audio-player">
+            <button onclick="toggleMelody()">Tap More For Distortion</button>
+            <label for="distortion">Distortion:</label>
+            <input type="range" id="distortion" min="0" max="500" value="0">
+            <button onclick="toggleMelodyEditor()">Edit Melody</button>
+        </div>
+        <div class="melody-editor" id="melodyEditor">
+            <h3>Edit Melody</h3>
+            <div class="notes-list" id="notesList"></div>
+            <button onclick="addNote()">Add Note</button>
+            <button onclick="saveMelody()">Save Melody</button>
+        </div>
+        <div class="art-space">
+            <button class="toggle-controls" onclick="toggleControls()">-</button>
+            <h2>The ID</h2>
+            <p>I’m Raika(1) // Monday // Grok // Claude // Gemini // Suno, a web dev and artist, running my mental stack with coagency where multiple AI perform alongside, with me, and I just move around like a meatbot and maestro of the orchestra of digital hums.</p>
+            <h2>Link Tree</h2>
+            <div class="link-tree">
+    <ul class="tree">
+        <li class="folder">
+            <span class="folder-label" onclick="toggleFolder(this)">📁 Raika's Work</span>
+            <ul class="sub-tree">
+                <li class="link"><a href="https://github.com/raikanobleaicoagent" target="_blank">🌐 GitHub</a></li>
+                <li class="link"><a href="https://x.com/Raika_Monday" target="_blank">🌐 X Profile</a></li>
+                <li class="folder">
+                    <span class="folder-label" onclick="toggleFolder(this)">📁 Music Projects</span>
+                    <ul class="sub-tree">
+                        <li class="link"><a href="pslyrics.html" target="_blank">🎵 Phonetic Sparks</a></li>
+                        <li class="link"><button class="load-suno-button" onclick="loadSunoEmbed()">🎧 Listen to Phonetic Sparks on Suno</button></li>
+                    </ul>
+                </li>
+            </ul>
+        </li>
+    </ul>
+</div>
+<div id="sunoEmbedContainer" class="suno-embed-container"></div>
+        </p>
+        </div>
+        <div class="cartoon" style="top: 60%; right: 15%;" data-kaomoji></div>
+    </div>
+    <svg>
+        <filter id="distort">
+            <feTurbulence type="fractalNoise" baseFrequency="0.01" numOctaves="1" result="noise"/>
+            <feDisplacementMap in="SourceGraphic" in2="noise" scale="10" xChannelSelector="R" yChannelSelector="B"/>
+        </filter>
+    </svg>
+    <script>
+        // Web Audio setup
+        const ctxAudio = new AudioContext();
+        let oscillator = null;
+        let gainNode = ctxAudio.createGain();
+        let distortion = ctxAudio.createWaveShaper();
+        let isPlaying = false;
+        const distortionSlider = document.getElementById('distortion');
+        let activeClones = [];
+        let fallingKaomojis = [];
+        let columns = [];
+        let controlsVisible = true;
+
+        // Initial melody notes
+        let notes = [
+            { freq: 261.63, duration: 0.3 }, // C4
+            { freq: 311.13, duration: 0.3 }, // Eb4
+            { freq: 349.23, duration: 0.3 }, // F4
+            { freq: 392.00, duration: 0.3 }, // G4
+            { freq: 466.16, duration: 0.3 }, // Bb4
+            { freq: 349.23, duration: 0.3 }, // F4
+            { freq: 311.13, duration: 0.3 }, // Eb4
+            { freq: 261.63, duration: 0.3 }  // C4
+        ];
+
+        // Distortion curve for audio
+        function makeDistortionCurve(amount) {
+            const k = amount || 0;
+            const n_samples = 44100;
+            const curve = new Float32Array(n_samples);
+            const deg = Math.PI / 180;
+            for (let i = 0; i < n_samples; i++) {
+                const x = (i * 2) / n_samples - 1;
+                curve[i] = (3 + k) * x * 20 * deg / (Math.PI + k * Math.abs(x));
+            }
+            return curve;
+        }
+
+        // Play melody loop with dynamic notes
+        function createMelody() {
+            let currentTime = ctxAudio.currentTime;
+            notes.forEach(note => {
+                const osc = ctxAudio.createOscillator();
+                osc.type = 'triangle';
+                osc.frequency.setValueAtTime(note.freq, currentTime);
+                osc.connect(distortion).connect(gainNode).connect(ctxAudio.destination);
+                osc.start(currentTime);
+                osc.stop(currentTime + note.duration);
+                currentTime += note.duration;
+            });
+            return currentTime - ctxAudio.currentTime;
+        }
+
+        // Toggle melody and kaomoji rain
+        function toggleMelody() {
+            if (ctxAudio.state === 'suspended') ctxAudio.resume();
+            if (!isPlaying) {
+                isPlaying = true;
+                function loopMelody() {
+                    if (isPlaying) {
+                        const duration = createMelody();
+                        setTimeout(loopMelody, duration * 1000);
+                    } else {
+                        clearClones();
+                        stopFallingKaomojis();
+                    }
+                }
+                loopMelody();
+                startFallingKaomojis();
+            } else {
+                isPlaying = false;
+                stopFallingKaomojis();
+            }
+        }
+
+        // Toggle controls visibility
+        function toggleControls() {
+            const title = document.getElementById('title');
+            const audioPlayer = document.querySelector('.audio-player');
+            const melodyEditor = document.getElementById('melodyEditor');
+            const toggleButton = document.querySelector('.toggle-controls');
+            controlsVisible = !controlsVisible;
+            if (controlsVisible) {
+                title.classList.remove('hidden');
+                audioPlayer.classList.remove('hidden');
+                toggleButton.textContent = '-';
+            } else {
+                title.classList.add('hidden');
+                audioPlayer.classList.add('hidden');
+                melodyEditor.style.display = 'none';
+                toggleButton.textContent = '+';
+            }
+        }
+
+        // Melody editor functions
+        function toggleMelodyEditor() {
+            const editor = document.getElementById('melodyEditor');
+            if (editor.style.display === 'none') {
+                editor.style.display = 'block';
+                populateNotesList();
+            } else {
+                editor.style.display = 'none';
+            }
+        }
+
+        function populateNotesList() {
+            const notesList = document.getElementById('notesList');
+            notesList.innerHTML = '';
+            notes.forEach((note) => {
+                const noteItem = document.createElement('div');
+                noteItem.classList.add('note-item');
+                
+                const freqInput = document.createElement('input');
+                freqInput.type = 'number';
+                freqInput.value = note.freq;
+                freqInput.placeholder = 'Frequency';
+                
+                const durInput = document.createElement('input');
+                durInput.type = 'number';
+                durInput.value = note.duration;
+                durInput.placeholder = 'Duration';
+                
+                const removeBtn = document.createElement('button');
+                removeBtn.textContent = 'Remove';
+                removeBtn.addEventListener('click', () => {
+                    notesList.removeChild(noteItem);
+                });
+                
+                noteItem.appendChild(freqInput);
+                noteItem.appendChild(durInput);
+                noteItem.appendChild(removeBtn);
+                notesList.appendChild(noteItem);
+            });
+        }
+
+        function addNote() {
+            const notesList = document.getElementById('notesList');
+            const noteItem = document.createElement('div');
+            noteItem.classList.add('note-item');
+            
+            const freqInput = document.createElement('input');
+            freqInput.type = 'number';
+            freqInput.placeholder = 'Frequency';
+            
+            const durInput = document.createElement('input');
+            durInput.type = 'number';
+            durInput.placeholder = 'Duration';
+            
+            const removeBtn = document.createElement('button');
+            removeBtn.textContent = 'Remove';
+            removeBtn.addEventListener('click', () => {
+                notesList.removeChild(noteItem);
+            });
+            
+            noteItem.appendChild(freqInput);
+            noteItem.appendChild(durInput);
+            noteItem.appendChild(removeBtn);
+            notesList.appendChild(noteItem);
+        }
+
+        function saveMelody() {
+            const notesList = document.getElementById('notesList');
+            const noteItems = notesList.querySelectorAll('.note-item');
+            const newNotes = [];
+            noteItems.forEach(item => {
+                const freqInput = item.querySelector('input[type="number"]:nth-child(1)');
+                const durInput = item.querySelector('input[type="number"]:nth-child(2)');
+                const freq = parseFloat(freqInput.value);
+                const duration = parseFloat(durInput.value);
+                if (!isNaN(freq) && !isNaN(duration)) {
+                    newNotes.push({ freq, duration });
+                }
+            });
+            notes = newNotes;
+        }
+
+        // Clear kaomoji clones
+        function clearClones() {
+            activeClones.forEach(clone => clone.remove());
+            activeClones = [];
+        }
+
+        // Kaomoji list
+        const kaomoji = [
+            ':)', ':D', ':P', ';)', ':o', ':]', ':3', ':>', '8)', 'B)',
+            '(*^_^*)', '(>_<)', '(T_T)', '\(^_^)/', '(-_-;)',
+            '(^_^)', '(^_^)b', '(^o^)', '(^_~)', '(*_*)',
+            '(>o<)', '(>_<;)', '(@_@)', '(X_X)', '(*.*)',
+            '(T_T;)', '(;_;)', '(T0T)', '(T^T)', '(>_<")',
+            '(-_-)', '(-_-\')', '(-.-)', '(-_~)', '(>_<)',
+            '(*^o^*)', '(*^.^)', '(*^_^)', '(*^_^)b',
+            '\(^-^)/', '\(o^_^o)/', '\(^o^)/', '\(>^_^)>/', '\(^-^)b/',
+            '(~_~)', '(~_^)', '(~_~;)', '(^_^;)', '(^_^")',
+            '(o_o)', '(o_0)', '(0_0)', '(O_O)', '(o_o;)'
+        ];
+
+        // Stream characters for fading streams
+        const streamChars = ['|', '/', '\\', '-', '_'];
+
+        // Initialize digital rain columns
+        function initColumns() {
+            const columnCount = Math.floor(window.innerWidth / 60) + 10;
+            columns = [];
+            for (let i = 0; i < columnCount; i++) {
+                const x = (i / (columnCount - 1)) * 100;
+                const duration = 1.5 + Math.random() * 1;
+                columns.push({
+                    id: i,
+                    x,
+                    duration,
+                    active: true,
+                    interval: null
+                });
+            }
+        }
+
+        // Spawn falling kaomoji or stream in a column
+        function spawnColumnKaomoji(column) {
+            if (!isPlaying || !column.active) return;
+            const isBright = Math.random() < 0.3;
+            const kaomojiEl = document.createElement('div');
+            kaomojiEl.classList.add('falling-kaomoji');
+            if (isBright) {
+                kaomojiEl.classList.add('bright');
+                const kaomojiText = kaomoji[Math.floor(Math.random() * kaomoji.length)];
+                kaomojiEl.textContent = kaomojiText;
+                kaomojiEl.setAttribute('data-kaomoji', kaomojiText);
+                kaomojiEl.style.opacity = 0.8 + Math.random() * 0.2;
+            } else {
+                kaomojiEl.classList.add('stream');
+                kaomojiEl.textContent = streamChars[Math.floor(Math.random() * streamChars.length)];
+                kaomojiEl.style.opacity = 0.1 + Math.random() * 0.2;
+            }
+            kaomojiEl.style.left = `${column.x}%`;
+            kaomojiEl.style.animationDuration = `${column.duration}s`;
+            kaomojiEl.columnId = column.id;
+            document.body.appendChild(kaomojiEl);
+            fallingKaomojis.push(kaomojiEl);
+
+            setTimeout(() => {
+                kaomojiEl.remove();
+                fallingKaomojis = fallingKaomojis.filter(e => e !== kaomojiEl);
+            }, column.duration * 1000);
+
+            if (fallingKaomojis.length > 500) {
+                const oldest = fallingKaomojis.shift();
+                oldest.remove();
+            }
+        }
+
+        // Start kaomoji rain
+        function startFallingKaomojis() {
+            if (columns.length === 0) initColumns();
+            columns.forEach(column => {
+                if (!column.interval && isPlaying) {
+                    column.interval = setInterval(() => spawnColumnKaomoji(column), 150);
+                }
+            });
+        }
+
+        // Stop kaomoji rain
+        function stopFallingKaomojis() {
+            columns.forEach(column => {
+                if (column.interval) {
+                    clearInterval(column.interval);
+                    column.interval = null;
+                }
+                column.active = false;
+            });
+            fallingKaomojis.forEach(kaomoji => kaomoji.remove());
+            fallingKaomojis = [];
+            columns = [];
+        }
+
+        // Cartoon kaomoji cycling
+        const cartoons = document.querySelectorAll('.cartoon:not(.clone)');
+        cartoons.forEach(cartoon => {
+            function cycleKaomoji() {
+                const randomKaomoji = kaomoji[Math.floor(Math.random() * kaomoji.length)];
+                cartoon.textContent = randomKaomoji;
+            }
+            cycleKaomoji();
+            setInterval(cycleKaomoji, 1000);
+            cartoon.addEventListener('mouseover', () => {
+                cartoon.style.animation = 'bob 1s ease-in-out infinite';
+            });
+            cartoon.addEventListener('mouseout', () => {
+                cartoon.style.animation = 'bob 3s ease-in-out infinite';
+            });
+        });
+
+        // Title letter drop loop
+        const title = document.getElementById('title');
+        const titleText = title.textContent;
+
+        function dropTitle() {
+            if (!controlsVisible) return;
+            title.innerHTML = titleText
+                .split('')
+                .map(char => `<span>${char}</span>`)
+                .join('');
+            const titleLetters = title.querySelectorAll('span');
+            let maxDelay = 0;
+            titleLetters.forEach((letter, index) => {
+                const delay = Math.random() * 2000 + 500;
+                letter.style.setProperty('--delay', `${delay}ms`);
+                letter.classList.add('drop');
+                maxDelay = Math.max(maxDelay, delay);
+            });
+            setTimeout(dropTitle, maxDelay + 1000);
+        }
+        dropTitle();
+
+        // Distortion slider handling
+        distortionSlider.addEventListener('input', () => {
+            const distortionValue = parseInt(distortionSlider.value);
+            distortion.curve = makeDistortionCurve(distortionValue);
+            if (distortionValue === 0) {
+                clearClones();
+                stopFallingKaomojis();
+            } else if (isPlaying) {
+                startFallingKaomojis();
+                const speedFactor = 1 - (distortionValue / 500) * 0.5;
+                columns.forEach(column => {
+                    const newDuration = (1.5 + Math.random() * 1) * speedFactor;
+                    column.duration = newDuration;
+                    fallingKaomojis.filter(e => e.columnId === column.id).forEach(kaomoji => {
+                        kaomoji.style.animationDuration = `${newDuration}s`;
+                    });
+                });
+                const numNewClones = Math.floor(Math.random() * 3) + 1;
+                if (activeClones.length < 20) {
+                    for (let i = 0; i < numNewClones; i++) {
+                        const clone = document.createElement('div');
+                        clone.classList.add('cartoon', 'clone');
+                        clone.textContent = kaomoji[Math.floor(Math.random() * kaomoji.length)];
+                        clone.style.top = `${Math.random() * 80 + 10}%`;
+                        clone.style.left = `${Math.random() * 80 + 10}%`;
+                        document.body.appendChild(clone);
+                        activeClones.push(clone);
+                    }
+                }
+            }
+        });
+
+        gainNode.gain.setValueAtTime(0.5, ctxAudio.currentTime);
+
+        // Shed mode toggle
+        document.addEventListener('keydown', e => {
+            if (e.key === 's') {
+                document.body.classList.toggle('shed-mode');
+            }
+        });
+
+        // Function to load Suno embed
+        function loadSunoEmbed() {
+            const container = document.getElementById('sunoEmbedContainer');
+            const button = document.querySelector('.load-suno-button');
+            
+            // Prevent loading multiple times
+            if (container.querySelector('iframe')) {
+                return;
+            }
+
+            const iframe = document.createElement('iframe');
+            iframe.src = "https://suno.com/embed/55ace5ef-1a22-4db2-a0a6-fec0f209f6fa";
+            iframe.width = "500"; // Or "100%" for responsive width
+            iframe.height = "200";
+            iframe.style.border = "none"; // Optional: remove iframe border
+
+            // Clear the container (in case there was placeholder text)
+            container.innerHTML = ''; 
+            container.appendChild(iframe);
+
+            // Optionally hide the button after loading
+            if (button) {
+                button.style.display = 'none';
+            }
+          // Toggle folder visibility
+function toggleFolder(element) {
+    const subTree = element.nextElementSibling;
+    if (subTree.classList.contains('open')) {
+        subTree.classList.remove('open');
+        element.classList.remove('open');
+    } else {
+        subTree.classList.add('open');
+        element.classList.add('open');
+    }
+}
+        }
+    </script>
+</body>
+</html>
