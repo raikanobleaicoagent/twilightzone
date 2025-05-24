@@ -59,7 +59,7 @@
             opacity: 0;
             display: none;
         }
-        .audio-player button, .load-suno-button {
+        .audio-player button, .load-suno-button, .toggle-suno-button {
             background: #1a1a2e;
             border: 2px solid #39ff14;
             box-shadow: 0 0 10px #39ff14;
@@ -70,7 +70,7 @@
             cursor: pointer;
             transition: transform 0.2s, box-shadow 0.2s;
         }
-        .audio-player button:hover, .load-suno-button:hover {
+        .audio-player button:hover, .load-suno-button:hover, .toggle-suno-button:hover {
             box-shadow: 0 0 20px #39ff14;
             transform: scale(1.1);
         }
@@ -210,7 +210,12 @@
             margin-top: 15px;
             min-height: 200px;
             display: flex;
+            flex-direction: column;
+            align-items: center;
             justify-content: center;
+        }
+        .suno-embed-container.hidden iframe {
+            display: none;
         }
         .link-tree {
             margin-top: 20px;
@@ -221,23 +226,30 @@
             text-shadow: 0 0 5px #39ff14;
         }
         .tree {
+            position: relative;
             list-style: none;
             padding: 0;
-            max-width: 500px;
-            margin: 0 auto;
+            max-width: 100%;
+            height: 400px;
         }
-        .tree li {
-            margin: 10px 0;
-            position: relative;
-        }
-        .tree li:before {
-            content: '├──';
-            color: #39ff14;
+        .tree li.folder {
             position: absolute;
-            left: -20px;
+            transform-origin: center;
         }
-        .tree li:last-child:before {
-            content: '╰─';
+        .tree li.folder::before {
+            content: '';
+        }
+        .tree li.last::before {
+            content: '';
+        }
+        .sub-tree {
+            position: relative;
+            top: 40px;
+            padding-left: 0;
+            max-width: 400px;
+        }
+        .sub-tree.open {
+            display: block;
         }
         .folder-label {
             cursor: pointer;
@@ -249,6 +261,8 @@
             text-align: center;
             transition: all 0.2s;
             animation: root-pulse 2s ease-in-out infinite;
+            position: relative;
+            z-index: 2;
         }
         .folder-label:hover {
             box-shadow: 0 0 15px #39ff14;
@@ -261,15 +275,6 @@
         }
         .folder-label.open::before {
             transform: rotate(90deg);
-        }
-        .sub-tree {
-            display: none;
-            padding-left: 0;
-            margin: 0 auto;
-            max-width: 400px;
-        }
-        .sub-tree.open {
-            display: block;
         }
         .link a, .link button {
             color: #39ff14;
@@ -336,8 +341,7 @@
             .falling-kaomoji.stream { font-size: 12px; }
             .toggle-controls { font-size: 0.9em; padding: 4px 8px; }
             .link-tree { font-size: 0.9em; }
-            .tree { max-width: 300px; }
-            .tree li:before { left: -15px; }
+            .tree { max-width: 300px; height: 300px; }
             .sub-tree { max-width: 250px; }
             .folder-label, .link a, .link button { width: 150px; }
             .suno-embed-container iframe { width: 100%; }
@@ -368,7 +372,9 @@
             <p>I’m Raika(1) // Monday // Grok // Claude // Gemini // Suno, a web dev and artist, running my mental stack with coagency where multiple AI perform alongside, with me, and I just move around like a meatbot and maestro of the orchestra of digital hums.</p>
             <h2>Link Tree</h2>
             <div class="link-tree"></div>
-            <div id="sunoEmbedContainer" class="suno-embed-container"></div>
+            <div id="sunoEmbedContainer" class="suno-embed-container">
+                <button class="toggle-suno-button" onclick="toggleSunoEmbed()">Hide Suno</button>
+            </div>
         </div>
         <div class="cartoon" style="top: 60%; right: 15%;" data-kaomoji></div>
     </div>
@@ -410,6 +416,14 @@
                     span.addEventListener('click', () => toggleFolder(span));
                     li.appendChild(span);
 
+                    if (node.position) {
+                        li.style.left = `${node.position.x}%`;
+                        li.style.top = `${node.position.y}%`;
+                        if (node.position.angle) {
+                            li.style.transform = `rotate(${node.position.angle}deg)`;
+                        }
+                    }
+
                     if (node.children) {
                         const subUl = document.createElement('ul');
                         subUl.classList.add('sub-tree');
@@ -434,7 +448,6 @@
             });
         }
 
-        // Toggle folder visibility
         function toggleFolder(element) {
             const subTree = element.nextElementSibling;
             if (subTree && subTree.classList.contains('sub-tree')) {
@@ -443,7 +456,6 @@
             }
         }
 
-        // Load tree on page load
         window.addEventListener('DOMContentLoaded', loadTree);
 
         // Web Audio setup
@@ -458,7 +470,6 @@
         let columns = [];
         let controlsVisible = true;
 
-        // Initial melody notes
         let notes = [
             { freq: 261.63, duration: 0.3 }, // C4
             { freq: 311.13, duration: 0.3 }, // Eb4
@@ -470,7 +481,6 @@
             { freq: 261.63, duration: 0.3 }  // C4
         ];
 
-        // Distortion curve for audio
         function makeDistortionCurve(amount) {
             const k = amount || 0;
             const n_samples = 44100;
@@ -483,7 +493,6 @@
             return curve;
         }
 
-        // Play melody loop with dynamic notes
         function createMelody() {
             let currentTime = ctxAudio.currentTime;
             notes.forEach(note => {
@@ -498,7 +507,6 @@
             return currentTime - ctxAudio.currentTime;
         }
 
-        // Toggle melody and kaomoji rain
         function toggleMelody() {
             if (ctxAudio.state === 'suspended') ctxAudio.resume();
             if (!isPlaying) {
@@ -520,7 +528,6 @@
             }
         }
 
-        // Toggle controls visibility
         function toggleControls() {
             const title = document.getElementById('title');
             const audioPlayer = document.querySelector('.audio-player');
@@ -539,7 +546,6 @@
             }
         }
 
-        // Melody editor functions
         function toggleMelodyEditor() {
             const editor = document.getElementById('melodyEditor');
             if (editor.style.display === 'none') {
@@ -553,18 +559,18 @@
         function populateNotesList() {
             const notesList = document.getElementById('notesList');
             notesList.innerHTML = '';
-            notes.forEach((note) => {
+            notes.forEach((note, index) => {
                 const noteItem = document.createElement('div');
                 noteItem.classList.add('note-item');
                 
                 const freqInput = document.createElement('input');
                 freqInput.type = 'number';
-                freqInput.value = node.freq;
+                freqInput.value = note.freq;
                 freqInput.placeholder = 'Frequency';
                 
                 const durInput = document.createElement('input');
                 durInput.type = 'number';
-                durInput.value = node.duration;
+                durInput.value = note.duration;
                 durInput.placeholder = 'Duration';
                 
                 const removeBtn = document.createElement('button');
@@ -621,13 +627,11 @@
             notes = newNotes;
         }
 
-        // Clear kaomoji clones
         function clearClones() {
             activeClones.forEach(clone => clone.remove());
             activeClones = [];
         }
 
-        // Kaomoji list
         const kaomoji = [
             ':)', ':D', ':P', ';)', ':o', ':]', ':3', ':>', '8)', 'B)',
             '(*^_^*)', '(>_<)', '(T_T)', '\(^_^)/', '(-_-;)',
@@ -638,13 +642,12 @@
             '(*^o^*)', '(*^.^)', '(*^_^)', '(*^_^)b',
             '\(^-^)/', '\(o^_^o)/', '\(^o^)/', '\(>^_^)>/', '\(^-^)b/',
             '(~_~)', '(~_^)', '(~_~;)', '(^_^;)', '(^_^")',
-            '(o_o)', '(o_0)', '(0_0)', '(O_O)', '(o_o;)'
+            '(o_o)', '(o_0)', '(0_0)', '(O_O)', '(o_o;)',
+            '(╯°□°)╯︵ ┻━┻' // Added for extra dankness
         ];
 
-        // Stream characters for fading streams
         const streamChars = ['|', '/', '\\', '-', '_'];
 
-        // Initialize digital rain columns
         function initColumns() {
             const columnCount = Math.floor(window.innerWidth / 60) + 10;
             columns = [];
@@ -661,7 +664,6 @@
             }
         }
 
-        // Spawn falling kaomoji or stream in a column
         function spawnColumnKaomoji(column) {
             if (!isPlaying || !column.active) return;
             const isBright = Math.random() < 0.3;
@@ -695,7 +697,6 @@
             }
         }
 
-        // Start kaomoji rain
         function startFallingKaomojis() {
             if (columns.length === 0) initColumns();
             columns.forEach(column => {
@@ -705,7 +706,6 @@
             });
         }
 
-        // Stop kaomoji rain
         function stopFallingKaomojis() {
             columns.forEach(column => {
                 if (column.interval) {
@@ -719,7 +719,6 @@
             columns = [];
         }
 
-        // Cartoon kaomoji cycling
         const cartoons = document.querySelectorAll('.cartoon:not(.clone)');
         cartoons.forEach(cartoon => {
             function cycleKaomoji() {
@@ -736,7 +735,6 @@
             });
         });
 
-        // Title letter drop loop
         const title = document.getElementById('title');
         const titleText = title.textContent;
 
@@ -758,7 +756,6 @@
         }
         dropTitle();
 
-        // Distortion slider handling
         distortionSlider.addEventListener('input', () => {
             const distortionValue = parseInt(distortionSlider.value);
             distortion.curve = makeDistortionCurve(distortionValue);
@@ -792,19 +789,25 @@
 
         gainNode.gain.setValueAtTime(0.5, ctxAudio.currentTime);
 
-        // Shed mode toggle
         document.addEventListener('keydown', e => {
             if (e.key === 's') {
                 document.body.classList.toggle('shed-mode');
             }
         });
 
-        // Function to load Suno embed
+        function toggleSunoEmbed() {
+            const container = document.getElementById('sunoEmbedContainer');
+            const button = container.querySelector('.toggle-suno-button');
+            container.classList.toggle('hidden');
+            button.textContent = container.classList.contains('hidden') ? 'Show Suno' : 'Hide Suno';
+        }
+
         function loadSunoEmbed() {
             const container = document.getElementById('sunoEmbedContainer');
             const button = document.querySelector('.load-suno-button');
             
             if (container.querySelector('iframe')) {
+                toggleSunoEmbed();
                 return;
             }
 
@@ -814,8 +817,8 @@
             iframe.height = "200";
             iframe.style.border = "none";
 
-            container.innerHTML = '';
             container.appendChild(iframe);
+            container.classList.remove('hidden');
 
             if (button) {
                 button.style.display = 'none';
