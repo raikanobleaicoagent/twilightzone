@@ -22,14 +22,14 @@
         {
           "type": "folder",
           "label": "📁 Music Projects",
-          "position": { "row": 3, "col": 1 },
+          "position": { "row": 3, "col": 2 },
           "children": [
             {
               "type": "link",
               "label": "🎵 Phonetic Sparks",
               "href": "pslyrics.html",
               "target": "_blank",
-              "position": { "row": 4, "col": 1 }
+              "position": { "row": 4, "col": 2 }
             },
             {
               "type": "button",
