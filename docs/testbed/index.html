@@ -86,7 +86,25 @@
             margin-top: 50px;
             font-size: 1.2em;
             position: relative;
-            text-align: center; /* Center content in art-space */
+            text-align: center;
+            max-height: 400px; /* Scrollable height */
+            overflow-y: auto; /* Enable vertical scrollbar */
+            scrollbar-width: thin; /* Firefox scrollbar */
+            scrollbar-color: #39ff14 #1a1a2e; /* Firefox scrollbar colors */
+        }
+        .art-space::-webkit-scrollbar {
+            width: 8px; /* Chrome/Edge/Safari scrollbar width */
+        }
+        .art-space::-webkit-scrollbar-track {
+            background: #1a1a2e; /* Track color */
+        }
+        .art-space::-webkit-scrollbar-thumb {
+            background: #39ff14; /* Thumb color */
+            border-radius: 4px;
+            box-shadow: 0 0 10px #39ff14;
+        }
+        .art-space::-webkit-scrollbar-thumb:hover {
+            background: #2ecc71; /* Lighter neon on hover */
         }
         .toggle-controls {
             background: #1a1a2e;
@@ -192,12 +210,12 @@
             margin-top: 15px;
             min-height: 200px;
             display: flex;
-            justify-content: center; /* Center iframe */
+            justify-content: center;
         }
         .link-tree {
             margin-top: 20px;
             display: flex;
-            justify-content: center; /* Center the tree */
+            justify-content: center;
             font-family: 'Courier New', monospace;
             color: #39ff14;
             text-shadow: 0 0 5px #39ff14;
@@ -205,7 +223,7 @@
         .tree {
             list-style: none;
             padding: 0;
-            max-width: 500px; /* Constrain width for centered look */
+            max-width: 500px;
             margin: 0 auto;
         }
         .tree li {
@@ -219,7 +237,7 @@
             left: -20px;
         }
         .tree li:last-child:before {
-            content: '╰─'; /* Root-like curve for last item */
+            content: '╰─';
         }
         .folder-label {
             cursor: pointer;
@@ -227,10 +245,10 @@
             border: 1px solid #39ff14;
             background: #1a1a2e;
             display: inline-block;
-            width: 200px; /* Wider for trunk-like feel */
+            width: 200px;
             text-align: center;
             transition: all 0.2s;
-            animation: root-pulse 2s ease-in-out infinite; /* Pulsing root effect */
+            animation: root-pulse 2s ease-in-out infinite;
         }
         .folder-label:hover {
             box-shadow: 0 0 15px #39ff14;
@@ -248,7 +266,7 @@
             display: none;
             padding-left: 0;
             margin: 0 auto;
-            max-width: 400px; /* Slightly narrower for sub-roots */
+            max-width: 400px;
         }
         .sub-tree.open {
             display: block;
@@ -261,7 +279,7 @@
             border: 1px solid #39ff14;
             transition: all 0.2s;
             display: inline-block;
-            width: 200px; /* Match folder width */
+            width: 200px;
             text-align: center;
         }
         .link a:hover, .link button:hover {
@@ -323,6 +341,7 @@
             .sub-tree { max-width: 250px; }
             .folder-label, .link a, .link button { width: 150px; }
             .suno-embed-container iframe { width: 100%; }
+            .art-space { max-height: 300px; } /* Smaller scroll area on mobile */
         }
         svg { display: none; }
     </style>
