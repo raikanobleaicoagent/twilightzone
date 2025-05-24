@@ -59,7 +59,7 @@
             opacity: 0;
             display: none;
         }
-        .audio-player button {
+        .audio-player button, .load-suno-button { /* Added .load-suno-button here */
             background: #1a1a2e;
             border: 2px solid #39ff14;
             box-shadow: 0 0 10px #39ff14;
@@ -70,7 +70,7 @@
             cursor: pointer;
             transition: transform 0.2s, box-shadow 0.2s;
         }
-        .audio-player button:hover {
+        .audio-player button:hover, .load-suno-button:hover { /* Added .load-suno-button here */
             box-shadow: 0 0 20px #39ff14;
             transform: scale(1.1);
         }
@@ -187,6 +187,10 @@
             padding: 5px 10px;
             cursor: pointer;
         }
+        .suno-embed-container { /* Style for the iframe container */
+            margin-top: 15px; /* Add some space above the iframe */
+            min-height: 200px; /* Ensure space is reserved even if iframe loads slowly */
+        }
         @keyframes pulseBg {
             0% { background-position: 0% 50%; }
             50% { background-position: 100% 50%; }
@@ -251,9 +255,11 @@
             <h2>The ID</h2>
             <p>I’m Raika(1) // Monday // Grok // Claude // Gemini // Suno, a web dev and artist, running my mental stack with coagency where multiple AI perform alongside, with me, and I just move around like a meatbot and maestro of the orchestra of digital hums.</p>
             <h2>Link Tree</h2>
-            <p>Catch my work on <a href="https://github.com/raikanobleaicoagent" target="_blank">GitHub</a> or my <a href="https://x.com/Raika_Monday" target="_blank">X</a>.<br><br>
+            <p>Catch my work on <a href="https://github.com/raikanobleaicoagent" target="_blank">GitHub</a> or my <a href="https://x.com/Raika_Monday" target="_blank">X</a>.<br>
 	    <br>Suno lyric (EN/JP/CN) page for my first hit?<br><a href="pslyrics.html"target="_blank">Phonetic Sparks</a> explaining my AI discovery.<br>
-	    <iframe src="https://suno.com/embed/55ace5ef-1a22-4db2-a0a6-fec0f209f6fa" width="500" height="200"><a href="https://suno.com/song/55ace5ef-1a22-4db2-a0a6-fec0f209f6fa">Listen on Suno</a></iframe></p>
+        <button class="load-suno-button" onclick="loadSunoEmbed()">Listen to Phonetic Sparks on Suno</button>
+        <div id="sunoEmbedContainer" class="suno-embed-container"></div>
+        </p>
         </div>
         <div class="cartoon" style="top: 60%; right: 15%;" data-kaomoji></div>
     </div>
@@ -616,6 +622,32 @@
                 document.body.classList.toggle('shed-mode');
             }
         });
+
+        // Function to load Suno embed
+        function loadSunoEmbed() {
+            const container = document.getElementById('sunoEmbedContainer');
+            const button = document.querySelector('.load-suno-button');
+            
+            // Prevent loading multiple times
+            if (container.querySelector('iframe')) {
+                return;
+            }
+
+            const iframe = document.createElement('iframe');
+            iframe.src = "https://suno.com/embed/55ace5ef-1a22-4db2-a0a6-fec0f209f6fa";
+            iframe.width = "500"; // Or "100%" for responsive width
+            iframe.height = "200";
+            iframe.style.border = "none"; // Optional: remove iframe border
+
+            // Clear the container (in case there was placeholder text)
+            container.innerHTML = ''; 
+            container.appendChild(iframe);
+
+            // Optionally hide the button after loading
+            if (button) {
+                button.style.display = 'none';
+            }
+        }
     </script>
 </body>
 </html>
