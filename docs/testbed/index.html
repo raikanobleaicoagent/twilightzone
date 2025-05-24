@@ -87,24 +87,24 @@
             font-size: 1.2em;
             position: relative;
             text-align: center;
-            max-height: 400px; /* Scrollable height */
-            overflow-y: auto; /* Enable vertical scrollbar */
-            scrollbar-width: thin; /* Firefox scrollbar */
-            scrollbar-color: #39ff14 #1a1a2e; /* Firefox scrollbar colors */
+            max-height: 400px;
+            overflow-y: auto;
+            scrollbar-width: thin;
+            scrollbar-color: #39ff14 #1a1a2e;
         }
         .art-space::-webkit-scrollbar {
-            width: 8px; /* Chrome/Edge/Safari scrollbar width */
+            width: 8px;
         }
         .art-space::-webkit-scrollbar-track {
-            background: #1a1a2e; /* Track color */
+            background: #1a1a2e;
         }
         .art-space::-webkit-scrollbar-thumb {
-            background: #39ff14; /* Thumb color */
+            background: #39ff14;
             border-radius: 4px;
             box-shadow: 0 0 10px #39ff14;
         }
         .art-space::-webkit-scrollbar-thumb:hover {
-            background: #2ecc71; /* Lighter neon on hover */
+            background: #2ecc71;
         }
         .toggle-controls {
             background: #1a1a2e;
@@ -341,7 +341,7 @@
             .sub-tree { max-width: 250px; }
             .folder-label, .link a, .link button { width: 150px; }
             .suno-embed-container iframe { width: 100%; }
-            .art-space { max-height: 300px; } /* Smaller scroll area on mobile */
+            .art-space { max-height: 300px; }
         }
         svg { display: none; }
     </style>
@@ -367,24 +367,7 @@
             <h2>The ID</h2>
             <p>I’m Raika(1) // Monday // Grok // Claude // Gemini // Suno, a web dev and artist, running my mental stack with coagency where multiple AI perform alongside, with me, and I just move around like a meatbot and maestro of the orchestra of digital hums.</p>
             <h2>Link Tree</h2>
-            <div class="link-tree">
-                <ul class="tree">
-                    <li class="folder">
-                        <span class="folder-label" onclick="toggleFolder(this)">📁 Raika's Work</span>
-                        <ul class="sub-tree">
-                            <li class="link"><a href="https://github.com/raikanobleaicoagent" target="_blank">🌐 GitHub</a></li>
-                            <li class="link"><a href="https://x.com/Raika_Monday" target="_blank">🌐 X Profile</a></li>
-                            <li class="folder">
-                                <span class="folder-label" onclick="toggleFolder(this)">📁 Music Projects</span>
-                                <ul class="sub-tree">
-                                    <li class="link"><a href="pslyrics.html" target="_blank">🎵 Phonetic Sparks</a></li>
-                                    <li class="link"><button class="load-suno-button" onclick="loadSunoEmbed()">🎧 Listen to Phonetic Sparks on Suno</button></li>
-                                </ul>
-                            </li>
-                        </ul>
-                    </li>
-                </ul>
-            </div>
+            <div class="link-tree"></div>
             <div id="sunoEmbedContainer" class="suno-embed-container"></div>
         </div>
         <div class="cartoon" style="top: 60%; right: 15%;" data-kaomoji></div>
@@ -396,6 +379,73 @@
         </filter>
     </svg>
     <script>
+        // Fetch and render JSON tree
+        async function loadTree() {
+            try {
+                const response = await fetch('links.json');
+                if (!response.ok) throw new Error('JSON fetch failed');
+                const data = await response.json();
+                const treeContainer = document.querySelector('.link-tree');
+                treeContainer.innerHTML = '';
+                const ul = document.createElement('ul');
+                ul.classList.add('tree');
+                renderTree(data.tree, ul);
+                treeContainer.appendChild(ul);
+            } catch (error) {
+                console.error('Error loading tree:', error);
+                document.querySelector('.link-tree').innerHTML = '<p>Whoops, tree’s down! 🌳 Check links.json.</p>';
+            }
+        }
+
+        function renderTree(nodes, parentUl) {
+            nodes.forEach((node, index) => {
+                const li = document.createElement('li');
+                li.classList.add(node.type === 'folder' ? 'folder' : 'link');
+                if (index === nodes.length - 1) li.classList.add('last');
+
+                if (node.type === 'folder') {
+                    const span = document.createElement('span');
+                    span.classList.add('folder-label');
+                    span.textContent = node.label;
+                    span.addEventListener('click', () => toggleFolder(span));
+                    li.appendChild(span);
+
+                    if (node.children) {
+                        const subUl = document.createElement('ul');
+                        subUl.classList.add('sub-tree');
+                        renderTree(node.children, subUl);
+                        li.appendChild(subUl);
+                    }
+                } else if (node.type === 'link') {
+                    const a = document.createElement('a');
+                    a.href = node.href;
+                    a.textContent = node.label;
+                    if (node.target) a.target = node.target;
+                    li.appendChild(a);
+                } else if (node.type === 'button') {
+                    const button = document.createElement('button');
+                    button.textContent = node.label;
+                    button.classList.add(node.class);
+                    button.addEventListener('click', () => window[node.onclick]());
+                    li.appendChild(button);
+                }
+
+                parentUl.appendChild(li);
+            });
+        }
+
+        // Toggle folder visibility
+        function toggleFolder(element) {
+            const subTree = element.nextElementSibling;
+            if (subTree && subTree.classList.contains('sub-tree')) {
+                subTree.classList.toggle('open');
+                element.classList.toggle('open');
+            }
+        }
+
+        // Load tree on page load
+        window.addEventListener('DOMContentLoaded', loadTree);
+
         // Web Audio setup
         const ctxAudio = new AudioContext();
         let oscillator = null;
@@ -489,18 +539,6 @@
             }
         }
 
-        // Toggle folder visibility
-        function toggleFolder(element) {
-            const subTree = element.nextElementSibling;
-            if (subTree.classList.contains('open')) {
-                subTree.classList.remove('open');
-                element.classList.remove('open');
-            } else {
-                subTree.classList.add('open');
-                element.classList.add('open');
-            }
-        }
-
         // Melody editor functions
         function toggleMelodyEditor() {
             const editor = document.getElementById('melodyEditor');
@@ -521,12 +559,12 @@
                 
                 const freqInput = document.createElement('input');
                 freqInput.type = 'number';
-                freqInput.value = note.freq;
+                freqInput.value = node.freq;
                 freqInput.placeholder = 'Frequency';
                 
                 const durInput = document.createElement('input');
                 durInput.type = 'number';
-                durInput.value = note.duration;
+                durInput.value = node.duration;
                 durInput.placeholder = 'Duration';
                 
                 const removeBtn = document.createElement('button');
