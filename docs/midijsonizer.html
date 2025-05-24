@@ -1,0 +1,335 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Custom Tone Player - Paint It Black Edition</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            margin: 0;
+            background-color: #f0f0f0;
+            color: #333;
+            text-align: center;
+            line-height: 1.6;
+        }
+        .container {
+            background-color: #fff;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+            max-width: 800px;
+            width: 90%;
+            margin-bottom: 20px; /* Space for the editor */
+        }
+        h1 {
+            color: #000;
+            margin-bottom: 15px;
+        }
+        p {
+            margin-bottom: 20px;
+        }
+        button {
+            padding: 12px 25px;
+            font-size: 1.1em;
+            background-color: #007bff;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            transition: background-color 0.3s ease;
+            margin: 10px;
+        }
+        button:hover {
+            background-color: #0056b3;
+        }
+        button:disabled {
+            background-color: #ccc;
+            cursor: not-allowed;
+        }
+        .message {
+            margin-top: 20px;
+            font-style: italic;
+            color: #555;
+        }
+        .current-info {
+            margin-top: 15px;
+            font-size: 1.2em;
+            font-weight: bold;
+            min-height: 25px;
+            color: #000;
+        }
+        textarea {
+            width: calc(100% - 40px); /* Account for padding */
+            height: 300px;
+            margin: 20px 0;
+            padding: 15px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            font-family: 'Courier New', Courier, monospace;
+            font-size: 0.9em;
+            resize: vertical;
+        }
+        .editor-controls {
+            margin-top: 10px;
+        }
+        .warning {
+            color: #d9534f;
+            font-weight: bold;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Custom Tone Player - "Paint It Black" Example</h1>
+        <p>Edit the sequence data below to compose your own tone melody and chords!</p>
+        <p class="warning">Remember: This uses raw sine/triangle wave tones. It won't sound like real instruments.</p>
+
+        <button id="playButton">Play Custom Sequence</button>
+        <button id="stopButton" disabled>Stop</button>
+        <button id="resetButton">Reset to Default</button>
+
+        <div class="current-info" id="currentChord"></div>
+        <div class="current-info" id="currentNote"></div>
+        <div class="message" id="statusMessage">Ready to edit.</div>
+
+        <textarea id="sequenceEditor"></textarea>
+
+        <p>
+            <strong>Usage:</strong>
+            <br>Each object in the array represents a segment.
+            <br>
+            `time`: Start time in seconds from the beginning.
+            <br>
+            `chord`: Name of the chord (e.g., 'Em', 'D', 'B7'). Chords are played with triangle waves.
+            <br>
+            `duration`: How long the chord/segment lasts.
+            <br>
+            `melody`: Array of note names (e.g., 'E4', 'G3'). Melody notes are played with sine waves, distributed over the duration.
+            <br>
+            Valid Note Names: C, C#, D, D#, E, F, F#, G, G#, A, A#, B followed by an octave number (e.g., A4, C5).
+        </p>
+    </div>
+
+    <script>
+        const AudioContext = window.AudioContext || window.webkitAudioContext;
+        let ac; // Initialize AudioContext on first user interaction
+
+        let isPlaying = false;
+        let scheduleTimeoutId; // To manage the sequence timing
+
+        const playButton = document.getElementById('playButton');
+        const stopButton = document.getElementById('stopButton');
+        const resetButton = document.getElementById('resetButton');
+        const statusMessage = document.getElementById('statusMessage');
+        const currentChordDisplay = document.getElementById('currentChord');
+        const currentNoteDisplay = document.getElementById('currentNote');
+        const sequenceEditor = document.getElementById('sequenceEditor');
+
+        // --- Note Name to Frequency Mapping ---
+        const noteToFreqMap = {
+            'C1': 32.70, 'C#1': 34.65, 'D1': 36.71, 'D#1': 38.89, 'E1': 41.20, 'F1': 43.65, 'F#1': 46.25, 'G1': 48.99, 'G#1': 51.91, 'A1': 55.00, 'A#1': 58.27, 'B1': 61.74,
+            'C2': 65.41, 'C#2': 69.30, 'D2': 73.42, 'D#2': 77.78, 'E2': 82.41, 'F2': 87.31, 'F#2': 92.50, 'G2': 97.99, 'G#2': 103.83, 'A2': 110.00, 'A#2': 116.54, 'B2': 123.47,
+            'C3': 130.81, 'C#3': 138.59, 'D3': 146.83, 'D#3': 155.56, 'E3': 164.81, 'F3': 174.61, 'F#3': 185.00, 'G3': 196.00, 'G#3': 207.65, 'A3': 220.00, 'A#3': 233.08, 'B3': 246.94,
+            'C4': 261.63, 'C#4': 277.18, 'D4': 293.66, 'D#4': 311.13, 'E4': 329.63, 'F4': 349.23, 'F#4': 369.99, 'G4': 392.00, 'G#4': 415.30, 'A4': 440.00, 'A#4': 466.16, 'B4': 493.88,
+            'C5': 523.25, 'C#5': 554.37, 'D5': 587.33, 'D#5': 622.25, 'E5': 659.25, 'F5': 698.46, 'F#5': 739.99, 'G5': 783.99, 'G#5': 830.61, 'A5': 880.00, 'A#5': 932.33, 'B5': 987.77,
+        };
+        function noteToFreq(noteName) {
+            return noteToFreqMap[noteName] || 0; // Return 0 if not found
+        }
+
+        // --- Chord to Notes Mapping (using note names) ---
+        const chordNotesMapping = {
+            'Em': ['E3', 'G3', 'B3'],
+            'B7': ['B2', 'D#3', 'F#3', 'A3'],
+            'D':  ['D3', 'F#3', 'A3'],
+            'G':  ['G3', 'B3', 'D4'],
+            'Am': ['A2', 'C3', 'E3']
+        };
+
+        // --- Default Song Structure (Our "Paint It Black" interpretation) ---
+        const defaultSongSequence = [
+            { time: 0.0,  chord: 'Em', duration: 4.0, melody: ['E4', 'F#4', 'G4', 'A4', 'B4', 'C5', 'D#5', 'E5', 'D#5'] },
+            { time: 4.0,  chord: 'B7', duration: 4.0, melody: ['B4', 'A4', 'G4', 'F#4', 'E4', 'D#4'] },
+            { time: 8.0,  chord: 'Em', duration: 4.0, melody: ['E4', 'F#4', 'G4', 'A4', 'B4', 'C5', 'D#5', 'E5', 'D#5'] },
+            { time: 12.0, chord: 'B7', duration: 4.0, melody: ['B4', 'A4', 'G4', 'F#4', 'E4', 'D#4'] },
+            { time: 16.0, chord: 'Em', duration: 2.0, chorus: true },
+            { time: 18.0, chord: 'D',  duration: 2.0, chorus: true },
+            { time: 20.0, chord: 'G',  duration: 2.0, chorus: true },
+            { time: 22.0, chord: 'D',  duration: 2.0, chorus: true },
+            { time: 24.0, chord: 'Am', duration: 2.0, chorus: true },
+            { time: 26.0, chord: 'B7', duration: 2.0, chorus: true },
+        ];
+
+        // --- Initialize editor with default sequence ---
+        function loadDefaultSequence() {
+            sequenceEditor.value = JSON.stringify(defaultSongSequence, null, 2);
+        }
+        loadDefaultSequence(); // Load on page start
+
+        // --- Function to play a single tone ---
+        function playTone(freq, startTime, duration, type = 'sine', gain = 0.5) {
+            if (freq === 0) return;
+
+            const oscillator = ac.createOscillator();
+            const gainNode = ac.createGain();
+
+            oscillator.type = type;
+            oscillator.frequency.setValueAtTime(freq, startTime);
+
+            gainNode.gain.setValueAtTime(0, startTime);
+            gainNode.gain.linearRampToValueAtTime(gain, startTime + 0.01);
+            gainNode.gain.linearRampToValueAtTime(gain, startTime + duration - 0.05);
+            gainNode.gain.linearRampToValueAtTime(0, startTime + duration);
+
+            oscillator.connect(gainNode);
+            gainNode.connect(ac.destination);
+
+            oscillator.start(startTime);
+            oscillator.stop(startTime + duration);
+        }
+
+        // --- Main Playback Function ---
+        function playCustomSequence() {
+            if (!ac) {
+                ac = new AudioContext();
+            }
+            if (ac.state === 'suspended') {
+                ac.resume();
+            }
+
+            let customSequence;
+            try {
+                customSequence = JSON.parse(sequenceEditor.value);
+                if (!Array.isArray(customSequence)) {
+                    throw new Error("Input must be a JSON array.");
+                }
+            } catch (error) {
+                statusMessage.textContent = `Error parsing sequence: ${error.message}`;
+                console.error("Sequence parsing error:", error);
+                return;
+            }
+
+            isPlaying = true;
+            playButton.disabled = true;
+            stopButton.disabled = false;
+            resetButton.disabled = true;
+            statusMessage.textContent = "Playing...";
+            currentChordDisplay.textContent = "";
+            currentNoteDisplay.textContent = "";
+
+            const startTime = ac.currentTime;
+            let currentSequenceIndex = 0;
+            let maxSequenceEndTime = 0; // To determine when the last note ends
+
+            function scheduleNextEvent() {
+                if (!isPlaying) {
+                    // Cleanup on stop
+                    currentChordDisplay.textContent = "";
+                    currentNoteDisplay.textContent = "";
+                    statusMessage.textContent = "Stopped.";
+                    playButton.disabled = false;
+                    stopButton.disabled = true;
+                    resetButton.disabled = false;
+                    if (ac && ac.state === 'running') ac.suspend();
+                    return;
+                }
+
+                if (currentSequenceIndex < customSequence.length) {
+                    const event = customSequence[currentSequenceIndex];
+                    const targetTime = startTime + event.time;
+
+                    // Update max sequence end time
+                    maxSequenceEndTime = Math.max(maxSequenceEndTime, targetTime + (event.duration || 0));
+
+                    currentChordDisplay.textContent = `Chord: ${event.chord || '---'}`;
+                    currentNoteDisplay.textContent = '---'; // Reset melody display for new chord
+
+                    // Play Chord Tones
+                    if (event.chord && chordNotesMapping[event.chord]) {
+                        const notesToPlay = chordNotesMapping[event.chord];
+                        const chordGain = 0.2;
+                        notesToPlay.forEach(noteName => {
+                            playTone(noteToFreq(noteName), targetTime, event.duration, 'triangle', chordGain);
+                        });
+                    }
+
+                    // Play Melody Tones
+                    if (event.melody && event.melody.length > 0) {
+                        const melodyNoteDuration = (event.duration || 1) / event.melody.length; // Default duration to 1 if not specified
+                        const melodyGain = 0.35;
+                        event.melody.forEach((noteName, i) => {
+                            const melodyPlayTime = targetTime + (i * melodyNoteDuration);
+                            playTone(noteToFreq(noteName), melodyPlayTime, melodyNoteDuration * 0.9, 'sine', melodyGain);
+                            // Update display for each melody note (with a slight delay to match actual playback)
+                            setTimeout(() => {
+                                if (isPlaying) currentNoteDisplay.textContent = `Melody: ${noteName}`;
+                            }, (melodyPlayTime - ac.currentTime) * 1000);
+                        });
+                    }
+
+
+                    currentSequenceIndex++;
+
+                    // Schedule the next event
+                    const nextEvent = customSequence[currentSequenceIndex];
+                    if (nextEvent) {
+                        const delayMs = (nextEvent.time - (ac.currentTime - startTime)) * 1000;
+                        scheduleTimeoutId = setTimeout(scheduleNextEvent, delayMs);
+                    } else {
+                        // End of sequence - schedule final cleanup after last note truly finishes
+                        const finalDelayMs = (maxSequenceEndTime - ac.currentTime) * 1000;
+                        scheduleTimeoutId = setTimeout(() => {
+                            if (isPlaying) { // Only cleanup if still playing
+                                isPlaying = false;
+                                playButton.disabled = false;
+                                stopButton.disabled = true;
+                                resetButton.disabled = false;
+                                statusMessage.textContent = "Sequence finished.";
+                                currentChordDisplay.textContent = "";
+                                currentNoteDisplay.textContent = "";
+                                if (ac && ac.state === 'running') ac.suspend();
+                            }
+                        }, finalDelayMs + 50); // Add a small buffer
+                    }
+                }
+            }
+
+            scheduleNextEvent(); // Start the sequence
+        }
+
+        // --- Stop Playback Function ---
+        function stopPlayback() {
+            isPlaying = false;
+            clearTimeout(scheduleTimeoutId);
+            if (ac && ac.state === 'running') {
+                ac.suspend();
+            }
+            // Resume AudioContext after a short delay to ensure it can be started again
+            setTimeout(() => {
+                if (ac) ac.resume();
+            }, 100);
+            playButton.disabled = false;
+            stopButton.disabled = true;
+            resetButton.disabled = false;
+            statusMessage.textContent = "Stopped.";
+            currentChordDisplay.textContent = "";
+            currentNoteDisplay.textContent = "";
+        }
+
+        // --- Event Listeners ---
+        playButton.addEventListener('click', playCustomSequence);
+        stopButton.addEventListener('click', stopPlayback);
+        resetButton.addEventListener('click', loadDefaultSequence);
+
+        // Initial setup for buttons
+        playButton.disabled = false;
+        stopButton.disabled = true;
+    </script>
+</body>
+</html>
