@@ -86,6 +86,7 @@
             margin-top: 50px;
             font-size: 1.2em;
             position: relative;
+            text-align: center; /* Center content in art-space */
         }
         .toggle-controls {
             background: #1a1a2e;
@@ -190,18 +191,22 @@
         .suno-embed-container {
             margin-top: 15px;
             min-height: 200px;
+            display: flex;
+            justify-content: center; /* Center iframe */
         }
         .link-tree {
             margin-top: 20px;
-            text-align: left;
+            display: flex;
+            justify-content: center; /* Center the tree */
             font-family: 'Courier New', monospace;
             color: #39ff14;
             text-shadow: 0 0 5px #39ff14;
         }
         .tree {
             list-style: none;
-            padding-left: 20px;
-            position: relative;
+            padding: 0;
+            max-width: 500px; /* Constrain width for centered look */
+            margin: 0 auto;
         }
         .tree li {
             margin: 10px 0;
@@ -214,23 +219,26 @@
             left: -20px;
         }
         .tree li:last-child:before {
-            content: '└──';
+            content: '╰─'; /* Root-like curve for last item */
         }
         .folder-label {
             cursor: pointer;
-            padding: 5px 10px;
+            padding: 5px 15px;
             border: 1px solid #39ff14;
             background: #1a1a2e;
             display: inline-block;
+            width: 200px; /* Wider for trunk-like feel */
+            text-align: center;
             transition: all 0.2s;
+            animation: root-pulse 2s ease-in-out infinite; /* Pulsing root effect */
         }
         .folder-label:hover {
-            box-shadow: 0 0 10px #39ff14;
+            box-shadow: 0 0 15px #39ff14;
             transform: scale(1.05);
         }
         .folder-label::before {
             content: '▶';
-            margin-right: 5px;
+            margin-right: 10px;
             transition: transform 0.2s;
         }
         .folder-label.open::before {
@@ -238,7 +246,9 @@
         }
         .sub-tree {
             display: none;
-            padding-left: 30px;
+            padding-left: 0;
+            margin: 0 auto;
+            max-width: 400px; /* Slightly narrower for sub-roots */
         }
         .sub-tree.open {
             display: block;
@@ -246,13 +256,16 @@
         .link a, .link button {
             color: #39ff14;
             text-decoration: none;
-            padding: 5px 10px;
+            padding: 5px 15px;
             background: #1a1a2e;
             border: 1px solid #39ff14;
             transition: all 0.2s;
+            display: inline-block;
+            width: 200px; /* Match folder width */
+            text-align: center;
         }
         .link a:hover, .link button:hover {
-            box-shadow: 0 0 10px #39ff14;
+            box-shadow: 0 0 15px #39ff14;
             transform: scale(1.05);
         }
         .link .load-suno-button {
@@ -293,6 +306,11 @@
                 opacity: 0;
             }
         }
+        @keyframes root-pulse {
+            0% { box-shadow: 0 0 10px #39ff14; }
+            50% { box-shadow: 0 0 20px #39ff14; }
+            100% { box-shadow: 0 0 10px #39ff14; }
+        }
         @media (max-width: 768px) {
             h1 { font-size: 3em; }
             .cartoon { width: 60px; height: 60px; font-size: 24px; }
@@ -300,9 +318,11 @@
             .falling-kaomoji.stream { font-size: 12px; }
             .toggle-controls { font-size: 0.9em; padding: 4px 8px; }
             .link-tree { font-size: 0.9em; }
-            .tree { padding-left: 10px; }
+            .tree { max-width: 300px; }
             .tree li:before { left: -15px; }
-            .sub-tree { padding-left: 20px; }
+            .sub-tree { max-width: 250px; }
+            .folder-label, .link a, .link button { width: 150px; }
+            .suno-embed-container iframe { width: 100%; }
         }
         svg { display: none; }
     </style>
