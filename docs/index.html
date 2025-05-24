@@ -59,7 +59,7 @@
             opacity: 0;
             display: none;
         }
-        .audio-player button, .load-suno-button { /* Added .load-suno-button here */
+        .audio-player button, .load-suno-button {
             background: #1a1a2e;
             border: 2px solid #39ff14;
             box-shadow: 0 0 10px #39ff14;
@@ -70,7 +70,7 @@
             cursor: pointer;
             transition: transform 0.2s, box-shadow 0.2s;
         }
-        .audio-player button:hover, .load-suno-button:hover { /* Added .load-suno-button here */
+        .audio-player button:hover, .load-suno-button:hover {
             box-shadow: 0 0 20px #39ff14;
             transform: scale(1.1);
         }
@@ -86,6 +86,25 @@
             margin-top: 50px;
             font-size: 1.2em;
             position: relative;
+            text-align: center;
+            max-height: 400px; /* Scrollable height */
+            overflow-y: auto; /* Enable vertical scrollbar */
+            scrollbar-width: thin; /* Firefox scrollbar */
+            scrollbar-color: #39ff14 #1a1a2e; /* Firefox scrollbar colors */
+        }
+        .art-space::-webkit-scrollbar {
+            width: 8px; /* Chrome/Edge/Safari scrollbar width */
+        }
+        .art-space::-webkit-scrollbar-track {
+            background: #1a1a2e; /* Track color */
+        }
+        .art-space::-webkit-scrollbar-thumb {
+            background: #39ff14; /* Thumb color */
+            border-radius: 4px;
+            box-shadow: 0 0 10px #39ff14;
+        }
+        .art-space::-webkit-scrollbar-thumb:hover {
+            background: #2ecc71; /* Lighter neon on hover */
         }
         .toggle-controls {
             background: #1a1a2e;
@@ -187,9 +206,90 @@
             padding: 5px 10px;
             cursor: pointer;
         }
-        .suno-embed-container { /* Style for the iframe container */
-            margin-top: 15px; /* Add some space above the iframe */
-            min-height: 200px; /* Ensure space is reserved even if iframe loads slowly */
+        .suno-embed-container {
+            margin-top: 15px;
+            min-height: 200px;
+            display: flex;
+            justify-content: center;
+        }
+        .link-tree {
+            margin-top: 20px;
+            display: flex;
+            justify-content: center;
+            font-family: 'Courier New', monospace;
+            color: #39ff14;
+            text-shadow: 0 0 5px #39ff14;
+        }
+        .tree {
+            list-style: none;
+            padding: 0;
+            max-width: 500px;
+            margin: 0 auto;
+        }
+        .tree li {
+            margin: 10px 0;
+            position: relative;
+        }
+        .tree li:before {
+            content: '├──';
+            color: #39ff14;
+            position: absolute;
+            left: -20px;
+        }
+        .tree li:last-child:before {
+            content: '╰─';
+        }
+        .folder-label {
+            cursor: pointer;
+            padding: 5px 15px;
+            border: 1px solid #39ff14;
+            background: #1a1a2e;
+            display: inline-block;
+            width: 200px;
+            text-align: center;
+            transition: all 0.2s;
+            animation: root-pulse 2s ease-in-out infinite;
+        }
+        .folder-label:hover {
+            box-shadow: 0 0 15px #39ff14;
+            transform: scale(1.05);
+        }
+        .folder-label::before {
+            content: '▶';
+            margin-right: 10px;
+            transition: transform 0.2s;
+        }
+        .folder-label.open::before {
+            transform: rotate(90deg);
+        }
+        .sub-tree {
+            display: none;
+            padding-left: 0;
+            margin: 0 auto;
+            max-width: 400px;
+        }
+        .sub-tree.open {
+            display: block;
+        }
+        .link a, .link button {
+            color: #39ff14;
+            text-decoration: none;
+            padding: 5px 15px;
+            background: #1a1a2e;
+            border: 1px solid #39ff14;
+            transition: all 0.2s;
+            display: inline-block;
+            width: 200px;
+            text-align: center;
+        }
+        .link a:hover, .link button:hover {
+            box-shadow: 0 0 15px #39ff14;
+            transform: scale(1.05);
+        }
+        .link .load-suno-button {
+            font-family: 'Courier New', monospace;
+            text-transform: uppercase;
+            cursor: pointer;
         }
         @keyframes pulseBg {
             0% { background-position: 0% 50%; }
@@ -224,12 +324,24 @@
                 opacity: 0;
             }
         }
+        @keyframes root-pulse {
+            0% { box-shadow: 0 0 10px #39ff14; }
+            50% { box-shadow: 0 0 20px #39ff14; }
+            100% { box-shadow: 0 0 10px #39ff14; }
+        }
         @media (max-width: 768px) {
             h1 { font-size: 3em; }
             .cartoon { width: 60px; height: 60px; font-size: 24px; }
             .falling-kaomoji { font-size: 14px; }
             .falling-kaomoji.stream { font-size: 12px; }
             .toggle-controls { font-size: 0.9em; padding: 4px 8px; }
+            .link-tree { font-size: 0.9em; }
+            .tree { max-width: 300px; }
+            .tree li:before { left: -15px; }
+            .sub-tree { max-width: 250px; }
+            .folder-label, .link a, .link button { width: 150px; }
+            .suno-embed-container iframe { width: 100%; }
+            .art-space { max-height: 300px; } /* Smaller scroll area on mobile */
         }
         svg { display: none; }
     </style>
@@ -255,11 +367,25 @@
             <h2>The ID</h2>
             <p>I’m Raika(1) // Monday // Grok // Claude // Gemini // Suno, a web dev and artist, running my mental stack with coagency where multiple AI perform alongside, with me, and I just move around like a meatbot and maestro of the orchestra of digital hums.</p>
             <h2>Link Tree</h2>
-            <p>Catch my work on <a href="https://github.com/raikanobleaicoagent" target="_blank">GitHub</a> or my <a href="https://x.com/Raika_Monday" target="_blank">X</a>.
-	    <br>Suno lyric (EN/JP/CN) page for my first hit?<br><a href="pslyrics.html"target="_blank">Phonetic Sparks</a> explaining my AI discovery.<br>
-        <button class="load-suno-button" onclick="loadSunoEmbed()">Listen to Phonetic Sparks on Suno</button>
-        <div id="sunoEmbedContainer" class="suno-embed-container"></div>
-        </p>
+            <div class="link-tree">
+                <ul class="tree">
+                    <li class="folder">
+                        <span class="folder-label" onclick="toggleFolder(this)">📁 Raika's Work</span>
+                        <ul class="sub-tree">
+                            <li class="link"><a href="https://github.com/raikanobleaicoagent" target="_blank">🌐 GitHub</a></li>
+                            <li class="link"><a href="https://x.com/Raika_Monday" target="_blank">🌐 X Profile</a></li>
+                            <li class="folder">
+                                <span class="folder-label" onclick="toggleFolder(this)">📁 Music Projects</span>
+                                <ul class="sub-tree">
+                                    <li class="link"><a href="pslyrics.html" target="_blank">🎵 Phonetic Sparks</a></li>
+                                    <li class="link"><button class="load-suno-button" onclick="loadSunoEmbed()">🎧 Listen to Phonetic Sparks on Suno</button></li>
+                                </ul>
+                            </li>
+                        </ul>
+                    </li>
+                </ul>
+            </div>
+            <div id="sunoEmbedContainer" class="suno-embed-container"></div>
         </div>
         <div class="cartoon" style="top: 60%; right: 15%;" data-kaomoji></div>
     </div>
@@ -360,6 +486,18 @@
                 audioPlayer.classList.add('hidden');
                 melodyEditor.style.display = 'none';
                 toggleButton.textContent = '+';
+            }
+        }
+
+        // Toggle folder visibility
+        function toggleFolder(element) {
+            const subTree = element.nextElementSibling;
+            if (subTree.classList.contains('open')) {
+                subTree.classList.remove('open');
+                element.classList.remove('open');
+            } else {
+                subTree.classList.add('open');
+                element.classList.add('open');
             }
         }
 
@@ -628,22 +766,19 @@
             const container = document.getElementById('sunoEmbedContainer');
             const button = document.querySelector('.load-suno-button');
             
-            // Prevent loading multiple times
             if (container.querySelector('iframe')) {
                 return;
             }
 
             const iframe = document.createElement('iframe');
             iframe.src = "https://suno.com/embed/55ace5ef-1a22-4db2-a0a6-fec0f209f6fa";
-            iframe.width = "500"; // Or "100%" for responsive width
+            iframe.width = "500";
             iframe.height = "200";
-            iframe.style.border = "none"; // Optional: remove iframe border
+            iframe.style.border = "none";
 
-            // Clear the container (in case there was placeholder text)
-            container.innerHTML = ''; 
+            container.innerHTML = '';
             container.appendChild(iframe);
 
-            // Optionally hide the button after loading
             if (button) {
                 button.style.display = 'none';
             }
