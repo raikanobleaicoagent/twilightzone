@@ -230,23 +230,21 @@
             list-style: none;
             padding: 0;
             max-width: 100%;
-            height: 400px;
+            height: 400px; /* Ensure this is enough for your row/col layout */
         }
         .tree li.folder {
-            position: absolute;
+            position: absolute; /* This is important for left/top positioning */
             transform-origin: center;
-        }
-        .tree li.folder::before {
-            content: '';
         }
         .tree li.last::before {
             content: '';
         }
         .sub-tree {
-            position: relative;
-            top: 40px;
-            padding-left: 0;
+            position: relative; /* Changed from absolute to relative for better flow or absolute if needed */
+            top: 40px; /* Adjust as needed, or manage with row/col logic */
+            padding-left: 0; /* Was 20px, might need adjustment based on visual preference */
             max-width: 400px;
+            /* display: none; */ /* Controlled by .open class */
         }
         .sub-tree.open {
             display: block;
@@ -388,18 +386,18 @@
         // Fetch and render JSON tree
         async function loadTree() {
             try {
-                const response = await fetch('links.json');
-                if (!response.ok) throw new Error('JSON fetch failed');
+                const response = await fetch('links.json'); // This will fetch the new JSON structure
+                if (!response.ok) throw new Error(`JSON fetch failed: ${response.statusText}`);
                 const data = await response.json();
                 const treeContainer = document.querySelector('.link-tree');
-                treeContainer.innerHTML = '';
+                treeContainer.innerHTML = ''; // Clear previous tree if any
                 const ul = document.createElement('ul');
                 ul.classList.add('tree');
                 renderTree(data.tree, ul);
                 treeContainer.appendChild(ul);
             } catch (error) {
                 console.error('Error loading tree:', error);
-                document.querySelector('.link-tree').innerHTML = '<p>Whoops, tree’s down! 🌳 Check links.json.</p>';
+                document.querySelector('.link-tree').innerHTML = '<p>Whoops, tree’s down! 🌳 Check links.json and console.</p>';
             }
         }
 
@@ -409,6 +407,25 @@
                 li.classList.add(node.type === 'folder' ? 'folder' : 'link');
                 if (index === nodes.length - 1) li.classList.add('last');
 
+                if (node.position) {
+                    // Map row/col to x/y percentages. Adjust these values as needed for desired layout.
+                    const colSpacingPercentage = 20; // How much '%' per column step
+                    const rowSpacingPercentage = 15; // How much '%' per row step
+                    const baseLeftPercentage = 5;    // Initial left offset for col 1
+                    const baseTopPercentage = 5;     // Initial top offset for row 1
+
+                    if (typeof node.position.col === 'number') {
+                        li.style.left = `${baseLeftPercentage + (node.position.col - 1) * colSpacingPercentage}%`;
+                    }
+                    if (typeof node.position.row === 'number') {
+                        li.style.top = `${baseTopPercentage + (node.position.row - 1) * rowSpacingPercentage}%`;
+                    }
+                    // Handle 'angle' if it's present in the new JSON's position object
+                    if (typeof node.position.angle === 'number') {
+                        li.style.transform = `rotate(${node.position.angle}deg)`;
+                    }
+                }
+
                 if (node.type === 'folder') {
                     const span = document.createElement('span');
                     span.classList.add('folder-label');
@@ -416,17 +433,11 @@
                     span.addEventListener('click', () => toggleFolder(span));
                     li.appendChild(span);
 
-                    if (node.position) {
-                        li.style.left = `${node.position.x}%`;
-                        li.style.top = `${node.position.y}%`;
-                        if (node.position.angle) {
-                            li.style.transform = `rotate(${node.position.angle}deg)`;
-                        }
-                    }
-
                     if (node.children) {
                         const subUl = document.createElement('ul');
                         subUl.classList.add('sub-tree');
+                        // Sub-tree items will be positioned relative to this subUl if their own position is set.
+                        // If sub-tree itself needs specific positioning, it would need to be handled here or via CSS.
                         renderTree(node.children, subUl);
                         li.appendChild(subUl);
                     }
@@ -439,8 +450,14 @@
                 } else if (node.type === 'button') {
                     const button = document.createElement('button');
                     button.textContent = node.label;
-                    button.classList.add(node.class);
-                    button.addEventListener('click', () => window[node.onclick]());
+                    if(node.class) button.classList.add(node.class); // Ensure class is added
+                    button.addEventListener('click', () => {
+                        if (typeof window[node.onclick] === 'function') {
+                            window[node.onclick]();
+                        } else {
+                            console.error(`Function ${node.onclick} not found.`);
+                        }
+                    });
                     li.appendChild(button);
                 }
 
@@ -541,14 +558,14 @@
             } else {
                 title.classList.add('hidden');
                 audioPlayer.classList.add('hidden');
-                melodyEditor.style.display = 'none';
+                melodyEditor.style.display = 'none'; // Also hide editor when controls are hidden
                 toggleButton.textContent = '+';
             }
         }
 
         function toggleMelodyEditor() {
             const editor = document.getElementById('melodyEditor');
-            if (editor.style.display === 'none') {
+            if (editor.style.display === 'none' || editor.style.display === '') {
                 editor.style.display = 'block';
                 populateNotesList();
             } else {
@@ -576,7 +593,7 @@
                 const removeBtn = document.createElement('button');
                 removeBtn.textContent = 'Remove';
                 removeBtn.addEventListener('click', () => {
-                    notesList.removeChild(noteItem);
+                    notesList.removeChild(noteItem); // This only removes from DOM, not 'notes' array until save.
                 });
                 
                 noteItem.appendChild(freqInput);
@@ -593,11 +610,12 @@
             
             const freqInput = document.createElement('input');
             freqInput.type = 'number';
-            freqInput.placeholder = 'Frequency';
+            freqInput.placeholder = 'Frequency (Hz)';
             
             const durInput = document.createElement('input');
             durInput.type = 'number';
-            durInput.placeholder = 'Duration';
+            durInput.step = "0.1";
+            durInput.placeholder = 'Duration (s)';
             
             const removeBtn = document.createElement('button');
             removeBtn.textContent = 'Remove';
@@ -620,11 +638,12 @@
                 const durInput = item.querySelector('input[type="number"]:nth-child(2)');
                 const freq = parseFloat(freqInput.value);
                 const duration = parseFloat(durInput.value);
-                if (!isNaN(freq) && !isNaN(duration)) {
+                if (!isNaN(freq) && !isNaN(duration) && duration > 0) { // ensure duration is positive
                     newNotes.push({ freq, duration });
                 }
             });
             notes = newNotes;
+            // Optionally provide feedback that melody is saved
         }
 
         function clearClones() {
@@ -643,7 +662,7 @@
             '\(^-^)/', '\(o^_^o)/', '\(^o^)/', '\(>^_^)>/', '\(^-^)b/',
             '(~_~)', '(~_^)', '(~_~;)', '(^_^;)', '(^_^")',
             '(o_o)', '(o_0)', '(0_0)', '(O_O)', '(o_o;)',
-            '(╯°□°)╯︵ ┻━┻' // Added for extra dankness
+            '(╯°□°)╯︵ ┻━┻'
         ];
 
         const streamChars = ['|', '/', '\\', '-', '_'];
@@ -682,7 +701,7 @@
             }
             kaomojiEl.style.left = `${column.x}%`;
             kaomojiEl.style.animationDuration = `${column.duration}s`;
-            kaomojiEl.columnId = column.id;
+            kaomojiEl.columnId = column.id; // For tracking
             document.body.appendChild(kaomojiEl);
             fallingKaomojis.push(kaomojiEl);
 
@@ -691,17 +710,20 @@
                 fallingKaomojis = fallingKaomojis.filter(e => e !== kaomojiEl);
             }, column.duration * 1000);
 
-            if (fallingKaomojis.length > 500) {
+            if (fallingKaomojis.length > 500) { // Max limit for performance
                 const oldest = fallingKaomojis.shift();
-                oldest.remove();
+                if (oldest) oldest.remove();
             }
         }
 
         function startFallingKaomojis() {
-            if (columns.length === 0) initColumns();
+            if (columns.length === 0 || columns.some(c => !c.active)) { // Re-init if needed or if stopped
+                initColumns();
+            }
             columns.forEach(column => {
+                column.active = true; // Ensure column is marked active
                 if (!column.interval && isPlaying) {
-                    column.interval = setInterval(() => spawnColumnKaomoji(column), 150);
+                    column.interval = setInterval(() => spawnColumnKaomoji(column), 150 + Math.random() * 100); // slight random variation
                 }
             });
         }
@@ -712,11 +734,12 @@
                     clearInterval(column.interval);
                     column.interval = null;
                 }
-                column.active = false;
+                column.active = false; // Mark as inactive
             });
-            fallingKaomojis.forEach(kaomoji => kaomoji.remove());
+            // Clear existing falling kaomojis from DOM and array
+            fallingKaomojis.forEach(kaomojiEl => kaomojiEl.remove());
             fallingKaomojis = [];
-            columns = [];
+            // columns = []; // Optionally clear columns array if you want fresh setup next time
         }
 
         const cartoons = document.querySelectorAll('.cartoon:not(.clone)');
@@ -725,8 +748,8 @@
                 const randomKaomoji = kaomoji[Math.floor(Math.random() * kaomoji.length)];
                 cartoon.textContent = randomKaomoji;
             }
-            cycleKaomoji();
-            setInterval(cycleKaomoji, 1000);
+            cycleKaomoji(); // Initial Kaomoji
+            setInterval(cycleKaomoji, 1000 + Math.random() * 500); // Slightly varied interval
             cartoon.addEventListener('mouseover', () => {
                 cartoon.style.animation = 'bob 1s ease-in-out infinite';
             });
@@ -737,43 +760,49 @@
 
         const title = document.getElementById('title');
         const titleText = title.textContent;
+        let titleDropTimeout;
 
         function dropTitle() {
-            if (!controlsVisible) return;
+            if (!controlsVisible) return; // Don't drop if controls are hidden
             title.innerHTML = titleText
                 .split('')
-                .map(char => `<span>${char}</span>`)
+                .map(char => `<span>${char === ' ' ? '&nbsp;' : char}</span>`) // Handle spaces
                 .join('');
             const titleLetters = title.querySelectorAll('span');
             let maxDelay = 0;
-            titleLetters.forEach((letter, index) => {
-                const delay = Math.random() * 2000 + 500;
+            titleLetters.forEach((letter) => {
+                const delay = Math.random() * 1500 + 500; // Adjusted timing
                 letter.style.setProperty('--delay', `${delay}ms`);
                 letter.classList.add('drop');
                 maxDelay = Math.max(maxDelay, delay);
             });
-            setTimeout(dropTitle, maxDelay + 1000);
+            clearTimeout(titleDropTimeout); // Clear previous timeout
+            titleDropTimeout = setTimeout(dropTitle, maxDelay + 2000); // Repeat after longest animation + pause
         }
-        dropTitle();
+        if(titleText) dropTitle(); // Start if titleText is not empty
 
         distortionSlider.addEventListener('input', () => {
             const distortionValue = parseInt(distortionSlider.value);
             distortion.curve = makeDistortionCurve(distortionValue);
+            
+            // Adjust Kaomoji fall speed and cloning based on distortion
             if (distortionValue === 0) {
-                clearClones();
-                stopFallingKaomojis();
+                // Optional: reset speed if desired, or let it be natural
+                // stopFallingKaomojis(); // Or just slow them down
             } else if (isPlaying) {
-                startFallingKaomojis();
-                const speedFactor = 1 - (distortionValue / 500) * 0.5;
+                // startFallingKaomojis(); // Ensure they are falling if not already
+                const speedFactor = Math.max(0.2, 1 - (distortionValue / 500) * 0.8); // Ensure speedFactor doesn't go too low
                 columns.forEach(column => {
                     const newDuration = (1.5 + Math.random() * 1) * speedFactor;
                     column.duration = newDuration;
-                    fallingKaomojis.filter(e => e.columnId === column.id).forEach(kaomoji => {
-                        kaomoji.style.animationDuration = `${newDuration}s`;
+                    // Update existing kaomojis of this column (if possible, or newly spawned ones will get it)
+                    fallingKaomojis.filter(e => e.columnId === column.id).forEach(kEl => {
+                        kEl.style.animationDuration = `${newDuration}s`;
                     });
                 });
-                const numNewClones = Math.floor(Math.random() * 3) + 1;
-                if (activeClones.length < 20) {
+
+                const numNewClones = Math.floor(Math.random() * (distortionValue / 100)) + 1; // More clones with more distortion
+                if (activeClones.length < 30) { // Limit max clones
                     for (let i = 0; i < numNewClones; i++) {
                         const clone = document.createElement('div');
                         clone.classList.add('cartoon', 'clone');
@@ -782,48 +811,88 @@
                         clone.style.left = `${Math.random() * 80 + 10}%`;
                         document.body.appendChild(clone);
                         activeClones.push(clone);
+                        // Remove clone after animation
+                        setTimeout(() => {
+                            clone.remove();
+                            activeClones = activeClones.filter(c => c !== clone);
+                        }, 1000); // Matches clonePop animation duration
                     }
                 }
             }
         });
 
-        gainNode.gain.setValueAtTime(0.5, ctxAudio.currentTime);
+        gainNode.gain.setValueAtTime(0.3, ctxAudio.currentTime); // Initial gain
 
         document.addEventListener('keydown', e => {
-            if (e.key === 's') {
+            if (e.key === 's' || e.key === 'S') { // Check for both cases
                 document.body.classList.toggle('shed-mode');
             }
         });
 
         function toggleSunoEmbed() {
             const container = document.getElementById('sunoEmbedContainer');
-            const button = container.querySelector('.toggle-suno-button');
-            container.classList.toggle('hidden');
-            button.textContent = container.classList.contains('hidden') ? 'Show Suno' : 'Hide Suno';
+            const button = container.querySelector('.toggle-suno-button'); // Assumes this button is inside the container
+            const iframe = container.querySelector('iframe');
+
+            if (iframe) { // If iframe exists, toggle its visibility
+                container.classList.toggle('hidden');
+                 if (button) button.textContent = container.classList.contains('hidden') ? 'Show Suno' : 'Hide Suno';
+            } else { // If no iframe, it means 'Load Suno' was not clicked or it's the initial state
+                // This function might be called by a "Hide Suno" button that appears *after* loading.
+                // If the main load button is still there, this means Suno isn't loaded.
+                const loadButton = document.querySelector('.load-suno-button');
+                if (loadButton && loadButton.style.display !== 'none') {
+                    // Suno not loaded yet, do nothing or show message
+                } else if (button) { // If the toggle button (hide/show) exists
+                     button.textContent = container.classList.contains('hidden') ? 'Show Suno' : 'Hide Suno';
+                }
+            }
         }
 
         function loadSunoEmbed() {
             const container = document.getElementById('sunoEmbedContainer');
-            const button = document.querySelector('.load-suno-button');
-            
-            if (container.querySelector('iframe')) {
-                toggleSunoEmbed();
+            const loadButton = document.querySelector('.load-suno-button'); // The button from JSON
+            const toggleButton = container.querySelector('.toggle-suno-button'); // The permanent Hide/Show button
+
+            if (container.querySelector('iframe')) { // If iframe already exists
+                container.classList.remove('hidden'); // Show it
+                if (toggleButton) toggleButton.textContent = 'Hide Suno';
+                if (loadButton) loadButton.style.display = 'none'; // Hide the "Load Suno" button
                 return;
             }
 
             const iframe = document.createElement('iframe');
-            iframe.src = "https://suno.com/embed/55ace5ef-1a22-4db2-a0a6-fec0f209f6fa";
-            iframe.width = "500";
-            iframe.height = "200";
-            iframe.style.border = "none";
+            // Make sure the src is correct and embeddable
+            iframe.src = "https://suno.com/embed/55ace5ef-1a22-4db2-a0a6-fec0f209f6fa"; 
+            iframe.width = "100%"; // Responsive width
+            iframe.height = "200"; // Fixed height, or adjust as needed
+            iframe.style.border = "1px solid #39ff14"; // Match theme
+            iframe.setAttribute('allowfullscreen', ''); // Optional
+            iframe.setAttribute('sandbox', 'allow-scripts allow-same-origin allow-popups'); // For security
 
-            container.appendChild(iframe);
+
+            container.insertBefore(iframe, toggleButton); // Insert iframe before the toggle button
             container.classList.remove('hidden');
 
-            if (button) {
-                button.style.display = 'none';
+            if (loadButton) {
+                loadButton.style.display = 'none'; // Hide the "Load Suno" button from JSON
+            }
+            if (toggleButton) {
+                toggleButton.textContent = 'Hide Suno'; // Update permanent toggle button
+                toggleButton.style.display = 'inline-block'; // Ensure it's visible
             }
         }
+        // Ensure the toggle button for Suno is correctly managed initially
+        document.addEventListener('DOMContentLoaded', () => {
+            const sunoContainer = document.getElementById('sunoEmbedContainer');
+            const toggleSunoBtn = sunoContainer.querySelector('.toggle-suno-button');
+            if (sunoContainer.classList.contains('hidden') || !sunoContainer.querySelector('iframe')) {
+                if(toggleSunoBtn) toggleSunoBtn.textContent = 'Show Suno'; // Default if hidden or no iframe
+            } else {
+                 if(toggleSunoBtn) toggleSunoBtn.textContent = 'Hide Suno';
+            }
+        });
+
     </script>
 </body>
 </html>
