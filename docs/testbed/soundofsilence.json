@@ -1,0 +1,93 @@
+[
+  {
+    "time": 0,
+    "chord": "Am",
+    "duration": 8,
+    "melody": [
+      "A3", "C4", "E4", "G4", 
+      "A4", "G4", "E4", "C4"
+    ]
+  },
+  {
+    "time": 8,
+    "chord": "G",
+    "duration": 8,
+    "melody": [
+      "G3", "B3", "D4", "F#4",
+      "G4", "F#4", "D4", "B3"
+    ]
+  },
+  {
+    "time": 16,
+    "chord": "Am",
+    "duration": 8,
+    "melody": [
+      "A4", "G4", "E4", "C4",
+      "A3", "C4", "E4", "G4"
+    ]
+  },
+  {
+    "time": 24,
+    "chord": "F",
+    "duration": 4,
+    "melody": [
+      "F4", "A4", "C5", "A4"
+    ]
+  },
+  {
+    "time": 28,
+    "chord": "C",
+    "duration": 4,
+    "melody": [
+      "C4", "E4", "G4", "E4"
+    ]
+  },
+  {
+    "time": 32,
+    "chord": "F",
+    "duration": 4,
+    "melody": [
+      "C5", "A4", "F4", "A4"
+    ]
+  },
+  {
+    "time": 36,
+    "chord": "C",
+    "duration": 4,
+    "melody": [
+      "G4", "E4", "C4", "E4"
+    ]
+  },
+  {
+    "time": 40,
+    "chord": "Am",
+    "duration": 4,
+    "melody": [
+      "A4", "C5", "E5", "G4"
+    ]
+  },
+  {
+    "time": 44,
+    "chord": "C",
+    "duration": 4,
+    "melody": [
+      "C4", "D4", "E4", "G4" 
+    ]
+  },
+  {
+    "time": 48,
+    "chord": "G",
+    "duration": 4,
+    "melody": [
+      "G4", "B3", "D4", "E4"
+    ]
+  },
+  {
+    "time": 52,
+    "chord": "Am",
+    "duration": 4,
+    "melody": [
+      "A4", "E4", "C5", "A4"
+    ]
+  }
+]
