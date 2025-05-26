@@ -151,7 +151,7 @@
             <br>
             `duration`: How long the chord/segment lasts.
             <br>
-            `melody`: Array of note names (e.g., 'E4', 'G3'). Melody notes are played with sine waves, distributed over the duration.
+            `melody`: Array of objects `[{name: 'NoteName', duration: X, relativeTime: Y}]`. Melody notes are played with sine waves. `relativeTime` is relative to the segment's `time`.
             <br>
             Valid Note Names: C, C#, D, D#, E, F, F#, G, G#, A, A#, B followed by an octave number (e.g., A4, C5).
             <br>
@@ -174,7 +174,6 @@
         let recordedSegments = []; // Stores completed segments: [{time, chord?, duration, melody?}]
         let currentRecordingSegment = null; // The segment currently being built
         let recordStartTime = 0; // AudioContext.currentTime at the start of recording
-        let lastSegmentEndTime = 0; // Relative time of the last segment's end
 
         const activeOscillators = new Map(); // To keep track of notes being played by keyboard
         const pressedKeys = new Set(); // To track currently pressed keys for debouncing
@@ -241,7 +240,7 @@
 
         // --- Function to play a single tone ---
         function playTone(freq, startTime, duration, type = 'sine', gain = 0.5) {
-            if (freq === 0) return;
+            if (freq === 0 || duration <= 0) return;
 
             const oscillator = ac.createOscillator();
             const gainNode = ac.createGain();
@@ -249,9 +248,13 @@
             oscillator.type = type;
             oscillator.frequency.setValueAtTime(freq, startTime);
 
+            // Basic ADSR-like envelope for clean start/stop
+            const attackTime = 0.01;
+            const releaseTime = Math.min(0.05, duration * 0.2); // Release over 50ms or 20% of duration, whichever is smaller
+
             gainNode.gain.setValueAtTime(0, startTime);
-            gainNode.gain.linearRampToValueAtTime(gain, startTime + 0.01);
-            gainNode.gain.linearRampToValueAtTime(gain, startTime + duration - 0.05);
+            gainNode.gain.linearRampToValueAtTime(gain, startTime + attackTime);
+            gainNode.gain.linearRampToValueAtTime(gain, startTime + duration - releaseTime);
             gainNode.gain.linearRampToValueAtTime(0, startTime + duration);
 
             oscillator.connect(gainNode);
@@ -327,67 +330,64 @@
             currentChordDisplay.textContent = "";
             currentNoteDisplay.textContent = "";
 
-            const startTime = ac.currentTime;
+            const startTime = ac.currentTime; // Actual audio context time when playback starts
             let currentSequenceIndex = 0;
-            let maxSequenceEndTime = 0;
+            let maxSequenceEndTime = 0; // Tracks the absolute end time of the last scheduled event
+
+            // Clear any pending timeouts from previous plays
+            clearTimeout(scheduleTimeoutId);
+            clearTimeout(currentLoopTimeoutId);
+
 
             function scheduleNextEvent() {
                 if (!isPlaying) {
-                    clearTimeout(scheduleTimeoutId);
-                    clearTimeout(currentLoopTimeoutId);
-                    currentChordDisplay.textContent = "";
-                    currentNoteDisplay.textContent = "";
-                    statusMessage.textContent = "Stopped.";
-                    playButton.disabled = false;
-                    stopButton.disabled = true;
-                    resetButton.disabled = false;
-                    recordButton.disabled = false;
-                    saveButton.disabled = false;
-                    loadButton.disabled = false;
-                    loopButton.disabled = false;
-                    toggleKeyboardCaptureButton.disabled = false;
-                    if (ac && ac.state === 'running') ac.suspend();
+                    stopPlaybackCleanup(); // Call cleanup to reset UI and state
                     return;
                 }
 
                 if (currentSequenceIndex < customSequence.length) {
-                    const event = customSequence[currentSequenceIndex];
-                    const targetTime = startTime + event.time;
+                    const segment = customSequence[currentSequenceIndex];
+                    const segmentTargetTime = startTime + segment.time; // Absolute audio context time for this segment
 
-                    maxSequenceEndTime = Math.max(maxSequenceEndTime, targetTime + (event.duration || 0));
+                    // Update max sequence end time
+                    maxSequenceEndTime = Math.max(maxSequenceEndTime, segmentTargetTime + (segment.duration || 0));
 
+                    // Schedule UI updates for chord and note
                     setTimeout(() => {
                         if (isPlaying) {
-                            currentChordDisplay.textContent = `Chord: ${event.chord || '---'}`;
+                            currentChordDisplay.textContent = `Chord: ${segment.chord || '---'}`;
                             currentNoteDisplay.textContent = '---';
                         }
-                    }, (targetTime - ac.currentTime) * 1000);
+                    }, (segmentTargetTime - ac.currentTime) * 1000);
 
                     // Play Chord Tones (if defined by a mapped chord or a single note as a chord)
-                    if (event.chord) {
+                    if (segment.chord) {
                         let notesToPlay = [];
-                        if (chordNotesMapping[event.chord]) {
-                            notesToPlay = chordNotesMapping[event.chord];
+                        if (chordNotesMapping[segment.chord]) {
+                            notesToPlay = chordNotesMapping[segment.chord];
                         } else {
                             // If it's not a predefined chord, assume it's a single note acting as a chord
-                            notesToPlay = [event.chord];
+                            notesToPlay = [segment.chord];
                         }
 
                         const chordGain = 0.2;
                         notesToPlay.forEach(noteName => {
-                            playTone(noteToFreq(noteName), targetTime, event.duration, 'triangle', chordGain);
+                            playTone(noteToFreq(noteName), segmentTargetTime, segment.duration, 'triangle', chordGain);
                         });
                     }
 
                     // Play Melody Tones
-                    if (event.melody && event.melody.length > 0) {
+                    if (segment.melody && Array.isArray(segment.melody) && segment.melody.length > 0) {
                         const melodyGain = 0.35;
-                        event.melody.forEach(melodyNote => {
-                            const noteName = typeof melodyNote === 'string' ? melodyNote : melodyNote.name;
-                            const noteDuration = typeof melodyNote === 'string' ? (event.duration || 1) / event.melody.length : melodyNote.duration || 0.1; // Use recorded duration, or approximate if not specified
-                            const notePlayTime = targetTime + (typeof melodyNote === 'object' ? melodyNote.relativeTime : 0); // Use relativeTime if available
+                        segment.melody.forEach(melodyNote => {
+                            const noteName = melodyNote.name;
+                            const noteDuration = melodyNote.duration || 0.1; // Default to 0.1s if no duration
+                            const noteRelativeTime = melodyNote.relativeTime || 0; // Default to 0 if no relativeTime
+
+                            const notePlayTime = segmentTargetTime + noteRelativeTime; // Absolute time for this melody note
 
                             playTone(noteToFreq(noteName), notePlayTime, noteDuration, 'sine', melodyGain);
+
                             setTimeout(() => {
                                 if (isPlaying) currentNoteDisplay.textContent = `Melody: ${noteName}`;
                             }, (notePlayTime - ac.currentTime) * 1000);
@@ -396,37 +396,32 @@
 
                     currentSequenceIndex++;
 
-                    const nextEvent = customSequence[currentSequenceIndex];
-                    if (nextEvent) {
-                        const delayMs = (nextEvent.time - (ac.currentTime - startTime)) * 1000;
-                        scheduleTimeoutId = setTimeout(scheduleNextEvent, delayMs);
+                    // Schedule the next segment or end the sequence
+                    const nextSegment = customSequence[currentSequenceIndex];
+                    if (nextSegment) {
+                        const nextSegmentRelativeTime = nextSegment.time;
+                        const currentPlaybackTime = ac.currentTime - startTime;
+                        const delayUntilNextSegmentMs = (nextSegmentRelativeTime - currentPlaybackTime) * 1000;
+
+                        scheduleTimeoutId = setTimeout(scheduleNextEvent, Math.max(0, delayUntilNextSegmentMs)); // Ensure delay is not negative
                     } else {
-                        const totalSequenceDuration = maxSequenceEndTime - startTime;
-                        const finalDelayMs = (totalSequenceDuration - (ac.currentTime - startTime)) * 1000;
+                        // All segments scheduled, wait for the last note to finish
+                        const currentPlaybackTime = ac.currentTime - startTime;
+                        const remainingTimeMs = (maxSequenceEndTime - currentPlaybackTime) * 1000;
 
                         currentLoopTimeoutId = setTimeout(() => {
                             if (isPlaying) {
                                 if (isLooping) {
                                     statusMessage.textContent = "Looping...";
                                     currentSequenceIndex = 0;
-                                    playCustomSequence();
+                                    playCustomSequence(); // Restart the sequence
                                 } else {
-                                    isPlaying = false;
-                                    playButton.disabled = false;
-                                    stopButton.disabled = true;
-                                    resetButton.disabled = false;
-                                    recordButton.disabled = false;
-                                    saveButton.disabled = false;
-                                    loadButton.disabled = false;
-                                    loopButton.disabled = false;
-                                    toggleKeyboardCaptureButton.disabled = false;
+                                    isPlaying = false; // Stop playback
+                                    stopPlaybackCleanup();
                                     statusMessage.textContent = "Sequence finished.";
-                                    currentChordDisplay.textContent = "";
-                                    currentNoteDisplay.textContent = "";
-                                    if (ac && ac.state === 'running') ac.suspend();
                                 }
                             }
-                        }, finalDelayMs + 50);
+                        }, Math.max(0, remainingTimeMs + 50)); // Add a small buffer
                     }
                 }
             }
@@ -437,14 +432,25 @@
         // --- Stop Playback Function ---
         function stopPlayback() {
             isPlaying = false;
+            stopPlaybackCleanup();
+        }
+
+        function stopPlaybackCleanup() {
             clearTimeout(scheduleTimeoutId);
             clearTimeout(currentLoopTimeoutId);
+            // Stop all currently playing oscillators
+            activeOscillators.forEach((tone, freq) => stopTone(freq));
+            pressedKeys.clear();
+
             if (ac && ac.state === 'running') {
                 ac.suspend();
             }
+            // A slight delay to ensure AudioContext settles before attempting resume for next play
             setTimeout(() => {
                 if (ac) ac.resume();
             }, 100);
+
+            // Reset UI and button states
             playButton.disabled = false;
             stopButton.disabled = true;
             resetButton.disabled = false;
@@ -453,36 +459,42 @@
             loadButton.disabled = false;
             loopButton.disabled = false;
             toggleKeyboardCaptureButton.disabled = false;
-            statusMessage.textContent = "Stopped.";
             currentChordDisplay.textContent = "";
             currentNoteDisplay.textContent = "";
+            statusMessage.textContent = "Stopped.";
         }
 
         // --- Recording Logic ---
         function startNewRecordingSegment() {
             // Finalize previous segment if it exists and is not empty
             if (currentRecordingSegment &&
-                (currentRecordingSegment.melody.length > 0 || currentRecordingSegment.chord)) {
-                
-                // Calculate actual duration based on the last event in the segment
+                (currentRecordingSegment.melody.length > 0 || (currentRecordingSegment.chord && currentRecordingSegment.chord.name))) {
+
                 let segmentEnd = currentRecordingSegment.startTime; // Initialize with segment start
+
+                // Update segment duration based on chord or last melody note
                 if (currentRecordingSegment.chord && currentRecordingSegment.chord.duration) {
                     segmentEnd = Math.max(segmentEnd, currentRecordingSegment.chord.startTime + currentRecordingSegment.chord.duration);
                 }
                 currentRecordingSegment.melody.forEach(note => {
-                    segmentEnd = Math.max(segmentEnd, note.relativeTime + note.duration);
+                    segmentEnd = Math.max(segmentEnd, note.startTime + note.duration);
                 });
-                currentRecordingSegment.duration = segmentEnd - currentRecordingSegment.startTime;
+
+                currentRecordingSegment.duration = parseFloat((segmentEnd - currentRecordingSegment.startTime).toFixed(3));
                 if (currentRecordingSegment.duration < 0.05) currentRecordingSegment.duration = 0.05; // Minimum duration
 
                 recordedSegments.push(currentRecordingSegment);
+                statusMessage.textContent = `Recorded segment ended. New segment started.`;
+            } else if (currentRecordingSegment) {
+                // If a segment was started but nothing was recorded, don't add it.
+                statusMessage.textContent = `Empty segment skipped. New segment started.`;
             }
-            // Start a new empty segment
+
+            // Start a new empty segment relative to the start of recording
             currentRecordingSegment = {
-                time: ac.currentTime - recordStartTime, // Time relative to recording start
+                time: parseFloat((ac.currentTime - recordStartTime).toFixed(3)),
                 melody: []
             };
-            statusMessage.textContent = "Recording: New segment started.";
         }
 
         function startRecording() {
@@ -495,8 +507,7 @@
             isRecording = true;
             recordedSegments = [];
             recordStartTime = ac.currentTime;
-            lastSegmentEndTime = 0; // Reset
-            currentRecordingSegment = null; // Will be initialized by the first key press or explicit startNewRecordingSegment
+            currentRecordingSegment = null; // Will be initialized by the first key press
 
             recordButton.disabled = true;
             stopRecordButton.disabled = false;
@@ -533,7 +544,6 @@
         function clearRecordedMelody() {
             recordedSegments = [];
             currentRecordingSegment = null;
-            lastSegmentEndTime = 0;
             statusMessage.textContent = "Recorded melody cleared.";
             addRecordedToEditorButton.disabled = true;
         }
@@ -565,19 +575,19 @@
             });
 
             // Adjust the time of recorded segments relative to the end of the existing sequence
-            const newSegments = recordedSegments.map(segment => {
-                const newTime = existingSequenceDuration + segment.time + 0.1; // Add a small gap between sequences
-                const newSegment = { ...segment, time: parseFloat(newTime.toFixed(3)) }; // Ensure float with precision
-                // Clean up temporary recording properties
-                delete newSegment.startTime;
-                if (newSegment.chord) {
-                    newSegment.chord = newSegment.chord.name; // Keep only the name for the chord property
-                    delete newSegment.chord.startTime;
-                    delete newSegment.chord.endTime;
-                    delete newSegment.chord.duration;
+            const newSegmentsToAdd = recordedSegments.map(segment => {
+                const newTime = existingSequenceDuration + segment.time + (existingSequenceDuration > 0 ? 0.1 : 0); // Add a small gap after first segment if not empty
+                const newSegment = { time: parseFloat(newTime.toFixed(3)) };
+
+                if (segment.chord && segment.chord.name) {
+                    newSegment.chord = segment.chord.name;
+                    newSegment.duration = parseFloat(segment.duration.toFixed(3)); // Chord's duration determines segment duration
+                } else {
+                    newSegment.duration = parseFloat(segment.duration.toFixed(3));
                 }
-                if (newSegment.melody) {
-                    newSegment.melody = newSegment.melody.map(note => ({
+
+                if (segment.melody && segment.melody.length > 0) {
+                    newSegment.melody = segment.melody.map(note => ({
                         name: note.name,
                         duration: parseFloat(note.duration.toFixed(3)),
                         relativeTime: parseFloat(note.relativeTime.toFixed(3))
@@ -586,7 +596,7 @@
                 return newSegment;
             });
 
-            currentEditorSequence.push(...newSegments);
+            currentEditorSequence.push(...newSegmentsToAdd);
             sequenceEditor.value = JSON.stringify(currentEditorSequence, null, 2);
             statusMessage.textContent = "Recorded melody added to editor. Remember to save if you want to keep it!";
             recordedSegments = []; // Clear recorded data after adding to editor
@@ -634,7 +644,10 @@
             isLooping = !isLooping;
             loopButton.textContent = `Loop: ${isLooping ? 'ON' : 'OFF'}`;
             if (isPlaying && isLooping && statusMessage.textContent.includes("finished.")) {
-                playCustomSequence();
+                playCustomSequence(); // Restart if finished and looping is turned on
+            } else if (isPlaying && !isLooping) {
+                // If looping is turned off mid-play, ensure the current loop timeout is cleared
+                clearTimeout(currentLoopTimeoutId);
             }
             statusMessage.textContent = `Looping is now ${isLooping ? 'ON' : 'OFF'}.`;
         });
@@ -653,7 +666,7 @@
 
         // Keyboard Event Listeners
         document.addEventListener('keydown', (e) => {
-            if (!keyboardCaptureEnabled || e.repeat) return;
+            if (!keyboardCaptureEnabled || e.repeat) return; // Prevent continuous notes on key hold
 
             const key = e.key.toLowerCase();
 
@@ -666,7 +679,7 @@
             const noteName = keyboardNoteMap[key];
 
             if (noteName && !pressedKeys.has(key)) {
-                e.preventDefault();
+                e.preventDefault(); // Prevent default browser actions for these keys
                 pressedKeys.add(key);
 
                 if (!ac) {
@@ -688,8 +701,8 @@
                             }
                         }
 
-                        // Determine if this is the first note in the segment and a potential chord
-                        const isFirstNoteOfSegment = !currentRecordingSegment.chord && currentRecordingSegment.melody.length === 0;
+                        // Check if this is the first note of the current segment for chord detection
+                        const isFirstNoteOfSegment = !currentRecordingSegment.chord && currentRecordingSegment.melody.length === 0 && !currentRecordingSegment._potentialChord;
 
                         if (isFirstNoteOfSegment) {
                             currentRecordingSegment._potentialChord = {
@@ -699,7 +712,7 @@
                                     // If held for 1 second, confirm it's a chord
                                     currentRecordingSegment.chord = {
                                         name: noteName,
-                                        startTime: currentRecordingSegment._potentialChord.startTime,
+                                        startTime: currentRecordingSegment._potentialChord.startTime, // Relative to recording start
                                         duration: 0 // Will be updated on keyup
                                     };
                                     statusMessage.textContent = `Recording: Chord ${noteName} held. Play melody over it.`;
@@ -708,20 +721,20 @@
                             };
                             currentNoteDisplay.textContent = `Playing: ${noteName} (Potential Chord)`;
                         } else if (currentRecordingSegment.chord) {
-                            // Already a chord, add subsequent notes as melody
+                            // Already a chord, add subsequent notes as melody over the chord
                             currentRecordingSegment.melody.push({
                                 name: noteName,
-                                relativeTime: currentTime - currentRecordingSegment.chord.startTime,
-                                startTime: currentTime,
+                                relativeTime: parseFloat((currentTime - currentRecordingSegment.chord.startTime).toFixed(3)),
+                                startTime: currentTime, // Absolute time for duration calculation
                                 duration: 0 // Will be updated on keyup
                             });
                             currentNoteDisplay.textContent = `Melody: ${noteName}`;
                         } else {
-                            // Not a chord, just a melody note
+                            // Not a chord, just a regular melody note in a melody-only segment
                             currentRecordingSegment.melody.push({
                                 name: noteName,
-                                relativeTime: currentTime - currentRecordingSegment.time, // Time relative to segment start
-                                startTime: currentTime,
+                                relativeTime: parseFloat((currentTime - currentRecordingSegment.time).toFixed(3)), // Relative to segment start
+                                startTime: currentTime, // Absolute time for duration calculation
                                 duration: 0
                             });
                             currentNoteDisplay.textContent = `Melody: ${noteName}`;
@@ -746,37 +759,40 @@
                     if (isRecording && currentRecordingSegment) {
                         const currentTime = ac.currentTime - recordStartTime;
 
+                        // Check if it's the chord note being released
                         if (currentRecordingSegment.chord && currentRecordingSegment.chord.name === noteName &&
-                            currentTime > currentRecordingSegment.chord.startTime) {
-                            // This was the main chord note being released
-                            currentRecordingSegment.chord.duration = currentTime - currentRecordingSegment.chord.startTime;
+                            currentRecordingSegment.chord.duration === 0) { // Check if its duration hasn't been set yet
+                            currentRecordingSegment.chord.duration = parseFloat((currentTime - currentRecordingSegment.chord.startTime).toFixed(3));
+                            if (currentRecordingSegment.chord.duration < 0.05) currentRecordingSegment.chord.duration = 0.05; // Minimum duration
                             statusMessage.textContent = `Recording: Chord ${noteName} released.`;
 
-                            // Ensure all active melody notes played over this chord get their duration
+                            // Also ensure all melody notes active *during* this chord are finalized
                             currentRecordingSegment.melody.forEach(note => {
                                 if (note.duration === 0) { // If note hasn't been released yet
-                                    note.duration = currentTime - note.startTime;
+                                    note.duration = parseFloat((currentTime - note.startTime).toFixed(3));
                                     if (note.duration < 0.05) note.duration = 0.05; // Minimum duration
                                 }
                             });
                         } else if (currentRecordingSegment._potentialChord && currentRecordingSegment._potentialChord.name === noteName) {
                             // Potential chord released before 1 second confirmation
                             clearTimeout(currentRecordingSegment._potentialChord.timeoutId);
-                            const duration = currentTime - currentRecordingSegment._potentialChord.startTime;
+                            const duration = parseFloat((currentTime - currentRecordingSegment._potentialChord.startTime).toFixed(3));
                             // Add it as a regular melody note instead
                             currentRecordingSegment.melody.push({
                                 name: noteName,
-                                relativeTime: currentRecordingSegment._potentialChord.startTime - currentRecordingSegment.time,
+                                relativeTime: parseFloat((currentRecordingSegment._potentialChord.startTime - currentRecordingSegment.time).toFixed(3)),
                                 startTime: currentRecordingSegment._potentialChord.startTime,
                                 duration: duration
                             });
+                            if (duration < 0.05) currentRecordingSegment.melody[currentRecordingSegment.melody.length - 1].duration = 0.05;
                             statusMessage.textContent = `Recording: Note ${noteName} released.`;
                             delete currentRecordingSegment._potentialChord;
                         } else {
                             // Regular melody note released
+                            // Find the most recent, un-ended melody note with this name
                             const melodyNote = currentRecordingSegment.melody.findLast(note => note.name === noteName && note.duration === 0);
                             if (melodyNote) {
-                                melodyNote.duration = currentTime - melodyNote.startTime;
+                                melodyNote.duration = parseFloat((currentTime - melodyNote.startTime).toFixed(3));
                                 if (melodyNote.duration < 0.05) melodyNote.duration = 0.05; // Minimum duration
                                 currentNoteDisplay.textContent = `Note: ${noteName} released.`;
                             }
