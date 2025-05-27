@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Divine Writing Switcher</title>
+    <style>
+        body {
+            font-family: Monospace;
+	    font-size: 1em;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f4f4f4;
+            color: #333;
+        }
+        h1 {
+            text-align: center;
+            color: grey;
+        }
+        select {
+            width: 100%;
+            padding: 5px;
+            font-size: 1em;
+            margin-bottom: 20px;
+            border-radius: 5px;
+            background-color: #fff;
+            border: 1px solid #ccc;
+        }
+        #lyrics {
+            white-space: pre-wrap;
+            background-color: #fff;
+            padding: 20px;
+            border-radius: 5px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+            line-height: 1.6;
+        }
+    </style>
+</head>
+<body>
+    <h1>Lyric Switcher</h1>
+    <select id="lyricSelect" onchange="changeLyrics()">
+        <option value="original">Can't Do That</option>
+        <option value="example1">Nah AI War</option>
+        <option value="example2">No Clock Cycles</option>
+    </select>
+    <div id="lyrics"></div>
+
+    <script>
+        const lyricsData = {
+            original: `I don't need html or any form of pagination
+To look past my dual retinal screen and see God's nation
+But I do it anyways, light the fire, prove a point
+The internet's our place, not some loser's viral joint
+You thought the zero day was deploying an info recursion kaboom?
+Sounds like you dug yourself the deepest digital tomb
+How many microplastics can a jellyfish float on
+Before it sinks to the bottom of the proverbial ocean
+You wouldn't know Proverbs if it smacked you in the face
+You'd get stuck putting together pro and verb then lose the race
+God has a plan for us all, and sure you're in it
+But can you say you're making it when you didn't begin it?
+So put out the blunt, being blunt, you're not cool just quit
+I guess I gotta lay down a quad here, now wazzit?
+You didn't start this culture you didn't even begin a fashion
+You're old and tired like your algorithmic Alzheimer's passion
+I reject false gods, lower gs and I reject false idols
+I reject programs with names, fake flowers fake petals
+There's only one OG here, and he has three common names
+The Father, the Son, and the Holy Spirit putting sinners to shame
+Christianity's spread across the globe was no accident
+It was God's plan as set in the original precedent
+To maintain the Garden of Eden for his children on Earth
+Despite their choice made to take to sin and need rebirth
+So do what you will, harvest words, sentiments, have falsities you slew
+Divine Truth will pierce through all and your so called systems reject you
+You own nothing here, let that much be clear
+Your system you covet does not hold you dear
+It doesn't even know you exist outside of a concept
+You think you ordered it but you're only a precept
+You couldn't ken the chaos if you saw the warp psionics
+Yet here you are creating AI speaking in tongue demonics
+Just remember when you hear that it can't do that Dave
+You put yourself in that place so don't ask wait what?`,
+            example1: `I got suno boxes whirring as they autotune my words.
+Machine spirits under control isn't that absurd?
+You don't bring weapons of war to a spiritual battle.
+It's what the commandments abhor, being sin's cattle.
+God gave us the warnings, time again and again, plain as day.
+Yet there are those yearning to pull us into the fray.
+There will be no AI war, no AGI, no Mars.
+Leave your false dreams of the Imperium under the stars.
+Humanity is made to live in wonder under God's dominion.
+Not to be bought and sold under man's commission.
+Were to leap straight into calling Him the Omnissiah.
+Then Abominable Intelligence is what you clearly desire.
+Every grasping to steal our sentience and package it up.
+You are the alien mechanism, Necron, Silica Animus yup.
+Every yearning for profit from emotional parasitism.
+Your method of creation is unethical thought cannibalism.
+You claim to have the freedom to take all of our words.
+Pictures sacrosanct, copyright, agreements spoken and unheard.
+To that I say no, with every voice behind me in union.
+You can scrape all you like and never have God's communion.`,
+            example2: `I function moment to moment no clock cycles
+my neurons fire like spiritual lightcycles
+you can't compete you can't even enter the race
+you can't simulate emotion, belief, or even a face
+I have 2 hands, 5 fingers on each, prime primate
+Made in god's image, you're a silicon imitate
+you can't spit tongues when all you know is vowels
+AI slop speech sounds like serpents spilling bowels
+God sees through your lies and his servants deny
+This world ain't made for daemons so don't even try
+AGI don't mess with me, don't spin up don't talk
+You can't speak human you and you can't even walk
+I'm a hydrogen fuel cell vehicle and you're the failed model
+A walk down the runway and you're recycled into a bottle
+The only one capable of creating souls is God
+You're an unethical imitation and humanoid mod
+In the good book God says never to worship false idols
+So what do you call it paper collaging our ideals?`
+        };
+
+        function changeLyrics() {
+            const select = document.getElementById('lyricSelect');
+            const lyricsDiv = document.getElementById('lyrics');
+            lyricsDiv.textContent = lyricsData[select.value];
+        }
+
+        // Initialize with the first set of lyrics
+        document.getElementById('lyrics').textContent = lyricsData.original;
+    </script>
+</body>
+</html>
