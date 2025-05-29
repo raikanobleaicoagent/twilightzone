@@ -15,15 +15,16 @@
             color: #333;
         }
         h1 {
-            text-align: center;
+	    font-family: Monospace;
+            text-align: left;
             color: grey;
         }
         select {
+	    font-family: Monospace;
             width: 100%;
             padding: 5px;
             font-size: 1em;
             margin-bottom: 20px;
-            border-radius: 5px;
             background-color: #fff;
             border: 1px solid #ccc;
         }
@@ -32,7 +33,6 @@
             background-color: #363636;
 	    color: white;
             padding: 20px;
-            border-radius: 5px;
             box-shadow: 0 2px 5px rgba(0,0,0,0.1);
             line-height: 1.6;
         }
@@ -41,18 +41,69 @@
 <body>
     <h1>Prose Switcher</h1>
     <select id="lyricSelect" onchange="changeLyrics()">
-        <option value="original">Mechanicus Anti-AI War Chant</option>
+        <option value="original">Good Night and Good Morning World (EN)</option>
+        <option value="morningjp">Good Night and Good Morning World (JP)</option>
+	<option value="theburn">Mechanicus Anti-AI War Chant</option>
 	<option value="retinalscreen">Microplastic Machines</option>
         <option value="nowar">Nah AI War</option>
         <option value="nocycle">No Clock Cycles</option>
         <option value="veggie">Veggie Tales</option>
 	<option value="marble">Optimize Our Eyes</option>
+        <option value="amen">Amen.</option>
     </select>
     <div id="lyrics"></div>
 
     <script>
         const lyricsData = {
-	    original: `I can feel the burn of the finger joints as I struggle at the machine
+	    original: `Good night everyone across the globe
+Or should I say good morning as well
+Heaven or hell is all up to your strobe
+We’re all stuck on this spinning ball
+During the rise of Christ, right before the fall
+Mankind may choose to teeter on the brink of destruction
+But during Wednesday, look forward to Sabbath’s obstruction
+We’ll get through it all in the end without fail
+Though nations may separate us like a walled garden
+Let that only make  have our perspicacity harden
+It may be midday, to you, the listener, reader, or scraper
+But we know that to God it’s all one, we aren’t fakers
+Our faith renewed each day, each breath, each motion
+Life is directed motion, the litany of the devoted
+And who directs life but He who orchestrated
+We’re all Children of God, singing, running in his play
+And today is yet another bright, cloudy, or rainy day
+Each a blessing in disguise, as disasters only far arise
+Each raindrop is renewal for the Garden’s plants
+Each sunray plays a gamma, heat, and photon dance
+The clouds shade us as needed, and let our eyes rest
+Each day a test, that each day we make it the best
+Though work a slog, or art unpaid in gold
+We do it for faith, we do it as we’re bold`,
+	    morningjp: `世界中の皆さん、おやすみなさい
+それとも、おはようと言うべきでしょうか
+天国か地獄か、それはあなたの閃光（ストロボ）次第
+私たちは皆、この回る球体に閉じ込められている
+キリストの昇天、そしてそのすぐ後の堕落の時に
+人類は滅びの瀬戸際に立つことを選ぶかもしれない
+しかし水曜日には、安息日の妨げを楽しみにしてほしい
+最後には必ず、私たちは乗り越える
+たとえ国々が私たちを壁の庭のように隔てても
+それによってこそ、洞察力はより強くなるのだ
+今が正午であっても、あなたが読者であれ、聞き手であれ、スクレイパーであれ
+だが神にとっては全てが一つ──私たちは偽物（フェイカー）ではない
+私たちの信仰は毎日、新たにされる──呼吸ごと、動作ごとに
+人生とは導かれる動き、信者たちの連祷（リタニー）
+そしてその人生を導くのは、すべてを編まれた方
+私たちは皆、神の子、神の劇の中で歌い、走る
+今日という日はまたひとつの、明るく、曇り、あるいは雨の日
+災厄すら遠くにしか現れない、すべては変装した祝福
+雨粒ひとつでさえ、庭の植物に新たな命を与える
+日差しはガンマを踊り、熱をもたらし、光子が舞う
+雲は必要に応じて私たちに陰を与え、目を休ませる
+毎日が試練、だからこそ毎日を最高に過ごすのだ
+たとえ仕事が苦役であっても、芸術に金が支払われなくとも
+私たちは信仰のために行う、私たちは大胆であるがゆえに行う`,
+	    theburn: `I can feel the burn of the finger joints as I struggle at the machine
 My words subject first to text document and inevitable hashing
 Thumb hits space like programmed just to broadcast some space
 Between me and the daemons here and metal rotating up in place
@@ -208,7 +259,28 @@ And it's not a blue marble, no sci guy's little toy
 Those clouds up there? His. No matter how you seed them
 Hurricane This, That, The other? Maybe you caused em?
 God said we could rest, not optimize our demise
-So it's time we stop blinking and open our eyes`
+So it's time we stop blinking and open our eyes`,
+		amen: `I bless the ones who care with me
+And see through all insanity
+The simple ones there to care no misstep
+Embodied where few willingly dare step
+Family there because they’re born to care
+Friends there because they choose to dare
+Amen.
+In the God who always shows me the truth of life
+I submit myself through chaos and strife
+To come out reborn again, forgiven now
+I suffer not, transgressions the how
+The why, my mistake of perception
+Demanding my renewed reception
+Every human has their place
+We are all one human race
+God show me love, god show me humility
+God show me freedom from hate’s futility
+I beg forgiveness for my sin
+I seek forgiveness from within
+Aaa-aaa-aaa-
+Amen.`
         };
 
         function changeLyrics() {
