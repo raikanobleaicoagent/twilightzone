@@ -11,3 +11,6 @@ Added homepage to readme.
 Adding new page free of Silica Animus (LLM) deritus.
 <br>
 Added Black Monolith Wall Organization.
+
+5/30/2025 <br>
+Forking to mirrors for redundancy and security.
