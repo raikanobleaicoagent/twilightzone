@@ -111,10 +111,6 @@
             white-space: nowrap;
             overflow: hidden;
         }
-        .shed-mode {
-            background: linear-gradient(135deg, #000000, #0f0f1a);
-            filter: contrast(150%);
-        }
         .link-tree {
             margin-top: 20px;
             display: flex;
@@ -264,7 +260,6 @@
         // Toggle controls visibility
         function toggleControls() {
             const title = document.getElementById('title');
-            // Removed audioPlayer reference
             const toggleButton = document.querySelector('.toggle-controls');
             controlsVisible = !controlsVisible;
             if (controlsVisible) {
@@ -317,13 +312,6 @@
             cartoon.addEventListener('mouseout', () => {
                 cartoon.style.animation = 'bob 3s ease-in-out infinite';
             });
-        });
-
-        // Shed mode toggle
-        document.addEventListener('keydown', e => {
-            if (e.key === 's') {
-                document.body.classList.toggle('shed-mode');
-            }
         });
     </script>
 </body>
