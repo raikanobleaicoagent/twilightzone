@@ -130,19 +130,15 @@
             position: relative;
         }
         .tree li:before {
-            content: '├──';
-            color: #39ff14;
-            position: absolute;
-            left: -20px;
+        content: '├──';
+        color: #39ff14;
+        position: absolute;
+        /* Adjust this value to shift the tree lines left or right */
+        left: -20px; /* You might need to experiment with this value */
         }
+
         .tree li:last-child:before {
-            content: '╰─';
-        }
-        .tree ul {
-    list-style: none;
-    padding: 0;
-    margin: 0 auto;
-    max-width: 400px;
+        content: '╰─';
         }
         .folder-label {
             cursor: pointer;
@@ -167,11 +163,13 @@
         .folder-label.open::before {
             transform: rotate(90deg);
         }
+
         .sub-tree {
-            display: none;
-            padding-left: 0;
-            margin: 0 auto;
-            max-width: 400px;
+        display: none;
+        /* This needs to match the indentation of the parent folder label */
+        padding-left: 20px; /* Adjust this value to align sub-items */
+        margin: 0 auto;
+        max-width: 400px;
         }
         .sub-tree.open {
             display: block;
