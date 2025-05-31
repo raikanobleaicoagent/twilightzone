@@ -53,6 +53,7 @@
             margin-top: 50px;
             font-size: 1.2em;
             position: relative;
+            text-align: center;
             max-height: 500px; /* Scrollable height */
             overflow-y: auto; /* Enable vertical scrollbar */
             scrollbar-width: thin; /* Firefox scrollbar */
@@ -232,7 +233,6 @@
         <h1 id="title">The_InDex</h1>
         <br>
         <div class="art-space">
-            <button class="toggle-controls" onclick="toggleControls()">-</button>
             <h2>The ID</h2>
             <p>I’m Raika, modern day Netrunner, hi.</p>
             <h2>Link Tree</h2>
@@ -272,22 +272,6 @@
     <svg>
     </svg>
     <script>
-        let controlsVisible = true;
-
-        // Toggle controls visibility
-        function toggleControls() {
-            const title = document.getElementById('title');
-            const toggleButton = document.querySelector('.toggle-controls');
-            controlsVisible = !controlsVisible;
-            if (controlsVisible) {
-                title.classList.remove('hidden');
-                toggleButton.textContent = '-';
-            } else {
-                title.classList.add('hidden');
-                toggleButton.textContent = '+';
-            }
-        }
-
         // Toggle folder visibility
         function toggleFolder(element) {
             const subTree = element.nextElementSibling;
