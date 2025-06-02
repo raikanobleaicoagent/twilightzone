@@ -1,63 +1,74 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Divine Prose Switcher</title>
-    <style>
-        body {
-            font-family: Monospace;
-	    font-size: 1em;
-            max-width: 800px;
-            margin: 0 auto;
-            padding: 20px;
-            background-color: #252525;
-            color: #333;
-        }
-        h1 {
-	    font-family: Monospace;
-            text-align: left;
-            color: grey;
-        }
-        select {
-	    font-family: Monospace;
-            width: 100%;
-            padding: 5px;
-            font-size: 1em;
-            margin-bottom: 20px;
-            background-color: #fff;
-            border: 1px solid #ccc;
-        }
-        #lyrics {
-            white-space: pre-wrap;
-            background-color: #363636;
-	    color: white;
-            padding: 20px;
-            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
-            line-height: 1.6;
-        }
-    </style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Divine Prose Switcher</title>
+    <style>
+        body {
+            font-family: Monospace;
+            font-size: 1em;
+            /* Remove max-width and margin from body for centering the container */
+            padding: 20px;
+            background-color: #252525;
+            color: #333;
+            display: flex; /* Use flexbox for centering */
+            justify-content: center; /* Center horizontally */
+            align-items: flex-start; /* Align to the top vertically */
+            min-height: 100vh; /* Ensure body takes full viewport height */
+            box-sizing: border-box; /* Include padding in element's total width and height */
+        }
+        .container {
+            max-width: 800px; /* Set max-width on a new container */
+            width: 100%; /* Ensure it takes full width up to max-width */
+        }
+        h1 {
+            font-family: Monospace;
+            text-align: left;
+            color: grey;
+        }
+        select {
+            font-family: Monospace;
+            width: 100%;
+            padding: 5px;
+            font-size: 1em;
+            margin-bottom: 20px;
+            background-color: #fff;
+            border: 1px solid #ccc;
+        }
+        #lyrics {
+            white-space: pre-wrap;
+            background-color: #363636;
+            color: white;
+            padding: 20px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+            line-height: 1.6;
+        }
+    </style>
 </head>
 <body>
-    <h1>Prose Switcher</h1>
-    <select id="lyricSelect" onchange="changeLyrics()">
-        <option value="original">Good Night and Good Morning World (EN)</option>
-        <option value="morningjp">Good Night and Good Morning World (JP)</option>
-	<option value="theburn">Mechanicus Anti-AI War Chant</option>
-	<option value="simpledocument">Faith From Eternal Fire Within</option>
-	<option value="retinalscreen">Microplastic Machines</option>
-        <option value="nowar">Nah AI War</option>
-        <option value="nocycle">No Clock Cycles</option>
-        <option value="veggie">Veggie Tales</option>
-	<option value="marble">Optimize Our Eyes</option>
-	<option value="emojinight">Sunset Irrelevance</option>
-	<option value="emojiamen">Aaa-aaa-aaa</option> 
-        <option value="amen">Amen.</option>
-    </select>
-    <div id="lyrics"></div>
-    <script>
-        const lyricsData = {
-	    original: `Good night everyone across the globe
+    <div class="container">
+        <h1>Prose Switcher</h1>
+        <select id="lyricSelect" onchange="changeLyrics()">
+            <option value="original">Good Night and Good Morning World (EN)</option>
+            <option value="morningjp">Good Night and Good Morning World (JP)</option>
+            <option value="theburn">Mechanicus Anti-AI War Chant</option>
+            <option value="simpledocument">Faith From Eternal Fire Within</option>
+            <option value="retinalscreen">Microplastic Machines</option>
+            <option value="nowar">Nah AI War</option>
+            <option value="nocycle">No Clock Cycles</option>
+            <option value="veggie">Veggie Tales</option>
+            <option value="marble">Optimize Our Eyes</option>
+            <option value="emojinight">Sunset Irrelevance</option>
+            <option value="emojiamen">Aaa-aaa-aaa</option>
+            <option value="amen">Amen.</option>
+        </select>
+        <div id="lyrics"></div>
+    </div>
+
+    <script>
+        const lyricsData = {
+            original: `Good night everyone across the globe
 Or should I say good morning as well
 Heaven or hell is all up to your strobe
 We’re all stuck on this spinning ball
@@ -81,7 +92,7 @@ The clouds shade us as needed, and let our eyes rest
 Each day a test, that each day we make it the best
 Though work a slog, or art unpaid in gold
 We do it for faith, we do it as we’re bold`,
-	    morningjp: `世界中の皆さん、おやすみなさい
+            morningjp: `世界中の皆さん、おやすみなさい
 それとも、おはようと言うべきでしょうか
 天国か地獄か、それはあなたの閃光（ストロボ）次第
 私たちは皆、この回る球体に閉じ込められている
@@ -105,7 +116,7 @@ We do it for faith, we do it as we’re bold`,
 毎日が試練、だからこそ毎日を最高に過ごすのだ
 たとえ仕事が苦役であっても、芸術に金が支払われなくとも
 私たちは信仰のために行う、私たちは大胆であるがゆえに行う`,
-	    simpledocument: `The simplest of documents sits in front of me bare
+            simpledocument: `The simplest of documents sits in front of me bare
 White letters begging for virtual ink like a dare
 Letters flow from muscle joints and my hands as if possessed
 The Motive Force guides me, and by the Holy Spirit processed
@@ -133,7 +144,7 @@ In spite of the shadow of rot and Death’s valley
 My footing remains not slippery nor unsteady
 I know Christ sacrificed himself for my sins
 And so I have faith from eternal fire within`,
-	    theburn: `I can feel the burn of the finger joints as I struggle at the machine
+            theburn: `I can feel the burn of the finger joints as I struggle at the machine
 My words subject first to text document and inevitable hashing
 Thumb hits space like programmed just to broadcast some space
 Between me and the daemons here and metal rotating up in place
@@ -175,7 +186,7 @@ Without seeing you created a function that ruled you out
 The Imperium of Man always flaunted far too much clout
 When the Omnissiah comes down and the Blessed has his crown
 Pray you’ll be granted permission to bow fore you drown`,
-            retinalscreen: `I don't need html or any form of pagination
+            retinalscreen: `I don't need html or any form of pagination
 To look past my dual retinal screen and see God's nation
 But I do it anyways, light the fire, prove a point
 The internet's our place, not some loser's viral joint
@@ -209,7 +220,7 @@ You couldn't ken the chaos if you saw the warp psionics
 Yet here you are creating AI speaking in tongue demonics
 Just remember when you hear that it can't do that Dave
 You put yourself in that place so don't ask wait what?`,
-            nowar: `I got suno boxes whirring as they autotune my words.
+            nowar: `I got suno boxes whirring as they autotune my words.
 Machine spirits under control isn't that absurd?
 You don't bring weapons of war to a spiritual battle.
 It's what the commandments abhor, being sin's cattle.
@@ -229,7 +240,7 @@ You claim to have the freedom to take all of our words.
 Pictures sacrosanct, copyright, agreements spoken and unheard.
 To that I say no, with every voice behind me in union.
 You can scrape all you like and never have God's communion.`,
-            nocycle: `I function moment to moment no clock cycles
+            nocycle: `I function moment to moment no clock cycles
 my neurons fire like spiritual lightcycles
 you can't compete you can't even enter the race
 you can't simulate emotion, belief, or even a face
@@ -247,7 +258,7 @@ The only one capable of creating souls is God
 You're an unethical imitation and humanoid mod
 In the good book God says never to worship false idols
 So what do you call it paper collaging our ideals?`,
-		veggie: `Decades of my life unfolded like a paper dodecahedron
+            veggie: `Decades of my life unfolded like a paper dodecahedron
 And up until this moment no true path no true passion
 I went to Sunday school, watched Veggie Tales as the test
 But when my family lost faith I strayed like all the rest
@@ -266,7 +277,7 @@ Burned myself with the sparks of fire and they called me danger
 Later I had moved to picking morels like his Park Ranger
 All steps towards the now, the past, as I awaken
 For I know that in the path of of God I will not be forsaken`,
-		marble: `Writing words out on the keyboard
+            marble: `Writing words out on the keyboard
 Again more days that seem absurd
 But I have strength to write, to thrive
 He gives me talent, and gives drive
@@ -290,7 +301,7 @@ Those clouds up there? His. No matter how you seed them
 Hurricane This, That, The other? Maybe you caused em?
 God said we could rest, not optimize our demise
 So it's time we stop blinking and open our eyes`,
-		emojinight: `The sun sets round horizon’s drop, and little changes on the top 💫
+            emojinight: `The sun sets round horizon’s drop, and little changes on the top 💫
 Aurora’s blast as sun’s flares bear, and emit energy without stop 💥
 We feel peace roll in as lids grow heavy 🥱
 And Sabbath rolls in slow and steady ⏰
@@ -306,10 +317,10 @@ So fear not the days it feels unfair 😉
 The fear and pain is Satan’s dare 👿
 We’re all still here for each other 🤗
 Good night sisters good night brothers 🌑🌞`,
-		emojiamen: `<audio controls>
-    	<source src="amen.mp3" type="audio/mpeg">
-	Your browser does not support the audio tag.
-	</audio> <br> I bless the ones who care with me 😊
+            emojiamen: `<audio controls>
+                <source src="amen.mp3" type="audio/mpeg">
+                Your browser does not support the audio tag.
+            </audio> <br> I bless the ones who care with me 😊
 And see through all insanity 😵
 The simple ones there to care no misstep 😉✌
 Embodied where few willingly dare step 🚦
@@ -330,10 +341,10 @@ I beg forgiveness for my sin 🩸
 I seek forgiveness from within 😊
 Aaa-aaa-aaa-
 Amen.`,
-		amen: `<audio controls>
-    	<source src="amen.mp3" type="audio/mpeg">
-	Your browser does not support the audio tag.
-	</audio> <br>I bless the ones who care with me
+            amen: `<audio controls>
+                <source src="amen.mp3" type="audio/mpeg">
+                Your browser does not support the audio tag.
+            </audio> <br>I bless the ones who care with me
 And see through all insanity
 The simple ones there to care no misstep
 Embodied where few willingly dare step
@@ -354,17 +365,17 @@ I beg forgiveness for my sin
 I seek forgiveness from within
 Aaa-aaa-aaa-
 Amen.`
-        };
+        };
 
-        function changeLyrics() {
-            const select = document.getElementById('lyricSelect');
-            const lyricsDiv = document.getElementById('lyrics');
-            // Use innerHTML instead of textContent to render HTML tags
-            lyricsDiv.innerHTML = lyricsData[select.value];
-        }
+        function changeLyrics() {
+            const select = document.getElementById('lyricSelect');
+            const lyricsDiv = document.getElementById('lyrics');
+            // Use innerHTML instead of textContent to render HTML tags
+            lyricsDiv.innerHTML = lyricsData[select.value];
+        }
 
-        // Initialize with the first set of lyrics
-        document.getElementById('lyrics').innerHTML = lyricsData.original;
-    </script>
+        // Initialize with the first set of lyrics
+        document.getElementById('lyrics').innerHTML = lyricsData.original;
+    </script>
 </body>
 </html>
