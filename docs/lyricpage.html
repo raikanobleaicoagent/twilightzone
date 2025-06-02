@@ -40,10 +40,6 @@
 </head>
 <body>
     <h1>Prose Switcher</h1>
-	<audio controls>
-    	<source src="amen.mp3" type="audio/mpeg">
-	Your browser does not support the audio tag.
-	</audio>
     <select id="lyricSelect" onchange="changeLyrics()">
         <option value="original">Good Night and Good Morning World (EN)</option>
         <option value="morningjp">Good Night and Good Morning World (JP)</option>
@@ -59,7 +55,6 @@
         <option value="amen">Amen.</option>
     </select>
     <div id="lyrics"></div>
-
     <script>
         const lyricsData = {
 	    original: `Good night everyone across the globe
@@ -311,7 +306,10 @@ So fear not the days it feels unfair 😉
 The fear and pain is Satan’s dare 👿
 We’re all still here for each other 🤗
 Good night sisters good night brothers 🌑🌞`,
-		emojiamen: `I bless the ones who care with me 😊
+		emojiamen: `<audio controls>
+    	<source src="amen.mp3" type="audio/mpeg">
+	Your browser does not support the audio tag.
+	</audio> <br> I bless the ones who care with me 😊
 And see through all insanity 😵
 The simple ones there to care no misstep 😉✌
 Embodied where few willingly dare step 🚦
