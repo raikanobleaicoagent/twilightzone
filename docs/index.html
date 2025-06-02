@@ -89,7 +89,7 @@
             width: 200px;
             height: 80px;
             font-size: 2em;
-            ffont-family: 'Courier New', monospace;
+            font-family: 'Courier New', monospace;
             filter: drop-shadow(0 0 10px #39ff14);
             animation: bob 3s ease-in-out infinite;
             cursor: pointer;
@@ -173,8 +173,9 @@
         .sub-tree.open {
             display: block;
         }
-        .link a, .link button { /* Generic styling for links/buttons in tree */
+        .link a, .link button {
             color: #39ff14;
+            font-size: 0.75em;
             text-decoration: none;
             padding: 5px 15px;
             background: #1a1a2e;
@@ -197,10 +198,6 @@
             0% { transform: translateY(0); }
             50% { transform: translateY(-20px); }
             100% { transform: translateY(0); }
-        }
-        @keyframes dropLetter {
-            0% { transform: translateY(0); opacity: 1; }
-            100% { transform: translateY(100px); opacity: 0; }
         }
         @keyframes root-pulse {
             0% { box-shadow: 0 0 10px #39ff14; }
@@ -237,7 +234,7 @@
                             <li class="link"><a href="https://blacksheepfirewall.pages.dev" target=_blank>🌐 Mirror Site</a></li>
                             <li class="link"><a href="https://github.com/raikanobleaicoagent/twilightzone" target="_blank">🌐 GitHub Repo</a></li>
                             <li class="link"><a href="lyricpage.html" target="_blank">🌐 My Vibes</a></li>
-                            <li class="link"><a href="ytswitch.html" target="_blank">🌐 Youtube Vibes</a></li>
+                            <li class="link"><a href="ytswitch.html" target="_blank">🌐 Youtube</a></li>
                             <li class="link"><a href="tributetotruths.html" target="_blank">🌐 Prayers</a></li>
                             <li class="folder">
                                 <span class="folder-label" onclick="toggleFolder(this)">📁 Solos</span>
