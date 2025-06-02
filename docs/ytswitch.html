@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>YouTube Vibe Switcher</title>
+    <style>
+        body {
+            font-family: Monospace;
+            font-size: 1em;
+            padding: 20px;
+            background-color: #252525;
+            color: #333;
+            display: flex;
+            justify-content: center;
+            align-items: flex-start;
+            min-height: 100vh;
+            box-sizing: border-box;
+        }
+        .container {
+            max-width: 800px;
+            width: 100%;
+        }
+        h1 {
+            font-family: Monospace;
+            text-align: left;
+            color: grey;
+        }
+        select {
+            font-family: Monospace;
+            width: 100%;
+            padding: 5px;
+            font-size: 1em;
+            margin-bottom: 20px;
+            background-color: #fff;
+            border: 1px solid #ccc;
+        }
+        #videoContainer {
+            background-color: #000;
+            color: white;
+            padding: 20px; /* This padding will be around the iframe */
+            aspect-ratio: 16 / 9; /* Standard YouTube aspect ratio */
+            width: 100%;
+            max-width: 100%; /* Ensure iframe doesn't overflow */
+            position: relative; /* Needed for absolute positioning of iframe */
+        }
+        #videoFrame {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            border: none;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>YouTube Vibe Switcher</h1>
+        <select id="videoSelect" onchange="changeVideo()">
+            <option value="doomVideo">The Only Thing They Fear is You</option>
+            <option value="mechanicusVideo">Mechanicus Hymnals</option> <option value="newSong2">Epic Orchestral Piece</option> <option value="empty">Unload Video</option>
+        </select>
+        <div id="videoContainer">
+            <iframe id="videoFrame" src="" 
+                    title="YouTube video player" 
+                    frameborder="0" 
+                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" 
+                    referrerpolicy="strict-origin-when-cross-origin" 
+                    allowfullscreen>
+            </iframe>
+        </div>
+    </div>
+
+    <script>
+        const videoData = {
+            doomVideo: "https://www.youtube.com/embed/ekY09M48Jvs?si=HaGYbnR4gV58c-Fs",
+            mechanicusVideo: "https://www.youtube.com/embed/6Pxlq32dGtQ?si=geWMpIfwQzJ4Wk7D",
+            empty: "" // An empty string to "unload" the video
+        };
+
+        function changeVideo() {
+            const select = document.getElementById('videoSelect');
+            const videoFrame = document.getElementById('videoFrame');
+            const selectedKey = select.value;
+
+            videoFrame.src = videoData[selectedKey] || ""; 
+        }
+
+        // Autoload the first video when the page loads
+        document.addEventListener('DOMContentLoaded', () => {
+            const select = document.getElementById('videoSelect');
+            if (select.options.length > 0) {
+                select.value = select.options[0].value; // Set dropdown to first option
+            }
+            changeVideo(); // Load the video corresponding to the first option
+        });
+    </script>
+</body>
+</html>
