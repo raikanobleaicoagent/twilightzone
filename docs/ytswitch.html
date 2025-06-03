@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>YouTube Vibe Switcher</title>
-    <style>
+<style>
         body {
             font-family: Monospace;
             font-size: 1em;
@@ -18,8 +18,8 @@
             box-sizing: border-box;
         }
         .container {
-            max-width: 800px;
-            width: 100%;
+            max-width: 800px; /* Limits the overall width */
+            width: 100%; /* Makes it responsive up to max-width */
         }
         h1 {
             font-family: Monospace;
@@ -28,21 +28,22 @@
         }
         select {
             font-family: Monospace;
-            width: 100%;
+            width: 100%; /* Ensures it takes full width of its parent (.container) */
             padding: 5px;
             font-size: 1em;
             margin-bottom: 20px;
             background-color: #fff;
             border: 1px solid #ccc;
+            box-sizing: border-box; /* Include padding and border in the width */
         }
         #videoContainer {
             background-color: #000;
             color: white;
             padding: 20px; /* This padding will be around the iframe */
             aspect-ratio: 16 / 9; /* Standard YouTube aspect ratio */
-            width: 100%;
-            max-width: 100%; /* Ensure iframe doesn't overflow */
+            width: 100%; /* Ensures it takes full width of its parent (.container) */
             position: relative; /* Needed for absolute positioning of iframe */
+            box-sizing: border-box; /* Include padding in the width */
         }
         #videoFrame {
             position: absolute;
