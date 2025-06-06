@@ -116,9 +116,7 @@
         .tree li:last-child:before {
             content: '╰─';
         }
-
-        /* --- NEWLY ADDED/MODIFIED RULES START HERE --- */
-
+        
         /* Specific overrides for the LEFT-SIDE tree ("Work") */
         /* These rules apply to all items in the left tree, including sub-items */
         .tree-left li:before {
@@ -126,12 +124,9 @@
           left: auto;     /* Unset the default left positioning */
           right: -20px;   /* Position it from the right instead */
         }
-
         .tree-left li:last-child:before {
           content: '─╯'; /* Reversed last-item connector */
         }
-
-        /* --- NEWLY ADDED/MODIFIED RULES END HERE --- */
         
         .tree ul {
             list-style: none;
