@@ -47,6 +47,7 @@
             font-size: 1.2em;
             position: relative;
             text-align: center;
+            border-radius: 0;
             max-height: 700px; /* Scrollable height */
             overflow-y: auto; /* Enable vertical scrollbar */
             scrollbar-width: thin; /* Firefox scrollbar */
@@ -65,24 +66,6 @@
         }
         .art-space::-webkit-scrollbar-thumb:hover {
             background: #2ecc71; /* Lighter neon on hover */
-        }
-        .toggle-controls {
-            background: #1a1a2e;
-            border: 2px solid #39ff14;
-            box-shadow: 0 0 10px #39ff14;
-            padding: 5px 10px;
-            color: #39ff14;
-            font-family: 'Courier New', monospace;
-            font-size: 1em;
-            cursor: pointer;
-            transition: transform 0.2s, box-shadow 0.2s;
-            position: absolute;
-            top: 10px;
-            left: 10px;
-        }
-        .toggle-controls:hover {
-            box-shadow: 0 0 20px #39ff14;
-            transform: scale(1.1);
         }
         .cartoon {
             position: absolute;
@@ -107,6 +90,7 @@
             margin-top: 20px;
             display: flex;
             justify-content: left;
+            border-radius: 0;
             font-family: 'Courier New', monospace;
             color: #39ff14;
             text-shadow: 0 0 5px #39ff14;
