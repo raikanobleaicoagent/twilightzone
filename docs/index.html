@@ -97,40 +97,47 @@
             color: #39ff14;
             text-shadow: 0 0 5px #39ff14;
         }
+        .tree {
+            list-style: none;
+            padding: 0;
+            max-width: 500px;
+            margin: 0 auto;
+        }
         .tree li {
-  margin: 10px 0;
-  position: relative;
-}
+            margin: 10px 0;
+            position: relative;
+        }
+        .tree li:before {
+            content: '├──';
+            color: #39ff14;
+            position: absolute;
+            left: -20px;
+        }
+        .tree li:last-child:before {
+            content: '╰─';
+        }
 
-.tree li:before {
-  content: '├──';
-  color: #39ff14;
-  position: absolute;
-  left: -20px; /* Positions to the LEFT */
-}
+        /* --- NEWLY ADDED/MODIFIED RULES START HERE --- */
 
-.tree li:last-child:before {
-  content: '╰─';
-}
+        /* Specific overrides for the LEFT-SIDE tree ("Work") */
+        /* These rules apply to all items in the left tree, including sub-items */
+        .tree-left li:before {
+          content: '──┤'; /* Reversed connector */
+          left: auto;     /* Unset the default left positioning */
+          right: -20px;   /* Position it from the right instead */
+        }
 
-/* Specific overrides for the LEFT-SIDE tree ("Work") */
-/* These rules MUST come AFTER the default rules above */
+        .tree-left li:last-child:before {
+          content: '─╯'; /* Reversed last-item connector */
+        }
 
-.tree-left li:before {
-  content: '──┤'; /* Reversed connector */
-  left: auto;     /* Unset the left property */
-  right: -20px;   /* Position to the RIGHT instead */
-}
-
-.tree-left li:last-child:before {
-  content: '─╯'; /* Reversed last-item connector */
-}
+        /* --- NEWLY ADDED/MODIFIED RULES END HERE --- */
+        
         .tree ul {
-    list-style: none;
-    padding: 0;
-    margin: 0 auto;
-    max-width: 400px;
-        content: '╰─';
+            list-style: none;
+            padding: 0;
+            margin: 0 auto;
+            max-width: 400px;
         }
         .folder-label {
             cursor: pointer;
@@ -155,13 +162,11 @@
         .folder-label.open::before {
             transform: rotate(90deg);
         }
-
         .sub-tree {
-        display: none;
-        /* This needs to match the indentation of the parent folder label */
-        padding-left: 20px; /* Adjust this value to align sub-items */
-        margin: 0 auto;
-        max-width: 400px;
+            display: none;
+            padding-left: 20px;
+            margin: 0 auto;
+            max-width: 400px;
         }
         .sub-tree.open {
             display: block;
@@ -203,7 +208,7 @@
             .folder-label, .link a, .link button { width: 150px; }
             .art-space { max-height: 300px; }
         }
-        svg { display: none; } /* SVG element can be removed if not used for other filters later */
+        svg { display: none; }
     </style>
 </head>
 <body>
@@ -266,7 +271,7 @@
         // Kaomoji list (still used for the static cartoon)
         const kaomoji = [
             ':)', ':D', ':P', ';)', ':o', ':]', ':3', ':>', '8)', 'B)',
-            '(*^_^*)', '(>_<)', '(T_T)', '\(^_^)/', '(-_-;)',
+            '(*^_^*)', '(>_<)', '(T_T)', '\\(^_^)/', '(-_-;)',
             '(^_^)', '(^_^)b', '(^o^)', '(^_~)', '(*_*)',
             '(>o<)', '(>_<;)', '(@_@)', '(X_X)', '(*.*)',
             '(T_T;)', '(;_;)', '(TvT)', '(T^T)', '(>_<")',
