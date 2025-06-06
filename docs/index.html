@@ -97,38 +97,34 @@
             color: #39ff14;
             text-shadow: 0 0 5px #39ff14;
         }
-        /* Reverses the connector for the left-side tree */
-        .tree-left li:before {
-          content: '──┤';
-          left: auto;     /* Unset the default left positioning */
-          right: -20px;   /* Position it from the right instead */
-        }
-
-        /* Reverses the connector for the last item on the left-side tree */
-        .tree-left li:last-child:before {
-          content: '─╯';
-        }
-        .tree {
-            list-style: none;
-            padding: 0;
-            max-width: 500px;
-            margin: 0 auto;
-        }
         .tree li {
-            margin: 10px 0;
-            position: relative;
-        }
-        .tree li:before {
-        content: '├──';
-        color: #39ff14;
-        position: absolute;
-        /* Adjust this value to shift the tree lines left or right */
-        left: -20px; /* You might need to experiment with this value */
-        }
+  margin: 10px 0;
+  position: relative;
+}
 
-        .tree li:last-child:before {Add commentMore actions
-            content: '╰─';
-        }
+.tree li:before {
+  content: '├──';
+  color: #39ff14;
+  position: absolute;
+  left: -20px; /* Positions to the LEFT */
+}
+
+.tree li:last-child:before {
+  content: '╰─';
+}
+
+/* Specific overrides for the LEFT-SIDE tree ("Work") */
+/* These rules MUST come AFTER the default rules above */
+
+.tree-left li:before {
+  content: '──┤'; /* Reversed connector */
+  left: auto;     /* Unset the left property */
+  right: -20px;   /* Position to the RIGHT instead */
+}
+
+.tree-left li:last-child:before {
+  content: '─╯'; /* Reversed last-item connector */
+}
         .tree ul {
     list-style: none;
     padding: 0;
