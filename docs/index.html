@@ -97,6 +97,17 @@
             color: #39ff14;
             text-shadow: 0 0 5px #39ff14;
         }
+        /* Reverses the connector for the left-side tree */
+        .tree-left li:before {
+          content: '──┤';
+          left: auto;     /* Unset the default left positioning */
+          right: -20px;   /* Position it from the right instead */
+        }
+
+        /* Reverses the connector for the last item on the left-side tree */
+        .tree-left li:last-child:before {
+          content: '─╯';
+        }
         .tree {
             list-style: none;
             padding: 0;
@@ -208,7 +219,7 @@
             <p>I’m ラカイー, modern day Omnissiah worshipper, Cult Mechanicus. <br>Call me Christian, I am, and it's easiest to understand.<br>I have an Anti-AGI stance because I don't want an AI war but do AI Art.</p>
             <h2>Link Tree</h2>
             <div class="link-tree">
-                <ul class="tree">
+                <ul class="tree tree-left">
                     <li class="folder">
                         <span class="folder-label" onclick="toggleFolder(this)">📁 Work</span>
                         <ul class="sub-tree">
