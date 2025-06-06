@@ -84,16 +84,13 @@
             overflow: hidden;
         }
         .link-metal-tree {
-            margin-top: 0; /* Set margin-top to 0 to align with the top of the flex container */
             border: 3px dashed #39ff14;
             position: relative;
             border-radius: 0;
         }
         .link-tree {
-            /* margin-top: 20px; */
-            gap: 20px; /* Add some space between the columns */
+            margin-top: 20px;
             display: flex;
-            align-items: flex-start; /* Aligns items to the top of the flex container */
             justify-content: left;
             border-radius: 0;
             font-family: 'Courier New', monospace;
@@ -104,7 +101,7 @@
             list-style: none;
             padding: 0;
             max-width: 500px;
-            margin: 0;
+            margin: 0 auto;
         }
         .tree li {
             margin: 10px 0;
@@ -122,10 +119,10 @@
             content: '╰─';
         }
         .tree ul {
-    list-style: none;
-    padding: 0;
-    margin: 0 auto;
-    max-width: 400px;
+    list-style: none;
+    padding: 0;
+    margin: 0 auto;
+    max-width: 400px;
         content: '╰─';
         }
         .folder-label {
@@ -208,7 +205,7 @@
         <br>
         <div class="art-space">
             <h2>The ID</h2>
-            <p>I’m ラカイー, modern day Omnissiah worshipper, Cult Mechanicus. <br>Call me Christian, I am, and it's easiest to understand.<br>I have an Anti-AGI stance because I don't want an AI war but do AI Art.</p>
+            <p>I’m ラカイー, modern day Onmnissiah worshipper, Cult Mechanicus. <br>Call me Christian, I am, and it's easiest to understand.<br>I have an Anti-AGI stance because I don't want an AI war but do AI Art.</p>
             <h2>Link Tree</h2>
             <div class="link-tree">
                 <ul class="tree">
@@ -230,7 +227,7 @@
                         </ul>
                     </li>
                 </ul>
-                <img class="link-metal-tree" src="img_mech_tree.jpg" alt="mechanicus tree" width="300" height="300">
+                <img src="img_mech_tree.jpg" alt="mechanicus tree" width="300" height="300">
                 <ul class="tree">
                     <li class="folder">
                         <span class="folder-label" onclick="toggleFolder(this)">📁 Socials</span>
