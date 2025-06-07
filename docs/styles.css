@@ -1,0 +1,230 @@
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    color: #fff;
+    background-color: #000000;
+    font-family: 'Courier New', monospace;
+    overflow-x: hidden;
+    overflow-y: hidden;
+    min-height: 100vh;
+    position: relative;
+}
+
+.container {
+    padding: 50px 20px;
+    max-width: 1000px;
+    margin: 0 auto;
+    z-index: 2;
+}
+
+h1 {
+    font-family: 'Courier New', monospace;
+    font-size: 5em;
+    text-shadow: 3px 3px #000, 0 0 20px #39ff14, 0 0 30px #39ff14;
+    margin-bottom: 20px;
+    transition: opacity 0.3s ease;
+}
+
+h1 span {
+    display: inline-block;
+    position: relative;
+    text-align: center;
+}
+
+.art-space {
+    background: rgba(0, 0, 0, 0.8);
+    padding: 30px;
+    border: 3px dashed #39ff14;
+    margin-top: 50px;
+    font-size: 1.2em;
+    position: relative;
+    text-align: center;
+    border-radius: 0;
+    max-height: 700px; /* Scrollable height */
+    overflow-y: auto; /* Enable vertical scrollbar */
+    scrollbar-width: thin; /* Firefox scrollbar */
+    scrollbar-color: #39ff14 #1a1a2e; /* Firefox scrollbar colors */
+}
+
+.art-space::-webkit-scrollbar {
+    width: 8px; /* Chrome/Edge/Safari scrollbar width */
+}
+
+.art-space::-webkit-scrollbar-track {
+    background: #1a1a2e; /* Track color */
+}
+
+.art-space::-webkit-scrollbar-thumb {
+    background: #39ff14; /* Thumb color */
+    border-radius: 4px;
+}
+
+.art-space::-webkit-scrollbar-thumb:hover {
+    background: #2ecc71; /* Lighter neon on hover */
+}
+
+.cartoon {
+    position: absolute;
+    width: 200px;
+    height: 80px;
+    font-size: 2em;
+    font-family: 'Courier New', monospace;
+    filter: drop-shadow(0 0 10px #39ff14);
+    animation: bob 3s ease-in-out infinite;
+    cursor: pointer;
+    z-index: 3;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #39ff14;
+    letter-spacing: 3px;
+    word-spacing: 3px;
+    white-space: nowrap;
+    overflow: hidden;
+}
+
+.link-metal-tree {
+    border: 3px dashed #39ff14;
+    position: relative;
+    border-radius: 0;
+}
+
+.link-tree {
+    margin-top: 20px;
+    display: flex;
+    justify-content: left;
+    border-radius: 0;
+    font-family: 'Courier New', monospace;
+    color: #39ff14;
+    text-shadow: 0 0 5px #39ff14;
+}
+
+.tree {
+    list-style: none;
+    padding: 0;
+    max-width: 500px;
+    margin: 0 auto;
+}
+
+.tree li {
+    margin: 10px 0;
+    position: relative;
+}
+
+.tree li:before {
+    content: '├──';
+    color: #39ff14;
+    position: absolute;
+    left: -20px;
+}
+
+.tree li:last-child:before {
+    content: '╰─';
+}
+
+/* Specific overrides for the LEFT-SIDE tree ("Work") */
+/* These rules apply to all items in the left tree, including sub-items */
+.tree-left li:before {
+    content: '──┤'; /* Reversed connector */
+    left: auto;     /* Unset the default left positioning */
+    right: -20px;   /* Position it from the right instead */
+}
+
+.tree-left li:last-child:before {
+    content: '─╯'; /* Reversed last-item connector */
+}
+
+.tree ul {
+    list-style: none;
+    padding: 0;
+    margin: 0 auto;
+    max-width: 400px;
+}
+
+.folder-label {
+    cursor: pointer;
+    padding: 5px 15px;
+    border: 1px solid #39ff14;
+    background: #1a1a2e;
+    display: inline-block;
+    width: 200px;
+    text-align: center;
+    transition: all 0.2s;
+    animation: root-pulse 2s ease-in-out infinite;
+}
+
+.folder-label:hover {
+    box-shadow: 0 0 15px #39ff14;
+    transform: scale(1.05);
+}
+
+.folder-label::before {
+    content: '▶';
+    margin-right: 10px;
+    transition: transform 0.2s;
+}
+
+.folder-label.open::before {
+    transform: rotate(90deg);
+}
+
+.sub-tree {
+    display: none;
+    padding-left: 20px;
+    margin: 0 auto;
+    max-width: 400px;
+}
+
+.sub-tree.open {
+    display: block;
+}
+
+.link a, .link button {
+    color: #39ff14;
+    font-size: 0.75em;
+    text-decoration: none;
+    padding: 5px 15px;
+    background: #1a1a2e;
+    border: 1px solid #39ff14;
+    transition: all 0.2s;
+    display: inline-block;
+    width: 200px;
+    text-align: left;
+}
+
+.link a:hover, .link button:hover {
+    box-shadow: 0 0 15px #39ff14;
+    transform: scale(1.05);
+}
+
+@keyframes bob {
+    0% { transform: translateY(0); }
+    50% { transform: translateY(-20px); }
+    100% { transform: translateY(0); }
+}
+
+@keyframes root-pulse {
+    0% { box-shadow: 0 0 10px #39ff14; }
+    50% { box-shadow: 0 0 20px #39ff14; }
+    100% { box-shadow: 0 0 10px #39ff14; }
+}
+
+@media (max-width: 768px) {
+    h1 { font-size: 3em; }
+    .cartoon { width: 60px; height: 60px; font-size: 24px; }
+    .toggle-controls { font-size: 0.9em; padding: 4px 8px; }
+    .link-tree { font-size: 0.9em; }
+    .tree { max-width: 300px; }
+    .tree li:before { left: -15px; }
+    .sub-tree { max-width: 250px; }
+    .folder-label, .link a, .link button { width: 150px; }
+    .art-space { max-height: 300px; }
+}
+
+svg {
+    display: none;
+}
