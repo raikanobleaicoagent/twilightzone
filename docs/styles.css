@@ -145,6 +145,44 @@ h1 span {
     max-width: 400px;
 }
 
+/* relevant styles */
+.img-wrap {
+  position: relative;
+  height: 500px;
+  width: 500px;
+}
+
+.img-description-layer {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  color: #fff;
+  visibility: hidden;
+  opacity: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  /* transition effect. not necessary */
+  transition: opacity .2s, visibility .2s;
+}
+
+.img-wrap:hover .img-description-layer {
+  visibility: visible;
+  opacity: 1;
+}
+
+.img-description {
+  transition: .2s;
+  transform: translateY(0em);
+}
+
+.img-wrap:hover .img-description {
+  transform: translateY(0);
+}
+
 .folder-label {
     cursor: pointer;
     padding: 5px 15px;
