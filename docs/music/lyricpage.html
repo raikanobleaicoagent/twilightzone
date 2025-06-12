@@ -31,6 +31,26 @@
         padding: 0;
         }
         }
+
+        /* unvisited link */
+        a:link {
+          color: grey;
+        }
+
+        /* visited link */
+        a:visited {
+            color: white;
+        }
+
+        /* mouse over link */
+        a:hover {
+          color: white;
+        }
+
+        /* selected link */
+        a:active {
+            color: white;
+        }       
         .container {
             max-width: 800px;
             width: 100%;
@@ -71,7 +91,7 @@
 </head>
 <body>
     <div class="container">
-        <h1>Song Switcher - <a href="../index.html">Index 🏠</a></h1>
+        <h1>Song Switcher // <a class="grey-link" href="../index.html">Index</a></h1>
         <select id="lyricSelect" onchange="changeLyrics()">
             <option value="original">Good Night and Good Morning World (EN)</option>
             <option value="morningjp">Good Night and Good Morning World (JP)</option>
