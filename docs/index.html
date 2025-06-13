@@ -35,7 +35,7 @@
                     </li>
                 </ul>
                 <div onclick = "changeImage()" class="img-wrap">
-                      <img class="link-metal-tree" id="image_one" alt="mechanicus tree" src="img_mech_tree.jpg" width="420" height="420"/>
+                      <img class="link-metal-tree" alt="mechanicus tree" src="img_mech_tree.jpg" width="420" height="420"/>
                         <div class="img-description-layer">
                         <p class="img-description">This image looks super neat.</p>
                     </div>
@@ -55,15 +55,6 @@
     </div>
     <svg></svg>
     <script>
-        // Cycle images
-function changeImage() {
-    const image = document.getElementById("image_one");
-    if (image.src === window.location.origin + "/img_mech_tree.jpg") {
-        image.src = "solar_farm_tree.jpeg";
-    } else {
-        image.src = "img_mech_tree.jpg";
-    }
-}
         // Toggle folder visibility
         function toggleFolder(element) {
             const subTree = element.nextElementSibling;
