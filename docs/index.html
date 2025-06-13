@@ -56,15 +56,15 @@
     <svg></svg>
     <script>
         // Cycle images
-            var image =  document.getElementById("image_one");
-        
-            function changeColor() {
-            if (image.src == "img_mech_tree.jpg") {
-            image.src = "solar_farm_tree.jpeg";
-            } else {
-                image.src = "img_mech_tree.jpg";
-                }
-            }
+function changeColor() {
+    const image = document.getElementById("image_one");
+    const filename = image.src.split('/').pop(); // Get the filename from the URL
+    if (filename === "img_mech_tree.jpg") {
+        image.src = "solar_farm_tree.jpeg";
+    } else {
+        image.src = "img_mech_tree.jpg";
+    }
+}
         // Toggle folder visibility
         function toggleFolder(element) {
             const subTree = element.nextElementSibling;
