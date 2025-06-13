@@ -35,7 +35,7 @@
                     </li>
                 </ul>
                 <div class="img-wrap">
-                      <img class="link-metal-tree" id="image_one" onclick = "changeColor()" alt="mechanicus tree" src="img_mech_tree.jpg" width="420" height="420"/>
+                      <img class="link-metal-tree" id="image_one" onclick = "changeImage()" alt="mechanicus tree" src="img_mech_tree.jpg" width="420" height="420"/>
                         <div class="img-description-layer">
                         <p class="img-description">This image looks super neat.</p>
                     </div>
@@ -56,10 +56,9 @@
     <svg></svg>
     <script>
         // Cycle images
-function changeColor() {
+function changeImage() {
     const image = document.getElementById("image_one");
-    const filename = image.src.split('/').pop(); // Get the filename from the URL
-    if (filename === "img_mech_tree.jpg") {
+    if (image.src === window.location.origin + "/img_mech_tree.jpg") {
         image.src = "solar_farm_tree.jpeg";
     } else {
         image.src = "img_mech_tree.jpg";
