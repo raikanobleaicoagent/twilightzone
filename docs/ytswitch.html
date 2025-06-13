@@ -53,11 +53,27 @@
             height: 100%;
             border: none;
         }
+            /* unvisited link */
+        a:link {
+          color: grey;
+        }
+        /* visited link */
+        a:visited {
+            color: grey;
+        }
+        /* mouse over link */
+        a:hover {
+          color: white;
+        }
+        /* selected link */
+        a:active {
+            color: white;
+        }
     </style>
 </head>
 <body>
     <div class="container">
-        <h1>YouTube Vibe Switcher</h1><br>(interact with the page to enable autoplay)<br>
+        <h1>YouTube Vibe Switcher</h1> // <a class="grey-link" href="index.html">Index</a><br>(interact with the page to enable autoplay)<br>
         <select id="videoSelect" onchange="changeVideo()">
             <option value="mechanicusVideo">Mechanicus Hymnals</option>
             <option value="ChristHymnalVideo">Christ Hymnals</option>
