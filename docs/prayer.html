@@ -5,95 +5,130 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Tribute to God and Creation</title>
     <style>
+        * {
+            box-sizing: border-box; /* Ensure blocky proportions */
+        }
+
         body {
             font-family: 'Times New Roman', Times, serif; /* Offline gothic-like font */
-            background: linear-gradient(135deg, #1a1a1a, #3a0f0f); /* Dark steel to crimson */
+            background: linear-gradient(135deg, #0f0f0f, #2a0a0a); /* Darker steel to crimson */
             margin: 0;
             display: flex;
             justify-content: center;
             align-items: center;
             min-height: 100vh;
-            color: #d4a017; /* Sacred gold */
-            background-image: url('https://www.transparenttextures.com/patterns/circuits.png'); /* Circuit pattern */
-            background-size: cover;
-            background-attachment: fixed;
+            color: #b8860b; /* Tarnished gold */
+            /* CSS-only circuit pattern */
+            background-image: 
+                linear-gradient(rgba(255, 255, 255, 0.05) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(255, 255, 255, 0.05) 1px, transparent 1px);
+            background-size: 10px 10px; /* Small grid for circuitry */
         }
 
         .container {
             max-width: 800px;
-            background: rgba(20, 20, 20, 0.9); /* Dark metallic background */
-            padding: 30px;
+            background: rgba(15, 15, 15, 0.95); /* Darker steel */
+            padding: 40px; /* Chunkier padding */
             border-radius: 0; /* Sharp edges */
-            box-shadow: 0 0 20px rgba(255, 0, 0, 0.5), inset 0 0 10px rgba(212, 160, 23, 0.3); /* Red and gold glow */
+            box-shadow: 0 0 25px rgba(139, 0, 0, 0.7), inset 0 0 15px rgba(184, 134, 11, 0.4); /* Stronger red/gold glow */
             text-align: center;
-            border: 2px solid #d4a017; /* Gold border */
+            border: 4px double #b8860b; /* Bolted metal border */
+            position: relative; /* For rivets */
+            margin: 20px;
         }
+
+        /* Rivet motifs */
+        .container::before, .container::after,
+        .tribute-section::before, .tribute-section::after {
+            content: '';
+            position: absolute;
+            width: 8px;
+            height: 8px;
+            background: #b8860b; /* Gold rivets */
+            border: 1px solid #8b0000; /* Crimson outline */
+            border-radius: 50%; /* Circular rivets */
+        }
+
+        .container::before { top: 10px; left: 10px; }
+        .container::after { top: 10px; right: 10px; }
+        .tribute-section::before { bottom: 10px; left: 10px; }
+        .tribute-section::after { bottom: 10px; right: 10px; }
 
         h1 {
             font-family: 'Times New Roman', Times, serif;
-            font-size: 2.5em;
-            color: #d4a017; /* Gold */
-            margin-bottom: 20px;
-            text-shadow: 0 0 10px #ff0000, 0 0 20px #ff0000; /* Red glow */
-            letter-spacing: 2px;
+            font-size: 3em; /* Heavier font */
+            color: #b8860b; /* Gold */
+            margin-bottom: 30px;
+            text-shadow: 0 0 15px #8b0000, 0 0 25px #8b0000; /* Stronger red glow */
+            letter-spacing: 3px;
+            text-transform: uppercase;
+            font-weight: bold;
         }
 
         .tribute-section {
-            margin: 20px 0;
-            padding: 15px;
-            background: rgba(50, 50, 50, 0.7); /* Steel panel */
-            border: 1px solid #8b0000; /* Deep red */
+            margin: 30px 0; /* Chunkier spacing */
+            padding: 20px;
+            background: rgba(40, 40, 40, 0.8); /* Tarnished steel */
+            border: 3px double #8b0000; /* Crimson bolted border */
             border-radius: 0; /* Sharp edges */
+            position: relative; /* For rivets */
         }
 
         .tribute-section h2 {
             font-family: 'Times New Roman', Times, serif;
-            font-size: 1.8em;
-            color: #ff0000; /* Crimson */
-            margin-bottom: 10px;
+            font-size: 2em;
+            color: #8b0000; /* Deep crimson */
+            margin-bottom: 15px;
             text-transform: uppercase;
-            letter-spacing: 1px;
+            letter-spacing: 2px;
+            font-weight: bold;
         }
 
         .scripture {
             font-family: 'Courier New', Courier, monospace; /* Offline data-slate font */
-            font-size: 1.0em;
+            font-size: 1.1em; /* Slightly larger */
             font-style: italic;
-            color: #b0b0b0; /* Silver */
-            margin: 15px 0;
-            line-height: 1.6;
-            text-shadow: 0 0 5px rgba(212, 160, 23, 0.5); /* Gold glow */
+            color: #a9a9a9; /* Tarnished silver */
+            margin: 20px 0;
+            line-height: 1.8; /* Blockier spacing */
+            text-shadow: 0 0 7px rgba(184, 134, 11, 0.6); /* Gold glow */
         }
 
         .prayer {
-            background: rgba(30, 30, 30, 0.8); /* Darker steel */
-            padding: 20px;
+            background: rgba(25, 25, 25, 0.9); /* Darkest steel */
+            padding: 25px; /* Chunkier padding */
             border-radius: 0; /* Sharp edges */
-            margin: 20px 0;
+            margin: 30px 0;
             font-family: 'Courier New', Courier, monospace;
-            font-size: 1.0em;
-            line-height: 1.8;
-            color: #d4a017; /* Gold */
-            border: 1px solid #ff0000; /* Crimson */
-            box-shadow: inset 0 0 10px rgba(255, 0, 0, 0.3); /* Inner red glow */
+            font-size: 1.1em;
+            line-height: 2; /* Blockier text */
+            color: #b8860b; /* Gold */
+            border: 3px double #8b0000; /* Crimson bolted border */
+            box-shadow: inset 0 0 15px rgba(139, 0, 0, 0.4); /* Inner red glow */
         }
 
         .triangle {
-            width: 0;
-            height: 0;
-            border-left: 25px solid transparent;
-            border-right: 25px solid transparent;
-            border-bottom: 50px solid #d4a017; /* Gold cog */
-            margin: 10px auto;
-            filter: drop-shadow(0 0 5px #ff0000); /* Red glow */
+            width: 50px;
+            height: 50px;
+            background: #b8860b; /* Gold gear */
+            margin: 15px auto;
+            clip-path: polygon(50% 0%, 100% 25%, 100% 75%, 50% 100%, 0% 75%, 0% 25%); /* Hexagonal gear shape */
+            filter: drop-shadow(0 0 7px #8b0000); /* Red glow */
+            animation: rotate-gear 10s linear infinite; /* Slow rotation */
+        }
+
+        @keyframes rotate-gear {
+            from { transform: rotate(0deg); }
+            to { transform: rotate(360deg); }
         }
 
         footer {
-            margin-top: 20px;
+            margin-top: 30px;
             font-family: 'Courier New', Courier, monospace;
-            font-size: 0.9em;
-            color: #b0b0b0; /* Silver */
-            text-shadow: 0 0 5px rgba(212, 160, 23, 0.3);
+            font-size: 1em; /* Slightly larger */
+            color: #a9a9a9; /* Silver */
+            text-shadow: 0 0 7px rgba(184, 134, 11, 0.4);
+            letter-spacing: 1px;
         }
     </style>
 </head>
