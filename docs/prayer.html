@@ -5,11 +5,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Tribute to God and Creation</title>
     <style>
-        /* Import gothic and monospaced fonts for Mechanicus aesthetic */
-        @import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@400;700&family=Roboto+Mono&display=swap');
-
         body {
-            font-family: 'Cinzel', serif; /* Gothic font for headers */
+            font-family: 'Times New Roman', Times, serif; /* Offline gothic-like font */
             background: linear-gradient(135deg, #1a1a1a, #3a0f0f); /* Dark steel to crimson */
             margin: 0;
             display: flex;
@@ -26,14 +23,14 @@
             max-width: 800px;
             background: rgba(20, 20, 20, 0.9); /* Dark metallic background */
             padding: 30px;
-            border-radius: 10px;
+            border-radius: 0; /* Sharp edges */
             box-shadow: 0 0 20px rgba(255, 0, 0, 0.5), inset 0 0 10px rgba(212, 160, 23, 0.3); /* Red and gold glow */
             text-align: center;
             border: 2px solid #d4a017; /* Gold border */
         }
 
         h1 {
-            font-family: 'Cinzel', serif;
+            font-family: 'Times New Roman', Times, serif;
             font-size: 2.5em;
             color: #d4a017; /* Gold */
             margin-bottom: 20px;
@@ -46,11 +43,11 @@
             padding: 15px;
             background: rgba(50, 50, 50, 0.7); /* Steel panel */
             border: 1px solid #8b0000; /* Deep red */
-            border-radius: 5px;
+            border-radius: 0; /* Sharp edges */
         }
 
         .tribute-section h2 {
-            font-family: 'Cinzel', serif;
+            font-family: 'Times New Roman', Times, serif;
             font-size: 1.8em;
             color: #ff0000; /* Crimson */
             margin-bottom: 10px;
@@ -59,7 +56,7 @@
         }
 
         .scripture {
-            font-family: 'Roboto Mono', monospace; /* Data-slate style */
+            font-family: 'Courier New', Courier, monospace; /* Offline data-slate font */
             font-size: 1.0em;
             font-style: italic;
             color: #b0b0b0; /* Silver */
@@ -71,9 +68,9 @@
         .prayer {
             background: rgba(30, 30, 30, 0.8); /* Darker steel */
             padding: 20px;
-            border-radius: 10px;
+            border-radius: 0; /* Sharp edges */
             margin: 20px 0;
-            font-family: 'Roboto Mono', monospace;
+            font-family: 'Courier New', Courier, monospace;
             font-size: 1.0em;
             line-height: 1.8;
             color: #d4a017; /* Gold */
@@ -93,26 +90,10 @@
 
         footer {
             margin-top: 20px;
-            font-family: 'Roboto Mono', monospace;
+            font-family: 'Courier New', Courier, monospace;
             font-size: 0.9em;
             color: #b0b0b0; /* Silver */
             text-shadow: 0 0 5px rgba(212, 160, 23, 0.3);
-        }
-
-        @media (max-width: 600px) {
-            .container {
-                padding: 20px;
-                margin: 10px;
-            }
-            h1 {
-                font-size: 2em;
-            }
-            .tribute-section h2 {
-                font-size: 1.5em;
-            }
-            .scripture, .prayer {
-                font-size: 0.9em;
-            }
         }
     </style>
 </head>
