@@ -1,0 +1,41 @@
+/* Set default styles for the body */
+body {
+    font-family: Arial, sans-serif;
+    background-color: #f0f0f0; /* Light gray background for a neutral look */
+    margin: 0;
+    padding: 20px; /* Add padding to keep content from touching the edges */
+}
+
+/* Style the dictionary container */
+.dictionary {
+    max-width: 800px; /* Limit width for readability */
+    margin: 0 auto; /* Center the container */
+    background-color: white; /* White background for contrast */
+    padding: 20px; /* Inner spacing */
+    box-shadow: 0 0 10px rgba(0, 0, 0, 0.1); /* Subtle shadow for depth */
+}
+
+/* Style the heading */
+h1 {
+    text-align: center; /* Center the title */
+    font-size: 2.5em; /* Larger font size for prominence */
+    margin-bottom: 20px; /* Space below the heading */
+    color: #333; /* Dark gray color for readability */
+}
+
+/* Style each dictionary entry */
+p {
+    font-family: 'Courier New', Courier, monospace; /* Monospaced font for code-like text */
+    background-color: #fafafa; /* Very light gray background for entries */
+    border: 1px solid #ddd; /* Light border to separate entries */
+    padding: 15px; /* Inner spacing for content */
+    margin-bottom: 20px; /* Space between entries */
+    white-space: pre-wrap; /* Preserve line breaks from <br> tags */
+    line-height: 1.5; /* Increase line spacing for readability */
+    transition: background-color 0.3s; /* Smooth transition for hover effect */
+}
+
+/* Add interactivity with a hover effect */
+p:hover {
+    background-color: #e0e0e0; /* Slightly darker gray on hover */
+}
