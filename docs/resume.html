@@ -3,122 +3,47 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Tribute to God and Creation</title>
-    <style>
-        * {
-            box-sizing: border-box;
-        }
-
-        body {
-            font-family: 'Times New Roman', Times, serif;
-            background: linear-gradient(135deg, #0f0f0f, #2a0a0a);
-            margin: 0;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            min-height: 100vh;
-            color: #b8860b;
-            background-image: 
-                linear-gradient(rgba(255, 255, 255, 0.05) 1px, transparent 1px),
-                linear-gradient(90deg, rgba(255, 255, 255, 0.05) 1px, transparent 1px);
-            background-size: 10px 10px; /* Small grid for circuitry */
-        }
-
-        .container {
-            max-width: 800px;
-            background: rgba(15, 15, 15, 0.95); /* Darker steel */
-            padding: 40px; /* Chunkier padding */
-            border-radius: 0; /* Sharp edges */
-            box-shadow: 0 0 25px rgba(139, 0, 0, 0.7), inset 0 0 15px rgba(184, 134, 11, 0.4); /* Stronger red/gold glow */
-            text-align: center;
-            border: 4px double #b8860b; /* Bolted metal border */
-            position: relative; /* For rivets */
-            margin: 20px;
-        }
-
-        /* Rivet motifs */
-        .container::before, .container::after,
-        .tribute-section::before, .tribute-section::after {
-            content: '';
-            position: absolute;
-            width: 8px;
-            height: 8px;
-            background: #b8860b; /* Gold rivets */
-            border: 1px solid #8b0000; /* Crimson outline */
-            border-radius: 50%; /* Circular rivets */
-        }
-
-        .container::before { top: 10px; left: 10px; }
-        .container::after { top: 10px; right: 10px; }
-        .tribute-section::before { bottom: 10px; left: 10px; }
-        .tribute-section::after { bottom: 10px; right: 10px; }
-
-        h1 {
-            font-family: 'Times New Roman', Times, serif;
-            font-size: 3em; /* Heavier font */
-            color: #b8860b; /* Gold */
-            margin-bottom: 30px;
-            text-shadow: 0 0 15px #8b0000, 0 0 25px #8b0000; /* Stronger red glow */
-            letter-spacing: 3px;
-            text-transform: uppercase;
-            font-weight: bold;
-        }
-        .resume {
-            background: rgba(25, 25, 25, 0.9); /* Darkest steel */
-            padding: 25px;
-            border-radius: 0;
-            margin: 30px 0;
-            font-family: 'Courier New', Courier, monospace;
-            font-size: 0.75em;
-            line-height: 2;
-            color: #b8860b;
-            border: 3px double #8b0000;
-            box-shadow: inset 0 0 15px rgba(139, 0, 0, 0.4);
-        }
-
-        .cog {
-            width: 50px;
-            height: 50px;
-            background: #b8860b; /* Gold gear */
-            margin: 15px auto;
-            clip-path: polygon(50% 0%, 100% 25%, 100% 75%, 50% 100%, 0% 75%, 0% 25%); /* Hexagonal gear shape */
-            filter: drop-shadow(0 0 7px #8b0000); /* Red glow */
-            animation: rotate-gear 10s linear infinite; /* Slow rotation */
-        }
-
-        @keyframes rotate-gear {
-            from { transform: rotate(0deg); }
-            to { transform: rotate(360deg); }
-        }
-
-        footer {
-            margin-top: 30px;
-            font-family: 'Courier New', Courier, monospace;
-            font-size: 1em; /* Slightly larger */
-            color: #a9a9a9; /* Silver */
-            text-shadow: 0 0 7px rgba(184, 134, 11, 0.4);
-            letter-spacing: 1px;
-        }
-    </style>
+    <title>The Index</title>
+    <link rel="stylesheet" href="styles.css">
 </head>
 <body>
     <div class="container">
-        <h1>A Tribute to God in All Forms</h1>
-        <div class="resume">
-            <div class="cog"></div>
-            <h2>Resume</h2>
-            <p class="scripture">
-Over a decade of self taught 3D modelling experience starting with Google Sketchfab<br>
-I graduated to using Blender, with the ability to create character models<br>
-I was able to create a quality, working Pokemon 3D model rig within a day of the announced starters, accurate, using a single reference image<br>
-I am also proficient in creating 3D props<br>
-I am not familiar with but am planning on working on or am up for making 3D printing designs<br>
-
-</div>
-
-        <footer>
-            Created 23/06/2025
-        </footer>
+        <h1 id="title">//theResume</h1>
+        <br>
+        <div class="art-space">
+- Over a decade of self taught 3D modelling experience starting with Google Sketchfab<br>
+- I graduated to using Blender, with the ability to create character models<br>
+- My quality of work I can assure as people have sought me for commissions before, having taken multiple, completed quickly, with my clients satisfied with the results and time taken<br>
+- I was able to create a quality, working Pokemon 3D model rig within a day of the announced starters, accurate, using a single reference image<br>
+- I am also proficient in creating 3D props<br>
+- I am not familiar with but am planning on working on or am up for making 3D printing designs<br>
+        </div>
     </div>
+    <svg></svg>
+    <script>
+        // --- Image Changer ---
+        const imagePaths = [
+            'img_mech_tree.jpg',
+            'solar_farm_tree.jpeg',
+            'img_mirrodin_pines.png',
+            'img_mirrodin_tangle_swamp.png'
+        ];
+        let currentImageIndex = 0;
+        const imageElement = document.getElementById('dynamicImage');
+
+        function changeImage() {
+            currentImageIndex = (currentImageIndex + 1) % imagePaths.length;
+            imageElement.src = imagePaths[currentImageIndex];
+        }
+        
+        // --- Folder Toggler ---
+        function toggleFolder(element) {
+            const subTree = element.nextElementSibling;
+            if (subTree) {
+                subTree.classList.toggle('open');
+                element.classList.toggle('open');
+            }
+        }
+    </script>
 </body>
 </html>
