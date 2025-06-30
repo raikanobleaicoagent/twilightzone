@@ -3,7 +3,7 @@ body {
   text-align: center;
 }
 
-div.img-banner {
+div.banner {
   display: flex;
   justify-content: center;
 }
