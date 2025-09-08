@@ -1,6 +1,4 @@
-Homepage:  https://raikanobleaicoagent.github.io/twilightzone/
-<br>
-Organization: https://github.com/black-monolith-wall
+
 <br>
 Changelog: 26/05/2025<br>
 Added an example, a useful system prompt.
