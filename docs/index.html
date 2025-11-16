@@ -2,117 +2,204 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    
     <title>The Index</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=VT323&display=swap" rel="stylesheet">
     
     <link rel="stylesheet" href="techstyle.css">
 
     <style>
-        /* --- Basic Resets & Font Sizing --- */
+        /* --- 1. Base Vibe & Font --- */
         body {
-            /* Use a "system font stack" for faster loading */
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            background-color: #000;
+            color: #00ff00; /* Bright green */
+            font-family: 'VT323', monospace;
+            font-size: 22px; /* Larger, clearer pixel font */
+            line-height: 1.5;
             margin: 0;
             padding: 0;
-            /* Base font size for 'rem' units */
-            font-size: 16px; 
-            line-height: 1.5;
         }
 
-        /* --- Responsive Typography --- */
-        h1 {
-            font-size: 2.5rem; /* Scales with base font size */
+        /* --- 2. Headers & Links (with Glow) --- */
+        h1, h2 {
+            color: #00ff00;
+            text-shadow: 0 0 5px #00ff00; /* Glow effect */
+        }
+        h1#title {
+            font-size: 3.5rem;
+            text-align: center;
+            margin-bottom: 0;
         }
         h2 {
-            font-size: 1.8rem;
+            font-size: 2rem;
+            border-bottom: 2px dashed #00ff00;
+        }
+        p {
+            font-size: 1.5rem;
+        }
+        a {
+            color: #00ffff; /* Cyan for links */
+            text-decoration: none;
+            text-shadow: 0 0 3px #00ffff;
+        }
+        a:hover {
+            color: #ffffff;
+            text-shadow: 0 0 5px #ffffff;
         }
 
-        /* --- Container & Image Sizing --- */
+        /* --- 3. Layout (Mobile-First Stack) --- */
         .container {
-            width: 95%; /* Give a little space on the edges */
-            max-width: 1200px; /* Max width on large screens */
+            width: 95%;
+            max-width: 1400px;
             margin: 0 auto;
+            padding: 10px;
         }
-
-        /* Make the image responsive: it will scale to its container */
-        #dynamicImage {
-            width: 100%;
-            height: auto; /* Maintain aspect ratio */
-            border-radius: 8px; /* Softer edges */
-        }
-
-        .img-wrap {
-            width: 100%;
-            position: relative;
-            cursor: pointer;
-        }
-
-        /* --- Link Tree: Mobile First (Stacked) --- */
         .link-tree {
             display: flex;
             flex-direction: column; /* Stack vertically on mobile */
-            align-items: center;   /* Center-align items in the column */
-            gap: 20px;             /* Add space between items */
+            align-items: center;
+            gap: 25px;
         }
-
-        .tree, .tree-left {
-            width: 100%; /* Take full width on mobile */
+        .img-wrap {
+            width: 100%;
+            max-width: 420px;
+            margin: 0 auto;
+            border: 2px dashed #00ff00; /* Dashed green border */
+            padding: 10px;
+            box-shadow: 0 0 10px #00ff00 inset; /* Inner glow */
+            position: relative; /* For description */
         }
-
-        /* --- Improved Tap Targets --- */
-        .folder-label {
-            display: block; /* Make the whole line clickable */
-            padding: 10px;  /* Increase tap area */
-            cursor: pointer;
-            user-select: none; /* Prevent text selection on tap */
+        #dynamicImage {
+            width: 100%;
+            height: auto;
+            display: block;
         }
-
-        /* --- Kaomoji Positioning --- */
-        .cartoon[data-kaomoji] {
-            /* Moved from inline style */
+        .img-description-layer {
             position: absolute;
-            top: 60%; 
-            right: 5%; /* Closer to the edge for mobile */
-            font-size: 1.2rem;
+            bottom: 10px;
+            left: 10px;
+            right: 10px;
+            background: rgba(0, 0, 0, 0.7);
+            color: #00ff00;
+            text-align: center;
+            opacity: 0;
+            transition: opacity 0.3s;
+        }
+        .img-wrap:hover .img-description-layer {
+            opacity: 1;
         }
 
-        /* --- SVG Fix --- */
-        svg {
-            display: none; /* Hides the broken SVG artifact */
-        }
-
-        /* --- MEDIA QUERY: Desktop & Tablet ---
-         When the screen is 768px or WIDER, apply these styles.
-        */
-        @media (min-width: 768px) {
+        /* --- 4. Desktop Layout (3-Column) --- */
+        @media (min-width: 900px) {
             .link-tree {
-                flex-direction: row;    /* Go horizontal on desktop */
+                flex-direction: row; /* Horizontal on desktop */
                 justify-content: space-between;
-                align-items: flex-start;
+                align-items: flex-start; /* Align trees to the top */
             }
-
             .tree-left {
                 width: 30%;
                 order: 1; /* Left column */
             }
-
             .img-wrap {
                 width: 35%;
-                order: 2; /* Middle column */
+                order: 2; /* Center column */
             }
-            
             .tree {
                 width: 30%;
                 order: 3; /* Right column */
             }
-
-            .cartoon[data-kaomoji] {
-                right: 25%; /* Use your original 'right' value */
-                font-size: 1.5rem;
-            }
         }
+
+        /* --- 5. New Tree Styling (The Core Request) --- */
+        ul.tree, ul.tree-left, ul.sub-tree {
+            list-style: none; /* Remove default bullets */
+            padding-left: 20px; /* Base indentation */
+            position: relative;
+        }
+
+        /* The vertical connecting line */
+        ul.sub-tree {
+            margin-left: 15px; /* Indent under folder */
+            padding-left: 25px;
+            border-left: 2px dashed #00ff00;
+        }
+
+        /* All items in the tree */
+        .tree li, .tree-left li {
+            position: relative;
+            padding: 5px 0;
+        }
+
+        /* The horizontal connecting line for each item */
+        .sub-tree li::before {
+            content: '';
+            position: absolute;
+            left: -25px; /* Connect to the vertical line */
+            top: 1.0em; /* Align with text */
+            width: 20px;
+            border-top: 2px dashed #00ff00;
+        }
+        
+        /* The folder button */
+        .folder-label {
+            cursor: pointer;
+            display: inline-block;
+            background: #051a05; /* Dark green background */
+            border: 1px solid #00ff00;
+            padding: 5px 10px;
+            box-shadow: 0 0 8px #00ff00;
+            user-select: none; /* Prevents text selection on click */
+        }
+        
+        /* The triangle '►' icon */
+        .folder-label::before {
+            content: '►';
+            display: inline-block;
+            margin-right: 10px;
+            transition: transform 0.2s;
+            color: #00ff00;
+        }
+        
+        /* The 'open' state for the folder */
+        .folder-label.open::before {
+            transform: rotate(90deg);
+        }
+
+        /* The link item */
+        .link a {
+            display: inline-block;
+            background: #051a05;
+            border: 1px solid #00ffff; /* Cyan border for links */
+            padding: 5px 10px;
+            box-shadow: 0 0 8px #00ffff;
+        }
+        
+        /* The '🌐' icon for links */
+        .link a::before {
+            content: '🌐';
+            margin-right: 10px;
+            color: #00ffff;
+        }
+
+        /* --- 6. Tree JS Functionality --- */
+        .sub-tree {
+            display: none; /* Hide by default */
+        }
+        .sub-tree.open {
+            display: block; /* Show when 'open' class is added */
+        }
+
+        /* --- 7. Kaomoji & Other Fixes --- */
+        .cartoon[data-kaomoji] {
+            position: absolute;
+            top: 60%;
+            right: 25%;
+            color: #00ff00;
+            font-size: 1.5rem;
+        }
+        svg { display: none; } /* Hide the broken SVG element */
 
     </style>
 </head>
@@ -126,43 +213,46 @@
             <br>I have an Anti-AGI stance, because I don't want an AI war but do AI Art.</p>
             <h2>Link Tree</h2>
             <div class="link-tree">
+                
                 <ul class="tree tree-left">
                     <li class="folder">
-                        <span class="folder-label" onclick="toggleFolder(this)">📁 Work</span>
+                        <span class="folder-label" onclick="toggleFolder(this)">Work</span>
                         <ul class="sub-tree">
-                            <li class="link"><a href="https://blacksheepfirewall.pages.dev" target="_blank">🌐 Cloudflare Site</a></li>
-                            <li class="link"><a href="music/lyricpage.html" target="_blank">🌐 My Prose</a></li>
+                            <li class="link"><a href="https://blacksheepfirewall.pages.dev" target="_blank">Cloudflare Site</a></li>
+                            <li class="link"><a href="music/lyricpage.html" target="_blank">My Prose</a></li>
                             <li class="folder">
-                                <span class="folder-label" onclick="toggleFolder(this)">📁 Solos</span>
+                                <span class="folder-label" onclick="toggleFolder(this)">Solos</span>
                                 <ul class="sub-tree">
-                                    <li class="link"><a href="ytswitch.html" target="_blank">🌐 Youtube Faves</a></li>
-                                    <li class="link"><a href="newspeak.html" target="_blank">🌐 Newspeak Terms</a></li>
-                                    <li class="link"><a href="aiwarnings.html" target="_blank">🌐 AI Warning</a></li>
+                                    <li class="link"><a href="ytswitch.html" target="_blank">Youtube Faves</a></li>
+                                    <li class="link"><a href="newspeak.html" target="_blank">Newspeak Terms</a></li>
+                                    <li class="link"><a href="aiwarnings.html" target="_blank">AI Warning</a></li>
                                 </ul>
                             </li>
                         </ul>
                     </li>
                 </ul>
+                
                 <div onclick="changeImage()" class="img-wrap">
                     <img id="dynamicImage" class="link-metal-tree" alt="mechanicus tree" src="img_mech_tree.jpg" width="420" height="420"/>
                     <div class="img-description-layer">
                         <p class="img-description">Click to change.</p>
                     </div>
                 </div>
+                
                 <ul class="tree">
                     <li class="folder">
                         <span class="folder-label" onclick="toggleFolder(this)">Socials</span>
                         <ul class="sub-tree">
-                            <li class="link"><a href="https://x.com/Raika_Monday" target="_blank">🌐 X </a></li>
+                            <li class="link"><a href="https://x.com/Raika_Monday" target="_blank">X </a></li>
                         </ul>
                     </li>
                 </ul>
             </div>
         </div>
+        
         <div class="cartoon" data-kaomoji></div>
     </div>
-    <svg></svg>
-    <script>
+    <svg></svg> <script>
         // --- Image Changer ---
         const imagePaths = [
             'img_mech_tree.jpg',
