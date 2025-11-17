@@ -2,316 +2,711 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-    <title>Mobile Asteroid Shooter</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=0">
+    <title>Asteroid Miner 2.0</title>
     <style>
-        /* Basic reset to make the game fullscreen */
+        /* Basic CSS to make the canvas fullscreen and remove scrolling */
         body, html {
             margin: 0;
             padding: 0;
-            overflow: hidden; /* Prevents scrolling */
+            overflow: hidden;
             background-color: #000;
         }
-        /* Canvas will be our game window */
         canvas {
             display: block;
         }
     </style>
 </head>
 <body>
-
     <canvas id="gameCanvas"></canvas>
 
     <script>
-        // --- Setup ---
+        // --- 1. SETUP ---
         const canvas = document.getElementById('gameCanvas');
         const ctx = canvas.getContext('2d');
 
-        // Set canvas to full window size
         canvas.width = window.innerWidth;
         canvas.height = window.innerHeight;
 
-        // --- Game State Variables ---
-        let player, bullets, asteroids, score, gameOver;
-        let bulletCooldown, asteroidSpawnTimer;
+        // --- 2. GAME STATE & ENTITIES ---
 
-        // --- Player Object ---
-        // We define the player as a simple object.
-        const playerWidth = 50;
-        const playerHeight = 50;
-        const playerColor = '#0F0'; // Green triangle
+        let lastTime = 0;
+        let gamePaused = false;
+        let showUpgradeMenu = false;
 
-        // --- Game Initialization ---
-        function init() {
-            player = {
-                x: canvas.width / 2,
-                y: canvas.height - 70, // Fixed y-position at the bottom
-                width: playerWidth,
-                height: playerHeight,
-                speed: 8 // This isn't used for movement, but could be
-            };
-            bullets = [];
-            asteroids = [];
-            score = 0;
-            gameOver = false;
-            bulletCooldown = 0;
-            asteroidSpawnTimer = 0; // Spawn first asteroid immediately
+        const player = {
+            x: 0,
+            y: 0,
+            vx: 0, // velocity x
+            vy: 0, // velocity y
+            angle: -Math.PI / 2, // Start pointing up
+            radius: 15,
+            color: '#00BFFF', // DeepSkyBlue
+            minerals: 0,
+            maxMinerals: 100, // New!
+            credits: 0, // Was 'score'
+            atDepot: false,
+            // Upgradable stats (will be set by initUpgrades)
+            maxSpeed: 0,
+            thrustPower: 0.1,
+            friction: 0.985
+        };
+
+        const camera = {
+            x: 0,
+            y: 0,
+            zoom: 1,
+            lerp: 0.1
+        };
+
+        const depot = {
+            x: 1000,
+            y: 1000,
+            size: 150,
+            color: '#4CFF00', // Bright Green
+            sellZoneRadius: 112.5 // 150 * 0.75
+        };
+
+        const laser = {
+            active: false,
+            color: '#FF0000', // Red
+            target: null,
+            // Upgradable stats (will be set by initUpgrades)
+            range: 0,
+            power: 0
+        };
+
+        // --- 3. UPGRADE SYSTEM ---
+        const upgrades = {
+            laserPower: {
+                name: "Laser Power",
+                level: 1,
+                maxLevel: 10,
+                baseCost: 50,
+                getCost: function() { return Math.floor(this.baseCost * Math.pow(1.6, this.level - 1)); },
+                apply: function() { laser.power = 1 + (this.level - 1) * 0.4; }
+            },
+            laserRange: {
+                name: "Laser Range",
+                level: 1,
+                maxLevel: 10,
+                baseCost: 75,
+                getCost: function() { return Math.floor(this.baseCost * Math.pow(1.5, this.level - 1)); },
+                apply: function() { laser.range = 300 + (this.level - 1) * 30; }
+            },
+            cargoHold: {
+                name: "Cargo Hold",
+                level: 1,
+                maxLevel: 10,
+                baseCost: 100,
+                getCost: function() { return Math.floor(this.baseCost * Math.pow(1.8, this.level - 1)); },
+                apply: function() { player.maxMinerals = 100 + (this.level - 1) * 75; }
+            },
+            maxSpeed: {
+                name: "Engine Speed",
+                level: 1,
+                maxLevel: 10,
+                baseCost: 80,
+                getCost: function() { return Math.floor(this.baseCost * Math.pow(1.7, this.level - 1)); },
+                apply: function() { player.maxSpeed = 5 + (this.level - 1) * 0.5; }
+            }
+        };
+
+        // Stores the [x, y, w, h] draw rects for the buttons
+        const upgradeMenu = {
+            buttons: {},
+            closeButton: {}
+        };
+
+        function initUpgrades() {
+            // Apply all level 1 stats
+            for (const key in upgrades) {
+                upgrades[key].apply();
+            }
         }
 
-        // --- Input Handlers (Mobile First) ---
-
-        // This function handles both mouse movement for desktop testing
-        // and touch movement for mobile.
-        function movePlayer(clientX) {
-            if (gameOver) return; // Don't move if game is over
-            
-            // Move player's center to the finger/mouse position
-            player.x = clientX;
-
-            // Clamp player position to screen edges
-            if (player.x < player.width / 2) {
-                player.x = player.width / 2;
-            }
-            if (player.x > canvas.width - player.width / 2) {
-                player.x = canvas.width - player.width / 2;
+        function buyUpgrade(key) {
+            const upgrade = upgrades[key];
+            const cost = upgrade.getCost();
+            if (player.credits >= cost && upgrade.level < upgrade.maxLevel) {
+                player.credits -= cost;
+                upgrade.level++;
+                upgrade.apply();
             }
         }
 
-        // Touch Events
-        canvas.addEventListener('touchstart', (e) => {
-            // Prevent screen from scrolling
-            e.preventDefault();
-            if (gameOver) {
-                init(); // Restart game on tap
-                gameLoop(); // Re-trigger the loop
-            } else {
-                movePlayer(e.touches[0].clientX);
+
+        let asteroids = [];
+        let stars = [];
+        const WORLD_SIZE = 5000;
+
+        // --- 4. CONTROLS ---
+
+        const controls = {
+            move: {
+                touchId: null,
+                active: false,
+                base: { x: 0, y: 0, radius: 70 },
+                knob: { x: 0, y: 0, radius: 30 },
+                vector: { x: 0, y: 0 }
+            },
+            fire: {
+                touchId: null,
+                active: false,
+                base: { x: 0, y: 0, radius: 50 }
             }
-        }, { passive: false });
+        };
 
-        canvas.addEventListener('touchmove', (e) => {
-            e.preventDefault();
-            movePlayer(e.touches[0].clientX);
-        }, { passive: false });
+        function setupControls() {
+            controls.move.base.x = canvas.width * 0.15;
+            controls.move.base.y = canvas.height - 100;
+            controls.move.knob.x = controls.move.base.x;
+            controls.move.knob.y = controls.move.base.y;
 
-        // Mouse events (for desktop fallback)
-        canvas.addEventListener('mousedown', (e) => {
-            if (gameOver) {
-                init();
-                gameLoop();
-            }
-        });
-
-        canvas.addEventListener('mousemove', (e) => {
-            movePlayer(e.clientX);
-        });
-
-        // --- Game Object Creation ---
-
-        function createBullet() {
-            bullets.push({
-                x: player.x,
-                y: player.y,
-                width: 5,
-                height: 15,
-                speed: 10,
-                color: '#FFF' // White
-            });
-            bulletCooldown = 15; // Cooldown (frames) between shots
+            controls.fire.base.x = canvas.width * 0.85;
+            controls.fire.base.y = canvas.height - 100;
         }
 
-        function createAsteroid() {
-            const size = Math.random() * 30 + 20; // Random size (20 to 50)
-            asteroids.push({
-                x: Math.random() * canvas.width, // Random x position
-                y: -size, // Start just above the screen
-                radius: size,
-                speed: Math.random() * 2 + 1, // Random speed (1 to 3)
-                color: '#AAA' // Grey
-            });
-            
-            // Spawn next asteroid faster as score increases
-            const spawnRate = Math.max(20, 100 - score / 10);
-            asteroidSpawnTimer = spawnRate;
-        }
+        // --- 5. GAME LOGIC ---
 
-        // --- Update Function (Runs every frame) ---
-        function update() {
-            if (gameOver) return;
+        function update(deltaTime) {
+            if (gamePaused) return;
 
-            // -- Auto-shoot --
-            bulletCooldown--;
-            if (bulletCooldown <= 0) {
-                createBullet();
-            }
-
-            // -- Update Bullets --
-            // Loop backwards for safe removal
-            for (let i = bullets.length - 1; i >= 0; i--) {
-                const b = bullets[i];
-                b.y -= b.speed;
-                // Remove if off-screen
-                if (b.y < 0) {
-                    bullets.splice(i, 1);
-                }
-            }
-
-            // -- Update Asteroids --
-            asteroidSpawnTimer--;
-            if (asteroidSpawnTimer <= 0) {
-                createAsteroid();
-            }
-
-            for (let i = asteroids.length - 1; i >= 0; i--) {
-                const a = asteroids[i];
-                a.y += a.speed;
-                // Remove if off-screen
-                if (a.y - a.radius > canvas.height) {
-                    asteroids.splice(i, 1);
-                }
-            }
-
-            // -- Check Collisions --
-            checkCollisions();
-        }
-
-        // --- Collision Detection ---
-        function checkCollisions() {
-            // Player vs. Asteroid
-            for (let i = asteroids.length - 1; i >= 0; i--) {
-                const a = asteroids[i];
+            // --- Player Movement ---
+            if (controls.move.active) {
+                const angle = Math.atan2(controls.move.vector.y, controls.move.vector.x);
+                const thrust = Math.min(1, Math.sqrt(controls.move.vector.x**2 + controls.move.vector.y**2));
                 
-                // Simple AABB (Axis-Aligned Bounding Box) for player
-                // and Circle (asteroid) collision.
-                // Find closest point on player rect to asteroid center
-                const closestX = Math.max(player.x - player.width / 2, Math.min(a.x, player.x + player.width / 2));
-                const closestY = Math.max(player.y - player.height / 2, Math.min(a.y, player.y + player.height / 2));
-                
-                // Get distance from closest point to asteroid center
-                const dist = Math.hypot(closestX - a.x, closestY - a.y);
-                
-                if (dist < a.radius) {
-                    // Collision!
-                    gameOver = true;
-                    return; // Stop checking
-                }
+                player.vx += Math.cos(angle) * player.thrustPower * thrust;
+                player.vy += Math.sin(angle) * player.thrustPower * thrust;
+                player.angle = angle;
             }
 
-            // Bullet vs. Asteroid
-            for (let i = bullets.length - 1; i >= 0; i--) {
-                for (let j = asteroids.length - 1; j >= 0; j--) {
-                    const b = bullets[i];
-                    const a = asteroids[j];
+            const speed = Math.sqrt(player.vx**2 + player.vy**2);
+            if (speed > player.maxSpeed) {
+                player.vx = (player.vx / speed) * player.maxSpeed;
+                player.vy = (player.vy / speed) * player.maxSpeed;
+            }
 
-                    // Simple AABB vs Circle
-                    const closestX = Math.max(b.x - b.width / 2, Math.min(a.x, b.x + b.width / 2));
-                    const closestY = Math.max(b.y - b.height / 2, Math.min(a.y, b.y + b.height / 2));
-                    const dist = Math.hypot(closestX - a.x, closestY - a.y);
+            player.vx *= player.friction;
+            player.vy *= player.friction;
+            player.x += player.vx;
+            player.y += player.vy;
 
-                    if (dist < a.radius) {
-                        // Hit!
-                        asteroids.splice(j, 1); // Remove asteroid
-                        bullets.splice(i, 1);   // Remove bullet
-                        score += 10;
+            // --- Laser Logic ---
+            laser.active = controls.fire.active;
+            laser.target = null;
+            if (laser.active) {
+                let closestDist = laser.range;
+                let closestAsteroid = null;
+
+                for (const asteroid of asteroids) {
+                    const dx = asteroid.x - player.x;
+                    const dy = asteroid.y - player.y;
+                    const dist = Math.sqrt(dx**2 + dy**2);
+
+                    if (dist < laser.range + asteroid.radius) {
+                        const angleToAsteroid = Math.atan2(dy, dx);
+                        let angleDiff = Math.abs(player.angle - angleToAsteroid);
+                        if (angleDiff > Math.PI) angleDiff = 2 * Math.PI - angleDiff;
+
+                        if (angleDiff < Math.PI / 12) { // 15-degree cone
+                            if (dist < closestDist) {
+                                closestDist = dist;
+                                closestAsteroid = asteroid;
+                            }
+                        }
+                    }
+                }
+                
+                if (closestAsteroid) {
+                    laser.target = closestAsteroid;
+                    closestAsteroid.health -= laser.power;
+                    
+                    if (closestAsteroid.health <= 0) {
+                        // Asteroid destroyed!
+                        // Only add minerals if not full
+                        const mineralsGained = Math.floor(closestAsteroid.baseValue);
+                        if (player.minerals < player.maxMinerals) {
+                            player.minerals = Math.min(player.maxMinerals, player.minerals + mineralsGained);
+                        }
                         
-                        // Break inner loop since bullet is gone
-                        break; 
+                        Object.assign(closestAsteroid, createAsteroid(true)); 
                     }
                 }
             }
+            
+            // --- Depot Logic ---
+            const distToDepot = Math.sqrt((player.x - depot.x)**2 + (player.y - depot.y)**2);
+            if (distToDepot < depot.sellZoneRadius + player.radius) {
+                if (!player.atDepot) { // Just arrived!
+                    // Sell minerals
+                    if (player.minerals > 0) {
+                        player.credits += player.minerals;
+                        player.minerals = 0;
+                    }
+                    // Open menu
+                    player.atDepot = true;
+                    gamePaused = true;
+                    showUpgradeMenu = true;
+                }
+            } else {
+                if (player.atDepot) {
+                    // Just left
+                    player.atDepot = false;
+                }
+            }
+
+            // --- Camera Update ---
+            camera.x += (player.x - camera.x) * camera.lerp;
+            camera.y += (player.y - camera.y) * camera.lerp;
         }
 
-        // --- Draw Function (Runs every frame) ---
+        // --- 6. DRAWING ---
+
         function draw() {
-            // Clear the screen with a black background
-            ctx.fillStyle = '#000';
+            // Clear screen
+            ctx.fillStyle = '#000008';
             ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-            if (gameOver) {
-                drawGameOver();
+            // --- Draw World (from camera perspective) ---
+            ctx.save();
+            ctx.translate(canvas.width / 2, canvas.height / 2);
+            ctx.translate(-camera.x, -camera.y);
+
+            drawStars();
+            drawDepot();
+            for (const asteroid of asteroids) {
+                drawAsteroid(asteroid);
+            }
+            drawPlayer();
+            if (laser.active) {
+                drawLaser();
+            }
+            ctx.restore();
+            // --- End World Draw ---
+
+            // --- Draw UI (in screen space) ---
+            drawUI();
+
+            // --- Draw Upgrade Menu (if active) ---
+            if (showUpgradeMenu) {
+                drawUpgradeMenu();
+            }
+        }
+
+        function drawStars() {
+            ctx.fillStyle = 'white';
+            for (const star of stars) {
+                const parallaxX = star.x - (camera.x * star.parallax);
+                const parallaxY = star.y - (camera.y * star.parallax);
+                
+                const dx = parallaxX - player.x;
+                const dy = parallaxY - player.y;
+                if (Math.abs(dx) < canvas.width && Math.abs(dy) < canvas.height) {
+                    ctx.fillRect(parallaxX, parallaxY, star.size, star.size);
+                }
+            }
+        }
+
+        function drawDepot() {
+            ctx.fillStyle = depot.color;
+            ctx.fillRect(depot.x - depot.size / 2, depot.y - depot.size / 2, depot.size, depot.size);
+            
+            ctx.strokeStyle = depot.color;
+            ctx.lineWidth = 3;
+            ctx.setLineDash([10, 10]);
+            ctx.beginPath();
+            ctx.arc(depot.x, depot.y, depot.sellZoneRadius, 0, Math.PI * 2);
+            ctx.stroke();
+            ctx.setLineDash([]);
+        }
+
+        function drawAsteroid(asteroid) {
+            ctx.strokeStyle = asteroid.color;
+            ctx.lineWidth = 2;
+            
+            ctx.beginPath();
+            ctx.moveTo(asteroid.x + asteroid.shape[0].x, asteroid.y + asteroid.shape[0].y);
+            for (let i = 1; i < asteroid.shape.length; i++) {
+                ctx.lineTo(asteroid.x + asteroid.shape[i].x, asteroid.y + asteroid.shape[i].y);
+            }
+            ctx.closePath();
+            ctx.stroke();
+
+            if (asteroid.health < asteroid.maxHealth) {
+                const healthPercent = asteroid.health / asteroid.maxHealth;
+                ctx.fillStyle = '#FF0000';
+                ctx.fillRect(asteroid.x - asteroid.radius, asteroid.y - asteroid.radius - 10, asteroid.radius * 2, 5);
+                ctx.fillStyle = '#00FF00';
+                ctx.fillRect(asteroid.x - asteroid.radius, asteroid.y - asteroid.radius - 10, asteroid.radius * 2 * healthPercent, 5);
+            }
+        }
+
+        function drawPlayer() {
+            ctx.save();
+            ctx.translate(player.x, player.y);
+            ctx.rotate(player.angle);
+            
+            ctx.fillStyle = player.color;
+            ctx.beginPath();
+            ctx.moveTo(player.radius, 0);
+            ctx.lineTo(-player.radius * 0.7, -player.radius * 0.8);
+            ctx.lineTo(-player.radius * 0.7, player.radius * 0.8);
+            ctx.closePath();
+            ctx.fill();
+
+            ctx.restore();
+        }
+
+        function drawLaser() {
+            const startX = player.x + Math.cos(player.angle) * player.radius;
+            const startY = player.y + Math.sin(player.angle) * player.radius;
+            let endX, endY;
+
+            if (laser.target) {
+                endX = laser.target.x;
+                endY = laser.target.y;
             } else {
-                // -- Draw Player (as a triangle) --
-                ctx.fillStyle = playerColor;
+                endX = startX + Math.cos(player.angle) * laser.range;
+                endY = startY + Math.sin(player.angle) * laser.range;
+            }
+
+            ctx.strokeStyle = laser.color;
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            ctx.moveTo(startX, startY);
+            ctx.lineTo(endX, endY);
+            ctx.stroke();
+            
+            if (laser.target) {
+                ctx.fillStyle = '#FFFF00';
                 ctx.beginPath();
-                ctx.moveTo(player.x, player.y - player.height / 2); // Top point
-                ctx.lineTo(player.x - player.width / 2, player.y + player.height / 2); // Bottom left
-                ctx.lineTo(player.x + player.width / 2, player.y + player.height / 2); // Bottom right
-                ctx.closePath();
+                ctx.arc(endX, endY, Math.random() * 5 + 3, 0, Math.PI * 2);
+                ctx.fill();
+            }
+        }
+
+        function drawUI() {
+            // --- Draw Controls (if not in menu) ---
+            if (!showUpgradeMenu) {
+                // Move Joystick Base
+                ctx.fillStyle = 'rgba(128, 128, 128, 0.3)';
+                ctx.beginPath();
+                ctx.arc(controls.move.base.x, controls.move.base.y, controls.move.base.radius, 0, Math.PI * 2);
                 ctx.fill();
 
-                // -- Draw Bullets --
-                bullets.forEach(b => {
-                    ctx.fillStyle = b.color;
-                    ctx.fillRect(b.x - b.width / 2, b.y - b.height / 2, b.width, b.height);
-                });
+                // Move Joystick Knob
+                ctx.fillStyle = 'rgba(255, 255, 255, 0.7)';
+                ctx.beginPath();
+                ctx.arc(controls.move.knob.x, controls.move.knob.y, controls.move.knob.radius, 0, Math.PI * 2);
+                ctx.fill();
 
-                // -- Draw Asteroids (as circles) --
-                asteroids.forEach(a => {
-                    ctx.strokeStyle = a.color;
-                    ctx.lineWidth = 2;
-                    ctx.beginPath();
-                    ctx.arc(a.x, a.y, a.radius, 0, Math.PI * 2);
-                    ctx.stroke();
-                });
+                // Fire Button
+                ctx.fillStyle = controls.fire.active ? 'rgba(255, 0, 0, 0.7)' : 'rgba(255, 0, 0, 0.3)';
+                ctx.beginPath();
+                ctx.arc(controls.fire.base.x, controls.fire.base.y, controls.fire.base.radius, 0, Math.PI * 2);
+                ctx.fill();
+            }
 
-                // -- Draw Score --
-                ctx.fillStyle = '#FFF';
-                ctx.font = '24px Arial';
+            // --- Draw Text Info ---
+            ctx.fillStyle = 'white';
+            ctx.font = '20px Arial';
+            ctx.textAlign = 'left';
+            
+            ctx.fillText(`Credits: ${player.credits}`, 20, 30);
+            ctx.fillText(`Minerals: ${player.minerals} / ${player.maxMinerals}`, 20, 55);
+
+            // Depot Indicator
+            const distToDepot = Math.sqrt((player.x - depot.x)**2 + (player.y - depot.y)**2);
+            if (distToDepot > canvas.width * 0.75) { // Only show if far
+                const angleToDepot = Math.atan2(depot.y - camera.y, depot.x - camera.x);
+                const indicatorX = canvas.width / 2 + Math.cos(angleToDepot) * (canvas.width * 0.45);
+                const indicatorY = canvas.height / 2 + Math.sin(angleToDepot) * (canvas.height * 0.45);
+
+                ctx.save();
+                ctx.translate(indicatorX, indicatorY);
+                ctx.rotate(angleToDepot);
+                ctx.fillStyle = depot.color;
+                ctx.beginPath();
+                ctx.moveTo(15, 0);
+                ctx.lineTo(-5, -10);
+                ctx.lineTo(-5, 10);
+                ctx.closePath();
+                ctx.fill();
+                ctx.restore();
+            }
+        }
+
+        function drawUpgradeMenu() {
+            // Reset button rects for hit detection
+            upgradeMenu.buttons = {};
+            
+            // Dim background
+            ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            // Menu box
+            const menuWidth = canvas.width * 0.8;
+            const menuHeight = canvas.height * 0.7;
+            const menuX = (canvas.width - menuWidth) / 2;
+            const menuY = (canvas.height - menuHeight) / 2;
+
+            ctx.fillStyle = '#111';
+            ctx.strokeStyle = '#4CFF00';
+            ctx.lineWidth = 2;
+            ctx.fillRect(menuX, menuY, menuWidth, menuHeight);
+            ctx.strokeRect(menuX, menuY, menuWidth, menuHeight);
+
+            // Title
+            ctx.fillStyle = 'white';
+            ctx.font = '28px Arial';
+            ctx.textAlign = 'center';
+            ctx.fillText('Depot Upgrades', canvas.width / 2, menuY + 40);
+            ctx.fillText(`Credits: ${player.credits}`, canvas.width / 2, menuY + 70);
+
+            // Draw upgrade buttons
+            const buttonHeight = 60;
+            const buttonMargin = 15;
+            const buttonWidth = menuWidth - 40;
+            let startY = menuY + 100;
+            
+            let i = 0;
+            for (const key in upgrades) {
+                const upgrade = upgrades[key];
+                const buttonX = menuX + 20;
+                const buttonY = startY + i * (buttonHeight + buttonMargin);
+                
+                // Store rect for click detection
+                upgradeMenu.buttons[key] = [buttonX, buttonY, buttonWidth, buttonHeight];
+
+                const cost = upgrade.getCost();
+                const canAfford = player.credits >= cost;
+                const isMaxed = upgrade.level >= upgrade.maxLevel;
+
+                // Button background
+                ctx.fillStyle = isMaxed ? '#555' : (canAfford ? '#338833' : '#883333');
+                ctx.fillRect(buttonX, buttonY, buttonWidth, buttonHeight);
+                
+                // Text
+                ctx.fillStyle = 'white';
+                ctx.font = '20px Arial';
                 ctx.textAlign = 'left';
-                ctx.fillText(`Score: ${score}`, 10, 30);
+                ctx.fillText(`${upgrade.name} (Lvl ${upgrade.level})`, buttonX + 10, buttonY + 25);
+                
+                ctx.textAlign = 'right';
+                const costText = isMaxed ? 'MAX' : `Cost: ${cost}`;
+                ctx.fillText(costText, buttonX + buttonWidth - 10, buttonY + 45);
+
+                i++;
+            }
+
+            // Close button
+            const closeX = menuX + menuWidth - 100;
+            const closeY = menuY + 10;
+            const closeW = 90;
+            const closeH = 40;
+            upgradeMenu.closeButton = [closeX, closeY, closeW, closeH];
+            
+            ctx.fillStyle = '#AA2222';
+            ctx.fillRect(closeX, closeY, closeW, closeH);
+            
+            ctx.fillStyle = 'white';
+            ctx.font = '22px Arial';
+            ctx.textAlign = 'center';
+            ctx.fillText('[Close]', closeX + closeW / 2, closeY + 28);
+        }
+
+        // --- 7. HELPERS & INITIALIZATION ---
+
+        function createAsteroid(isRespawn = false) {
+            let x, y;
+            const size = Math.random() * 40 + 20;
+            
+            do {
+                x = (Math.random() - 0.5) * WORLD_SIZE * 2;
+                y = (Math.random() - 0.5) * WORLD_SIZE * 2;
+            } while (!isRespawn && (Math.sqrt(x**2 + y**2) < 500 || Math.sqrt((x-depot.x)**2 + (y-depot.y)**2) < 500)); 
+
+            const health = size * 2;
+
+            let shape = [];
+            const vertices = Math.floor(Math.random() * 5) + 8;
+            for (let i = 0; i < vertices; i++) {
+                const angle = (i / vertices) * Math.PI * 2;
+                const radius = (Math.random() * 0.4 + 0.8) * size;
+                shape.push({
+                    x: Math.cos(angle) * radius,
+                    y: Math.sin(angle) * radius
+                });
+            }
+
+            return { x, y, radius: size, health, maxHealth: health, baseValue: size, color: `rgb(180, 180, 180)`, shape };
+        }
+
+        function createStars() {
+            for (let i = 0; i < 500; i++) {
+                stars.push({
+                    x: (Math.random() - 0.5) * WORLD_SIZE * 4,
+                    y: (Math.random() - 0.5) * WORLD_SIZE * 4,
+                    size: Math.random() * 2 + 0.5,
+                    parallax: Math.random() * 0.3 + 0.1
+                });
+            }
+        }
+
+        // --- 8. EVENT HANDLERS ---
+
+        function handleResize() {
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+            setupControls();
+        }
+
+        function handleTouchStart(e) {
+            e.preventDefault();
+            const touches = e.changedTouches;
+            
+            for (let i = 0; i < touches.length; i++) {
+                const touch = touches[i];
+                const touchX = touch.clientX;
+                const touchY = touch.clientY;
+
+                // --- Handle Upgrade Menu Clicks ---
+                if (gamePaused && showUpgradeMenu) {
+                    // Check close button
+                    const cb = upgradeMenu.closeButton;
+                    if (touchX > cb[0] && touchX < cb[0] + cb[2] && touchY > cb[1] && touchY < cb[1] + cb[3]) {
+                        gamePaused = false;
+                        showUpgradeMenu = false;
+                        // Nudge player outside depot to prevent immediate re-docking
+                        const angle = Math.atan2(player.y - depot.y, player.x - depot.x);
+                        player.x += Math.cos(angle) * 10;
+                        player.y += Math.sin(angle) * 10;
+                        return; // This touch is handled
+                    }
+
+                    // Check upgrade buttons
+                    for (const key in upgradeMenu.buttons) {
+                        const b = upgradeMenu.buttons[key];
+                        if (touchX > b[0] && touchX < b[0] + b[2] && touchY > b[1] && touchY < b[1] + b[3]) {
+                            buyUpgrade(key);
+                            return; // This touch is handled
+                        }
+                    }
+                    return; // Clicks outside the menu do nothing
+                }
+
+                // --- Handle Game Controls ---
+                if (gamePaused) return; // Don't process game controls if paused but menu isn't showing (shouldn't happen)
+                
+                // Check for move joystick
+                const distToMove = Math.sqrt((touchX - controls.move.base.x)**2 + (touchY - controls.move.base.y)**2);
+                if (!controls.move.active && distToMove < controls.move.base.radius * 1.5) {
+                    controls.move.touchId = touch.identifier;
+                    controls.move.active = true;
+                    updateMoveKnob(touchX, touchY);
+                    continue;
+                }
+
+                // Check for fire button
+                const distToFire = Math.sqrt((touchX - controls.fire.base.x)**2 + (touchY - controls.fire.base.y)**2);
+                if (!controls.fire.active && distToFire < controls.fire.base.radius * 1.5) {
+                    controls.fire.touchId = touch.identifier;
+                    controls.fire.active = true;
+                    continue;
+                }
+            }
+        }
+
+        function handleTouchMove(e) {
+            e.preventDefault();
+            if (gamePaused) return; // Don't move joystick if paused
+            
+            const touches = e.changedTouches;
+            for (let i = 0; i < touches.length; i++) {
+                const touch = touches[i];
+                if (touch.identifier === controls.move.touchId) {
+                    updateMoveKnob(touch.clientX, touch.clientY);
+                }
+            }
+        }
+
+        function handleTouchEnd(e) {
+            e.preventDefault();
+            // Don't need to check for menu, as ending a touch is always fine
+            
+            const touches = e.changedTouches;
+            for (let i = 0; i < touches.length; i++) {
+                const touch = touches[i];
+
+                if (touch.identifier === controls.move.touchId) {
+                    controls.move.touchId = null;
+                    controls.move.active = false;
+                    controls.move.knob.x = controls.move.base.x;
+                    controls.move.knob.y = controls.move.base.y;
+                    controls.move.vector = { x: 0, y: 0 };
+                }
+
+                if (touch.identifier === controls.fire.touchId) {
+                    controls.fire.touchId = null;
+                    controls.fire.active = false;
+                }
             }
         }
         
-        // --- Game Over Screen ---
-        function drawGameOver() {
-            // Dim the background
-            ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
-            ctx.fillRect(0, 0, canvas.width, canvas.height);
+        function updateMoveKnob(x, y) {
+            const base = controls.move.base;
+            const knob = controls.move.knob;
+            const dx = x - base.x;
+            const dy = y - base.y;
+            const dist = Math.sqrt(dx**2 + dy**2);
             
-            ctx.fillStyle = '#F00';
-            ctx.font = '48px Arial';
-            ctx.textAlign = 'center';
-            ctx.fillText('GAME OVER', canvas.width / 2, canvas.height / 2 - 40);
-
-            ctx.fillStyle = '#FFF';
-            ctx.font = '24px Arial';
-            ctx.fillText(`Final Score: ${score}`, canvas.width / 2, canvas.height / 2);
-            
-            ctx.font = '20px Arial';
-            ctx.fillText('Tap to Restart', canvas.width / 2, canvas.height / 2 + 40);
+            if (dist > base.radius) {
+                knob.x = base.x + (dx / dist) * base.radius;
+                knob.y = base.y + (dy / dist) * base.radius;
+                controls.move.vector.x = dx / dist;
+                controls.move.vector.y = dy / dist;
+            } else {
+                knob.x = x;
+                knob.y = y;
+                controls.move.vector.x = dx / base.radius;
+                controls.move.vector.y = dy / base.radius;
+            }
         }
+        
+        // --- 9. GAME LOOP ---
 
-        // --- Game Loop ---
-        function gameLoop() {
-            update();
+        function gameLoop(timestamp) {
+            const deltaTime = (timestamp - lastTime) / 1000;
+            lastTime = timestamp;
+
+            update(deltaTime);
             draw();
-            
-            // Continue the loop only if game is not over
-            if (!gameOver) {
-                requestAnimationFrame(gameLoop);
-            }
+
+            requestAnimationFrame(gameLoop);
         }
 
-        // --- Start the Game ---
-        // We wrap the start in `window.onload` to ensure all
-        // page elements are loaded, though it's not strictly
-        // necessary since the script is at the end of <body>.
-        window.onload = () => {
-            init();
-            gameLoop();
-        };
+        // --- 10. START GAME ---
 
-        // Handle window resizing (e.g., phone orientation change)
-        window.addEventListener('resize', () => {
-            canvas.width = window.innerWidth;
-            canvas.height = window.innerHeight;
-            // Re-center player on resize
-            player.y = canvas.height - 70;
-            if (player.x > canvas.width - player.width / 2) {
-                player.x = canvas.width - player.width / 2;
+        function initGame() {
+            window.addEventListener('resize', handleResize);
+            canvas.addEventListener('touchstart', handleTouchStart, { passive: false });
+            canvas.addEventListener('touchmove', handleTouchMove, { passive: false });
+            canvas.addEventListener('touchend', handleTouchEnd, { passive: false });
+            canvas.addEventListener('touchcancel', handleTouchEnd, { passive: false });
+
+            setupControls();
+            initUpgrades(); // Apply level 1 stats
+            createStars();
+            for (let i = 0; i < 50; i++) {
+                asteroids.push(createAsteroid());
             }
-        });
 
+            requestAnimationFrame(gameLoop);
+        }
+
+        initGame();
     </script>
 </body>
 </html>
