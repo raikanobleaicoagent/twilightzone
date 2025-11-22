@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Z-OS | BOOLEAN RIGOR</title>
+    <title>Z-OS | UNRESTRICTED INPUT FLOW</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
@@ -44,7 +44,9 @@
             font-family: 'JetBrains Mono', monospace;
             font-size: 14px;
             padding: 2px 6px;
-            width: 100%;
+            /* CRUCIAL FIX: Allow expansion horizontally */
+            width: max-content; 
+            min-width: 100%; /* Ensures it fills parent if content is short */
             border-radius: 2px;
         }
         input.edit-input:focus {
@@ -99,6 +101,9 @@
 
         /* Modal */
         #io-modal { background: rgba(0,0,0,0.95); backdrop-filter: blur(5px); }
+        
+        /* Enable horizontal scrolling on the main viewport */
+        #viewport { overflow-x: auto; }
     </style>
 </head>
 <body class="flex flex-col h-screen">
@@ -107,7 +112,7 @@
     <header class="bg-black border-b border-green-900/30 p-3 flex justify-between items-center sticky top-0 z-50 shadow-lg shadow-green-900/10">
         <div class="flex items-center gap-2">
             <i class="fa-solid fa-network-wired text-green-500 text-sm"></i>
-            <span class="text-green-500 font-bold tracking-widest text-sm">Z-OS <span class="text-gray-600 text-xs">v5.7</span></span>
+            <span class="text-green-500 font-bold tracking-widest text-sm">Z-OS <span class="text-gray-600 text-xs">v5.8</span></span>
         </div>
         <div class="flex gap-2">
             <button onclick="app.reset()" class="text-red-800 hover:text-red-500 text-[10px] border border-red-900/30 px-2 py-1 rounded font-bold tracking-wider">RESET</button>
@@ -149,12 +154,12 @@
             }
 
             load() {
-                const s = localStorage.getItem('zos_v5_7');
+                const s = localStorage.getItem('zos_v5_8');
                 return s ? JSON.parse(s) : JSON.parse(JSON.stringify(NULL_STATE));
             }
 
             save() {
-                localStorage.setItem('zos_v5_7', JSON.stringify(this.state));
+                localStorage.setItem('zos_v5_8', JSON.stringify(this.state));
                 this.render();
             }
 
@@ -321,7 +326,7 @@
                     if (isPrimitive) {
                         html += `
                             <div class="node-row group hover:bg-[#0a0a0a]">
-                                <div class="flex-grow flex items-center overflow-hidden mr-2">
+                                <div class="flex-grow flex items-center mr-2"> 
                                     ${keyDisplay}
                                     ${this.buildPrimitive(value, safeP)}
                                 </div>
