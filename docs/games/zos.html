@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Z-OS | STRUCTURAL EXPANSION</title>
+    <title>Z-OS | BOOLEAN RIGOR</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
@@ -107,7 +107,7 @@
     <header class="bg-black border-b border-green-900/30 p-3 flex justify-between items-center sticky top-0 z-50 shadow-lg shadow-green-900/10">
         <div class="flex items-center gap-2">
             <i class="fa-solid fa-network-wired text-green-500 text-sm"></i>
-            <span class="text-green-500 font-bold tracking-widest text-sm">Z-OS <span class="text-gray-600 text-xs">v5.6</span></span>
+            <span class="text-green-500 font-bold tracking-widest text-sm">Z-OS <span class="text-gray-600 text-xs">v5.7</span></span>
         </div>
         <div class="flex gap-2">
             <button onclick="app.reset()" class="text-red-800 hover:text-red-500 text-[10px] border border-red-900/30 px-2 py-1 rounded font-bold tracking-wider">RESET</button>
@@ -149,12 +149,12 @@
             }
 
             load() {
-                const s = localStorage.getItem('zos_v5_6');
+                const s = localStorage.getItem('zos_v5_7');
                 return s ? JSON.parse(s) : JSON.parse(JSON.stringify(NULL_STATE));
             }
 
             save() {
-                localStorage.setItem('zos_v5_6', JSON.stringify(this.state));
+                localStorage.setItem('zos_v5_7', JSON.stringify(this.state));
                 this.render();
             }
 
@@ -197,10 +197,12 @@
                 else if (v === 'INCOMPLETE') nextVal = 'COMPLETE';
                 else if (v === 'COMPLETED') nextVal = 'PENDING';
                 else if (v === 'PENDING') nextVal = 'COMPLETED';
-                else if (v === 'TRUE') nextVal = FALSE;
-                else if (v === 'FALSE') nextVal = TRUE;
-                else if (currentVal === true) nextVal = false;
-                else if (currentVal === false) nextVal = true;
+                // Standardizing TRUE/FALSE flips to use string representation
+                else if (v === 'TRUE') nextVal = 'FALSE';
+                else if (v === 'FALSE') nextVal = 'TRUE';
+                // Handling JS primitives that result from JSON.parse (which we want to convert to string)
+                else if (currentVal === true) nextVal = 'FALSE';
+                else if (currentVal === false) nextVal = 'TRUE';
 
                 parent[key] = nextVal;
                 this.save();
@@ -211,10 +213,20 @@
                 if (!parent) return;
 
                 let val = newValue;
-                if (newValue === 'true') val = true;
-                if (newValue === 'false') val = false;
-                if (!isNaN(Number(newValue)) && newValue.trim() !== '') val = Number(newValue);
+                const vUpper = String(newValue).toUpperCase();
 
+                // Check for number conversion first
+                if (!isNaN(Number(newValue)) && newValue.trim() !== '') {
+                    val = Number(newValue);
+                } 
+                // Then check for TRUE/FALSE strings and enforce capitalization
+                else if (vUpper === 'TRUE') {
+                    val = 'TRUE';
+                }
+                else if (vUpper === 'FALSE') {
+                    val = 'FALSE';
+                }
+                
                 parent[key] = val;
                 this.editingPath = null;
                 this.save();
@@ -245,9 +257,12 @@
                     const newVal = prompt("VALUE:");
                     if (newVal === null) return;
                     let val = newVal;
+                    const vUpper = String(newVal).toUpperCase();
+
                     if (!isNaN(Number(newVal)) && newVal.trim() !== '') val = Number(newVal);
-                    else if (newVal.toLowerCase() === 'true') val = true;
-                    else if (newVal.toLowerCase() === 'false') val = false;
+                    else if (vUpper === 'TRUE') val = 'TRUE';
+                    else if (vUpper === 'FALSE') val = 'FALSE';
+                    
                     target.push(val);
                 } else {
                     // Object Add: Prompts for structure type
@@ -268,9 +283,11 @@
                         if (valuePrompt === null) return;
                         
                         newVal = valuePrompt;
+                        const vUpper = String(newVal).toUpperCase();
+                        
                         if (!isNaN(Number(newVal)) && newVal.trim() !== '') newVal = Number(newVal);
-                        else if (newVal.toLowerCase() === 'true') newVal = true;
-                        else if (newVal.toLowerCase() === 'false') newVal = false;
+                        else if (vUpper === 'TRUE') newVal = 'TRUE';
+                        else if (vUpper === 'FALSE') newVal = 'FALSE';
                     }
                     target[newKey] = newVal;
                 }
@@ -361,7 +378,7 @@
                     else if (['PENDING'].includes(vUpper)) colorClass = 'state-pending';
 
                     // Direct Toggle Click
-                    return `<span class="val-display mono ${colorClass}" onclick="app.toggleState('${path}', '${val}')">${val} <i class="fa-solid fa-toggle-on ml-1 text-[10px] opacity-50"></i></span>`;
+                    return `<span class="val-display mono ${colorClass}" onclick="app.toggleState('${path}', '${val}')">${vUpper} <i class="fa-solid fa-toggle-on ml-1 text-[10px] opacity-50"></i></span>`;
                 }
 
                 // Standard Edit Click
