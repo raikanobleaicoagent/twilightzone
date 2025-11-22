@@ -1,0 +1,371 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Z-OS | DIRECT ACTION</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&family=Rajdhani:wght@600;700&display=swap');
+        
+        :root {
+            --bg-color: #000000;
+            --panel-color: #0a0a0a;
+            --border-color: #1f1f1f;
+            --accent-color: #00ff9d;
+            --text-color: #c0c0c0;
+            --danger-color: #ff0055;
+        }
+
+        body {
+            font-family: 'Rajdhani', sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            overflow-x: hidden;
+        }
+
+        .mono { font-family: 'JetBrains Mono', monospace; }
+
+        /* Tree Structure */
+        .tree-line {
+            border-left: 1px solid #333;
+            padding-left: 6px; 
+            margin-left: 3px;
+        }
+        
+        /* Inputs */
+        input.edit-input {
+            background: #111;
+            color: var(--accent-color);
+            border: 1px solid #333;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 14px;
+            padding: 2px 6px;
+            width: 100%;
+            border-radius: 2px;
+        }
+        input.edit-input:focus {
+            outline: none;
+            border-color: var(--accent-color);
+        }
+
+        /* Buttons */
+        .btn-action {
+            opacity: 0.6;
+            transition: opacity 0.2s;
+            padding: 4px 8px;
+            cursor: pointer;
+        }
+        .btn-action:hover { opacity: 1; }
+        
+        /* Node Styling */
+        .node-row {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 4px 0;
+            border-bottom: 1px solid #111;
+            min-height: 32px;
+        }
+        
+        .key-display {
+            color: #666;
+            font-size: 11px;
+            font-weight: 700;
+            margin-right: 6px;
+            white-space: nowrap;
+            letter-spacing: 0.5px;
+        }
+        
+        .val-display {
+            color: #ddd;
+            font-size: 13px;
+            word-break: break-all;
+            cursor: pointer;
+        }
+        .val-display:hover { color: var(--accent-color); }
+
+        /* Modal */
+        #io-modal { background: rgba(0,0,0,0.95); backdrop-filter: blur(5px); }
+    </style>
+</head>
+<body class="flex flex-col h-screen">
+
+    <!-- HEADER -->
+    <header class="bg-black border-b border-green-900/30 p-3 flex justify-between items-center sticky top-0 z-50 shadow-lg shadow-green-900/10">
+        <div class="flex items-center gap-2">
+            <i class="fa-solid fa-network-wired text-green-500 text-sm"></i>
+            <span class="text-green-500 font-bold tracking-widest text-sm">Z-OS <span class="text-gray-600 text-xs">v5.2</span></span>
+        </div>
+        <div class="flex gap-2">
+            <button onclick="app.reset()" class="text-red-800 hover:text-red-500 text-[10px] border border-red-900/30 px-2 py-1 rounded font-bold tracking-wider">RESET</button>
+            <button onclick="app.toggleIO()" class="bg-green-900/20 text-green-400 border border-green-800 px-3 py-1 text-[10px] font-bold rounded hover:bg-green-900/40 tracking-wider animate-pulse">EXPORT JSON</button>
+        </div>
+    </header>
+
+    <!-- MAIN VIEWPORT -->
+    <main id="viewport" class="flex-grow overflow-y-auto p-2 pb-20">
+        <!-- Tree Injected Here -->
+    </main>
+
+    <!-- IMPORT/EXPORT MODAL -->
+    <div id="io-modal" class="fixed inset-0 z-[60] hidden flex flex-col">
+        <div class="p-4 border-b border-gray-800 flex justify-between items-center bg-black">
+            <h2 class="text-green-500 font-bold text-xs tracking-[0.2em]">DATA SYNCHRONIZATION</h2>
+            <button onclick="app.toggleIO()" class="text-gray-500 hover:text-white"><i class="fa-solid fa-xmark fa-lg"></i></button>
+        </div>
+        <textarea id="raw-json" class="flex-grow bg-black text-green-400 p-4 text-xs mono resize-none focus:outline-none" spellcheck="false" placeholder="// PASTE WORLD MODEL HERE //"></textarea>
+        <div class="flex border-t border-gray-800">
+            <button onclick="app.copyRaw()" class="flex-1 bg-[#050505] text-white py-4 text-xs font-bold border-r border-gray-800 hover:bg-[#111] tracking-wider">COPY TO CLIPBOARD</button>
+            <button onclick="app.saveRaw()" class="flex-1 bg-[#0a1a0a] text-green-400 py-4 text-xs font-bold hover:bg-[#0f2f0f] tracking-wider">LOAD DATA</button>
+        </div>
+    </div>
+
+    <!-- APP LOGIC -->
+    <script>
+        const NULL_STATE = { "status": "WAITING_FOR_DATA_INJECTION" };
+
+        class ZyqralOS {
+            constructor() {
+                this.state = this.load();
+                this.editingPath = null;
+                this.render();
+            }
+
+            load() {
+                const s = localStorage.getItem('zos_v5_2');
+                return s ? JSON.parse(s) : JSON.parse(JSON.stringify(NULL_STATE));
+            }
+
+            save() {
+                localStorage.setItem('zos_v5_2', JSON.stringify(this.state));
+                this.render();
+            }
+
+            reset() {
+                if(confirm('FACTORY RESET: Clear all data?')) {
+                    this.state = JSON.parse(JSON.stringify(NULL_STATE));
+                    this.save();
+                }
+            }
+
+            // --- CORE LOGIC ---
+            
+            // Escapes path for HTML attribute usage
+            safePath(path) {
+                return path.replace(/'/g, "\\'").replace(/"/g, '&quot;');
+            }
+
+            getParent(pathStr) {
+                const parts = pathStr.split('|');
+                const targetKey = parts.pop();
+                let current = this.state;
+                
+                for (const part of parts) {
+                    if (current[part] === undefined) return null;
+                    current = current[part];
+                }
+                return { parent: current, key: targetKey };
+            }
+
+            updateValue(pathStr, newValue) {
+                const { parent, key } = this.getParent(pathStr);
+                if (!parent) return;
+
+                let val = newValue;
+                if (newValue === 'true') val = true;
+                if (newValue === 'false') val = false;
+                if (!isNaN(Number(newValue)) && newValue.trim() !== '') val = Number(newValue);
+
+                parent[key] = val;
+                this.editingPath = null;
+                this.save();
+            }
+
+            deleteItem(pathStr) {
+                // Immediate UI confirmation
+                if(!confirm('DESTROY NODE: Are you sure?')) return;
+                
+                const { parent, key } = this.getParent(pathStr);
+                if (!parent) return;
+
+                if (Array.isArray(parent)) {
+                    parent.splice(Number(key), 1);
+                } else {
+                    delete parent[key];
+                }
+                
+                // Critical: Reset edit path if we deleted the item being edited
+                if (this.editingPath === pathStr) this.editingPath = null;
+                
+                this.save();
+            }
+
+            addItem(pathStr, isArray) {
+                const { parent, key } = this.getParent(pathStr);
+                // Root handling
+                let target;
+                if (pathStr === '') target = this.state;
+                else target = key ? parent[key] : this.state;
+
+                let newKey = null;
+                if (!isArray) {
+                    newKey = prompt("FIELD NAME:");
+                    if (!newKey) return;
+                }
+
+                const newVal = prompt("VALUE:");
+                if (newVal === null) return;
+
+                let val = newVal;
+                if (!isNaN(Number(newVal)) && newVal.trim() !== '') val = Number(newVal);
+                if (newVal === 'true') val = true;
+                if (newVal === 'false') val = false;
+
+                if (isArray) {
+                    target.push(val);
+                } else {
+                    target[newKey] = val;
+                }
+                this.save();
+            }
+
+            // --- RENDERING ---
+
+            render() {
+                const root = document.getElementById('viewport');
+                root.innerHTML = this.buildTree(this.state, '');
+            }
+
+            buildTree(data, path) {
+                if (data === null) return `<span class="text-gray-600 italic">null</span>`;
+
+                // Primitive Render
+                if (typeof data !== 'object') {
+                    return this.buildPrimitive(data, path);
+                }
+
+                const isArray = Array.isArray(data);
+                let html = `<div class="w-full">`;
+
+                Object.keys(data).forEach(key => {
+                    const currentPath = path ? `${path}|${key}` : key;
+                    const safeP = this.safePath(currentPath);
+                    const value = data[key];
+                    const isPrimitive = typeof value !== 'object' || value === null;
+
+                    const keyDisplay = isArray 
+                        ? `<span class="text-green-800 font-bold mr-2 text-[10px]">[${key}]</span>` 
+                        : `<span class="key-display uppercase">${key}</span>`;
+
+                    if (isPrimitive) {
+                        // PRIMITIVE ROW
+                        html += `
+                            <div class="node-row group hover:bg-[#0a0a0a]">
+                                <div class="flex-grow flex items-center overflow-hidden mr-2">
+                                    ${keyDisplay}
+                                    ${this.buildPrimitive(value, safeP)}
+                                </div>
+                                <button onclick="app.deleteItem('${safeP}')" class="btn-action text-red-900 hover:text-red-500">
+                                    <i class="fa-solid fa-xmark"></i>
+                                </button>
+                            </div>`;
+                    } else {
+                        // CONTAINER ROW
+                        html += `
+                            <div class="mt-2 mb-1">
+                                <div class="flex justify-between items-center bg-[#0a0a0a] px-2 py-1 border-b border-[#222] rounded-t">
+                                    <div class="text-[10px] font-bold text-gray-400 uppercase tracking-widest">${key}</div>
+                                    <div class="flex gap-2">
+                                        <button onclick="app.addItem('${safeP}', ${Array.isArray(value)})" class="text-green-700 hover:text-green-400 text-[10px]" title="Add Item"><i class="fa-solid fa-plus"></i></button>
+                                        <button onclick="app.deleteItem('${safeP}')" class="text-red-900 hover:text-red-500 text-[10px]" title="Delete Container"><i class="fa-solid fa-trash"></i></button>
+                                    </div>
+                                </div>
+                                <div class="tree-line">
+                                    ${this.buildTree(value, currentPath)}
+                                </div>
+                            </div>`;
+                    }
+                });
+                
+                if (Object.keys(data).length === 0) {
+                    const safeP = this.safePath(path);
+                    html += `<div class="text-[10px] text-gray-700 italic p-2 flex items-center">EMPTY <button onclick="app.addItem('${safeP}', ${isArray})" class="ml-2 text-green-700 hover:text-green-400"><i class="fa-solid fa-plus"></i></button></div>`;
+                }
+
+                html += `</div>`;
+                return html;
+            }
+
+            buildPrimitive(val, path) {
+                if (this.editingPath === path) {
+                    return `
+                        <div class="flex items-center w-full gap-1">
+                            <input id="input-${path}" class="edit-input" value="${val}" onkeydown="if(event.key==='Enter') app.updateValue('${path}', this.value)" />
+                            <button onclick="app.updateValue('${path}', document.getElementById('input-${path}').value)" class="text-green-500 px-2"><i class="fa-solid fa-check"></i></button>
+                            <button onclick="app.cancelEdit()" class="text-gray-500 px-2"><i class="fa-solid fa-ban"></i></button>
+                        </div>
+                    `;
+                } else {
+                    return `
+                        <span class="val-display mono text-green-400 hover:underline" onclick="app.setEdit('${path}')">${val}</span>
+                    `;
+                }
+            }
+
+            // --- UI HELPERS ---
+
+            setEdit(path) {
+                this.editingPath = path;
+                this.render();
+                setTimeout(() => {
+                    const el = document.getElementById(`input-${path}`);
+                    if(el) {
+                        el.focus();
+                        el.select();
+                    }
+                }, 50);
+            }
+
+            cancelEdit() {
+                this.editingPath = null;
+                this.render();
+            }
+
+            toggleIO() {
+                const modal = document.getElementById('io-modal');
+                const ta = document.getElementById('raw-json');
+                if (modal.classList.contains('hidden')) {
+                    ta.value = JSON.stringify(this.state, null, 2);
+                    modal.classList.remove('hidden');
+                } else {
+                    modal.classList.add('hidden');
+                }
+            }
+
+            saveRaw() {
+                try {
+                    const ta = document.getElementById('raw-json');
+                    this.state = JSON.parse(ta.value);
+                    this.save();
+                    this.toggleIO();
+                } catch(e) {
+                    alert("SYNTAX ERROR: Invalid JSON.");
+                }
+            }
+
+            copyRaw() {
+                const ta = document.getElementById('raw-json');
+                ta.select();
+                document.execCommand('copy');
+                alert("DATA COPIED. UPLOAD TO ZYQRAL.");
+            }
+        }
+
+        const app = new ZyqralOS();
+    </script>
+</body>
+</html>
+
+
