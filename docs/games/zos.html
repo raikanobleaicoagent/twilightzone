@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Z-OS | DIRECT ACTION</title>
+    <title>Z-OS | PURE DATA</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
@@ -16,6 +16,7 @@
             --accent-color: #00ff9d;
             --text-color: #c0c0c0;
             --danger-color: #ff0055;
+            --warn-color: #ffbb00;
         }
 
         body {
@@ -23,6 +24,7 @@
             background-color: var(--bg-color);
             color: var(--text-color);
             overflow-x: hidden;
+            -webkit-tap-highlight-color: transparent;
         }
 
         .mono { font-family: 'JetBrains Mono', monospace; }
@@ -52,9 +54,9 @@
 
         /* Buttons */
         .btn-action {
-            opacity: 0.6;
+            opacity: 0.4;
             transition: opacity 0.2s;
-            padding: 4px 8px;
+            padding: 4px 12px;
             cursor: pointer;
         }
         .btn-action:hover { opacity: 1; }
@@ -66,7 +68,7 @@
             justify-content: space-between;
             padding: 4px 0;
             border-bottom: 1px solid #111;
-            min-height: 32px;
+            min-height: 36px;
         }
         
         .key-display {
@@ -79,12 +81,21 @@
         }
         
         .val-display {
-            color: #ddd;
             font-size: 13px;
             word-break: break-all;
             cursor: pointer;
+            padding: 2px 4px;
+            border-radius: 2px;
+            transition: background 0.2s;
         }
-        .val-display:hover { color: var(--accent-color); }
+        .val-display:hover { background: #111; }
+
+        /* State Colors */
+        .state-active { color: var(--accent-color); font-weight: bold; }
+        .state-inactive { color: #555; }
+        .state-pending { color: var(--warn-color); }
+        .state-incomplete { color: var(--danger-color); }
+        .state-neutral { color: #ddd; }
 
         /* Modal */
         #io-modal { background: rgba(0,0,0,0.95); backdrop-filter: blur(5px); }
@@ -96,11 +107,11 @@
     <header class="bg-black border-b border-green-900/30 p-3 flex justify-between items-center sticky top-0 z-50 shadow-lg shadow-green-900/10">
         <div class="flex items-center gap-2">
             <i class="fa-solid fa-network-wired text-green-500 text-sm"></i>
-            <span class="text-green-500 font-bold tracking-widest text-sm">Z-OS <span class="text-gray-600 text-xs">v5.2</span></span>
+            <span class="text-green-500 font-bold tracking-widest text-sm">Z-OS <span class="text-gray-600 text-xs">v5.4</span></span>
         </div>
         <div class="flex gap-2">
             <button onclick="app.reset()" class="text-red-800 hover:text-red-500 text-[10px] border border-red-900/30 px-2 py-1 rounded font-bold tracking-wider">RESET</button>
-            <button onclick="app.toggleIO()" class="bg-green-900/20 text-green-400 border border-green-800 px-3 py-1 text-[10px] font-bold rounded hover:bg-green-900/40 tracking-wider animate-pulse">EXPORT JSON</button>
+            <button onclick="app.toggleIO(true)" class="bg-green-900/20 text-green-400 border border-green-800 px-3 py-1 text-[10px] font-bold rounded hover:bg-green-900/40 tracking-wider animate-pulse">EXPORT JSON</button>
         </div>
     </header>
 
@@ -113,7 +124,7 @@
     <div id="io-modal" class="fixed inset-0 z-[60] hidden flex flex-col">
         <div class="p-4 border-b border-gray-800 flex justify-between items-center bg-black">
             <h2 class="text-green-500 font-bold text-xs tracking-[0.2em]">DATA SYNCHRONIZATION</h2>
-            <button onclick="app.toggleIO()" class="text-gray-500 hover:text-white"><i class="fa-solid fa-xmark fa-lg"></i></button>
+            <button onclick="app.toggleIO(false)" class="text-gray-500 hover:text-white"><i class="fa-solid fa-xmark fa-lg"></i></button>
         </div>
         <textarea id="raw-json" class="flex-grow bg-black text-green-400 p-4 text-xs mono resize-none focus:outline-none" spellcheck="false" placeholder="// PASTE WORLD MODEL HERE //"></textarea>
         <div class="flex border-t border-gray-800">
@@ -124,7 +135,11 @@
 
     <!-- APP LOGIC -->
     <script>
-        const NULL_STATE = { "status": "WAITING_FOR_DATA_INJECTION" };
+        // Minimal state needed to prompt user.
+        const NULL_STATE = { 
+            "system_status": "BOOT_REQUIRED",
+            "instruction": "Click 'EXPORT JSON' to load the data stream."
+        };
 
         class ZyqralOS {
             constructor() {
@@ -134,17 +149,18 @@
             }
 
             load() {
-                const s = localStorage.getItem('zos_v5_2');
+                const s = localStorage.getItem('zos_v5_4');
+                // Removed INITIAL_STATE and replaced with NULL_STATE
                 return s ? JSON.parse(s) : JSON.parse(JSON.stringify(NULL_STATE));
             }
 
             save() {
-                localStorage.setItem('zos_v5_2', JSON.stringify(this.state));
+                localStorage.setItem('zos_v5_4', JSON.stringify(this.state));
                 this.render();
             }
 
             reset() {
-                if(confirm('FACTORY RESET: Clear all data?')) {
+                if(confirm('FACTORY RESET: Purge all local data?')) {
                     this.state = JSON.parse(JSON.stringify(NULL_STATE));
                     this.save();
                 }
@@ -152,7 +168,6 @@
 
             // --- CORE LOGIC ---
             
-            // Escapes path for HTML attribute usage
             safePath(path) {
                 return path.replace(/'/g, "\\'").replace(/"/g, '&quot;');
             }
@@ -161,12 +176,35 @@
                 const parts = pathStr.split('|');
                 const targetKey = parts.pop();
                 let current = this.state;
-                
                 for (const part of parts) {
                     if (current[part] === undefined) return null;
                     current = current[part];
                 }
                 return { parent: current, key: targetKey };
+            }
+
+            // BINARY LOGIC HANDLER
+            toggleState(pathStr, currentVal) {
+                const { parent, key } = this.getParent(pathStr);
+                if (!parent) return;
+
+                let nextVal = currentVal;
+                const v = String(currentVal).toUpperCase();
+
+                // Logic Map
+                if (v === 'ACTIVE') nextVal = 'INACTIVE';
+                else if (v === 'INACTIVE') nextVal = 'ACTIVE';
+                else if (v === 'COMPLETE') nextVal = 'INCOMPLETE';
+                else if (v === 'INCOMPLETE') nextVal = 'COMPLETE';
+                else if (v === 'COMPLETED') nextVal = 'PENDING';
+                else if (v === 'PENDING') nextVal = 'COMPLETED';
+                else if (v === 'TRUE') nextVal = false;
+                else if (v === 'FALSE') nextVal = true;
+                else if (currentVal === true) nextVal = false;
+                else if (currentVal === false) nextVal = true;
+
+                parent[key] = nextVal;
+                this.save();
             }
 
             updateValue(pathStr, newValue) {
@@ -184,9 +222,7 @@
             }
 
             deleteItem(pathStr) {
-                // Immediate UI confirmation
-                if(!confirm('DESTROY NODE: Are you sure?')) return;
-                
+                if(!confirm('DESTROY NODE: Confirm?')) return;
                 const { parent, key } = this.getParent(pathStr);
                 if (!parent) return;
 
@@ -195,16 +231,12 @@
                 } else {
                     delete parent[key];
                 }
-                
-                // Critical: Reset edit path if we deleted the item being edited
                 if (this.editingPath === pathStr) this.editingPath = null;
-                
                 this.save();
             }
 
             addItem(pathStr, isArray) {
                 const { parent, key } = this.getParent(pathStr);
-                // Root handling
                 let target;
                 if (pathStr === '') target = this.state;
                 else target = key ? parent[key] : this.state;
@@ -214,20 +246,17 @@
                     newKey = prompt("FIELD NAME:");
                     if (!newKey) return;
                 }
-
-                const newVal = prompt("VALUE:");
+                const newVal = prompt("VALUE (Enter 'ACTIVE' for a switch):");
                 if (newVal === null) return;
 
                 let val = newVal;
+                // Auto-detect number/bool
                 if (!isNaN(Number(newVal)) && newVal.trim() !== '') val = Number(newVal);
-                if (newVal === 'true') val = true;
-                if (newVal === 'false') val = false;
+                if (newVal.toLowerCase() === 'true') val = true;
+                if (newVal.toLowerCase() === 'false') val = false;
 
-                if (isArray) {
-                    target.push(val);
-                } else {
-                    target[newKey] = val;
-                }
+                if (isArray) target.push(val);
+                else target[newKey] = val;
                 this.save();
             }
 
@@ -240,11 +269,7 @@
 
             buildTree(data, path) {
                 if (data === null) return `<span class="text-gray-600 italic">null</span>`;
-
-                // Primitive Render
-                if (typeof data !== 'object') {
-                    return this.buildPrimitive(data, path);
-                }
+                if (typeof data !== 'object') return this.buildPrimitive(data, path);
 
                 const isArray = Array.isArray(data);
                 let html = `<div class="w-full">`;
@@ -260,7 +285,6 @@
                         : `<span class="key-display uppercase">${key}</span>`;
 
                     if (isPrimitive) {
-                        // PRIMITIVE ROW
                         html += `
                             <div class="node-row group hover:bg-[#0a0a0a]">
                                 <div class="flex-grow flex items-center overflow-hidden mr-2">
@@ -272,14 +296,13 @@
                                 </button>
                             </div>`;
                     } else {
-                        // CONTAINER ROW
                         html += `
                             <div class="mt-2 mb-1">
                                 <div class="flex justify-between items-center bg-[#0a0a0a] px-2 py-1 border-b border-[#222] rounded-t">
                                     <div class="text-[10px] font-bold text-gray-400 uppercase tracking-widest">${key}</div>
                                     <div class="flex gap-2">
-                                        <button onclick="app.addItem('${safeP}', ${Array.isArray(value)})" class="text-green-700 hover:text-green-400 text-[10px]" title="Add Item"><i class="fa-solid fa-plus"></i></button>
-                                        <button onclick="app.deleteItem('${safeP}')" class="text-red-900 hover:text-red-500 text-[10px]" title="Delete Container"><i class="fa-solid fa-trash"></i></button>
+                                        <button onclick="app.addItem('${safeP}', ${Array.isArray(value)})" class="text-green-700 hover:text-green-400 text-[10px]"><i class="fa-solid fa-plus"></i></button>
+                                        <button onclick="app.deleteItem('${safeP}')" class="text-red-900 hover:text-red-500 text-[10px]"><i class="fa-solid fa-trash"></i></button>
                                     </div>
                                 </div>
                                 <div class="tree-line">
@@ -299,6 +322,7 @@
             }
 
             buildPrimitive(val, path) {
+                // Edit Mode
                 if (this.editingPath === path) {
                     return `
                         <div class="flex items-center w-full gap-1">
@@ -307,11 +331,24 @@
                             <button onclick="app.cancelEdit()" class="text-gray-500 px-2"><i class="fa-solid fa-ban"></i></button>
                         </div>
                     `;
-                } else {
-                    return `
-                        <span class="val-display mono text-green-400 hover:underline" onclick="app.setEdit('${path}')">${val}</span>
-                    `;
                 }
+
+                // Boolean Logic Detection
+                const vUpper = String(val).toUpperCase();
+                const isToggle = ['ACTIVE', 'INACTIVE', 'COMPLETE', 'INCOMPLETE', 'PENDING', 'COMPLETED', 'TRUE', 'FALSE'].includes(vUpper) || typeof val === 'boolean';
+
+                if (isToggle) {
+                    let colorClass = 'state-neutral';
+                    if (['ACTIVE', 'COMPLETE', 'COMPLETED', 'TRUE'].includes(vUpper)) colorClass = 'state-active';
+                    else if (['INACTIVE', 'INCOMPLETE', 'FALSE'].includes(vUpper)) colorClass = 'state-inactive';
+                    else if (['PENDING'].includes(vUpper)) colorClass = 'state-pending';
+
+                    // Direct Toggle Click
+                    return `<span class="val-display mono ${colorClass}" onclick="app.toggleState('${path}', '${val}')">${val} <i class="fa-solid fa-toggle-on ml-1 text-[10px] opacity-50"></i></span>`;
+                }
+
+                // Standard Edit Click
+                return `<span class="val-display mono text-green-400 hover:underline" onclick="app.setEdit('${path}')">${val}</span>`;
             }
 
             // --- UI HELPERS ---
@@ -321,10 +358,7 @@
                 this.render();
                 setTimeout(() => {
                     const el = document.getElementById(`input-${path}`);
-                    if(el) {
-                        el.focus();
-                        el.select();
-                    }
+                    if(el) { el.focus(); el.select(); }
                 }, 50);
             }
 
@@ -333,14 +367,28 @@
                 this.render();
             }
 
-            toggleIO() {
+            toggleIO(exportMode) {
                 const modal = document.getElementById('io-modal');
                 const ta = document.getElementById('raw-json');
                 if (modal.classList.contains('hidden')) {
-                    ta.value = JSON.stringify(this.state, null, 2);
+                    // When opening the modal
+                    if (exportMode) {
+                        ta.value = JSON.stringify(this.state, null, 2);
+                        ta.readOnly = true; // Read-only in Export mode
+                        document.querySelector('#io-modal h2').textContent = 'DATA EXTRACTION';
+                        document.querySelector('#raw-json').placeholder = '// COPY DATA STREAM BELOW //';
+                    } else {
+                         // Default Load mode (writeable)
+                        ta.value = '';
+                        ta.readOnly = false;
+                        document.querySelector('#io-modal h2').textContent = 'DATA INJECTION';
+                        document.querySelector('#raw-json').placeholder = '// PASTE WORLD MODEL HERE //';
+                    }
                     modal.classList.remove('hidden');
                 } else {
+                    // When closing the modal
                     modal.classList.add('hidden');
+                    ta.readOnly = false; // Ensure it's not read-only for next input
                 }
             }
 
@@ -349,7 +397,7 @@
                     const ta = document.getElementById('raw-json');
                     this.state = JSON.parse(ta.value);
                     this.save();
-                    this.toggleIO();
+                    this.toggleIO(false);
                 } catch(e) {
                     alert("SYNTAX ERROR: Invalid JSON.");
                 }
@@ -367,5 +415,3 @@
     </script>
 </body>
 </html>
-
-
