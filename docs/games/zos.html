@@ -197,10 +197,10 @@
                 else if (v === 'INCOMPLETE') nextVal = 'COMPLETE';
                 else if (v === 'COMPLETED') nextVal = 'PENDING';
                 else if (v === 'PENDING') nextVal = 'COMPLETED';
-                else if (v === 'TRUE') nextVal = false;
+                else if (v === 'TRUE') nextVal = FALSE;
                 else if (v === 'FALSE') nextVal = true;
                 else if (currentVal === true) nextVal = false;
-                else if (currentVal === false) nextVal = true;
+                else if (currentVal === false) nextVal = TRUE;
 
                 parent[key] = nextVal;
                 this.save();
