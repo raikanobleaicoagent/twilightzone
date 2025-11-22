@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Z-OS | PURE DATA</title>
+    <title>Z-OS | SPLIT I/O</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
@@ -107,11 +107,12 @@
     <header class="bg-black border-b border-green-900/30 p-3 flex justify-between items-center sticky top-0 z-50 shadow-lg shadow-green-900/10">
         <div class="flex items-center gap-2">
             <i class="fa-solid fa-network-wired text-green-500 text-sm"></i>
-            <span class="text-green-500 font-bold tracking-widest text-sm">Z-OS <span class="text-gray-600 text-xs">v5.4</span></span>
+            <span class="text-green-500 font-bold tracking-widest text-sm">Z-OS <span class="text-gray-600 text-xs">v5.5</span></span>
         </div>
         <div class="flex gap-2">
             <button onclick="app.reset()" class="text-red-800 hover:text-red-500 text-[10px] border border-red-900/30 px-2 py-1 rounded font-bold tracking-wider">RESET</button>
-            <button onclick="app.toggleIO(true)" class="bg-green-900/20 text-green-400 border border-green-800 px-3 py-1 text-[10px] font-bold rounded hover:bg-green-900/40 tracking-wider animate-pulse">EXPORT JSON</button>
+            <button onclick="app.toggleIO('import')" class="bg-blue-900/20 text-blue-400 border border-blue-800 px-3 py-1 text-[10px] font-bold rounded hover:bg-blue-900/40 tracking-wider">IMPORT</button>
+            <button onclick="app.toggleIO('export')" class="bg-green-900/20 text-green-400 border border-green-800 px-3 py-1 text-[10px] font-bold rounded hover:bg-green-900/40 tracking-wider">EXPORT</button>
         </div>
     </header>
 
@@ -123,22 +124,21 @@
     <!-- IMPORT/EXPORT MODAL -->
     <div id="io-modal" class="fixed inset-0 z-[60] hidden flex flex-col">
         <div class="p-4 border-b border-gray-800 flex justify-between items-center bg-black">
-            <h2 class="text-green-500 font-bold text-xs tracking-[0.2em]">DATA SYNCHRONIZATION</h2>
-            <button onclick="app.toggleIO(false)" class="text-gray-500 hover:text-white"><i class="fa-solid fa-xmark fa-lg"></i></button>
+            <h2 id="modal-header" class="text-green-500 font-bold text-xs tracking-[0.2em]">DATA SYNCHRONIZATION</h2>
+            <button onclick="app.toggleIO()" class="text-gray-500 hover:text-white"><i class="fa-solid fa-xmark fa-lg"></i></button>
         </div>
         <textarea id="raw-json" class="flex-grow bg-black text-green-400 p-4 text-xs mono resize-none focus:outline-none" spellcheck="false" placeholder="// PASTE WORLD MODEL HERE //"></textarea>
         <div class="flex border-t border-gray-800">
-            <button onclick="app.copyRaw()" class="flex-1 bg-[#050505] text-white py-4 text-xs font-bold border-r border-gray-800 hover:bg-[#111] tracking-wider">COPY TO CLIPBOARD</button>
-            <button onclick="app.saveRaw()" class="flex-1 bg-[#0a1a0a] text-green-400 py-4 text-xs font-bold hover:bg-[#0f2f0f] tracking-wider">LOAD DATA</button>
+            <button id="copy-btn" onclick="app.copyRaw()" class="flex-1 bg-[#050505] text-white py-4 text-xs font-bold border-r border-gray-800 hover:bg-[#111] tracking-wider">COPY TO CLIPBOARD</button>
+            <button id="load-btn" onclick="app.saveRaw()" class="flex-1 bg-[#0a1a0a] text-green-400 py-4 text-xs font-bold hover:bg-[#0f2f0f] tracking-wider">LOAD DATA</button>
         </div>
     </div>
 
     <!-- APP LOGIC -->
     <script>
-        // Minimal state needed to prompt user.
         const NULL_STATE = { 
             "system_status": "BOOT_REQUIRED",
-            "instruction": "Click 'EXPORT JSON' to load the data stream."
+            "instruction": "Click 'IMPORT' to inject the data stream."
         };
 
         class ZyqralOS {
@@ -149,13 +149,12 @@
             }
 
             load() {
-                const s = localStorage.getItem('zos_v5_4');
-                // Removed INITIAL_STATE and replaced with NULL_STATE
+                const s = localStorage.getItem('zos_v5_5');
                 return s ? JSON.parse(s) : JSON.parse(JSON.stringify(NULL_STATE));
             }
 
             save() {
-                localStorage.setItem('zos_v5_4', JSON.stringify(this.state));
+                localStorage.setItem('zos_v5_5', JSON.stringify(this.state));
                 this.render();
             }
 
@@ -250,7 +249,6 @@
                 if (newVal === null) return;
 
                 let val = newVal;
-                // Auto-detect number/bool
                 if (!isNaN(Number(newVal)) && newVal.trim() !== '') val = Number(newVal);
                 if (newVal.toLowerCase() === 'true') val = true;
                 if (newVal.toLowerCase() === 'false') val = false;
@@ -366,29 +364,37 @@
                 this.editingPath = null;
                 this.render();
             }
-
-            toggleIO(exportMode) {
+            
+            // Unified Toggle IO Handler
+            toggleIO(mode) {
                 const modal = document.getElementById('io-modal');
                 const ta = document.getElementById('raw-json');
+                const header = document.getElementById('modal-header');
+                const copyBtn = document.getElementById('copy-btn');
+                const loadBtn = document.getElementById('load-btn');
+                
                 if (modal.classList.contains('hidden')) {
-                    // When opening the modal
-                    if (exportMode) {
+                    // Open Modal
+                    if (mode === 'export') {
                         ta.value = JSON.stringify(this.state, null, 2);
-                        ta.readOnly = true; // Read-only in Export mode
-                        document.querySelector('#io-modal h2').textContent = 'DATA EXTRACTION';
-                        document.querySelector('#raw-json').placeholder = '// COPY DATA STREAM BELOW //';
-                    } else {
-                         // Default Load mode (writeable)
+                        ta.readOnly = true;
+                        header.textContent = 'DATA EXTRACTION';
+                        ta.placeholder = '// COPY DATA STREAM BELOW //';
+                        copyBtn.classList.remove('hidden');
+                        loadBtn.classList.add('hidden');
+                    } else if (mode === 'import') {
                         ta.value = '';
                         ta.readOnly = false;
-                        document.querySelector('#io-modal h2').textContent = 'DATA INJECTION';
-                        document.querySelector('#raw-json').placeholder = '// PASTE WORLD MODEL HERE //';
+                        header.textContent = 'DATA INJECTION';
+                        ta.placeholder = '// PASTE WORLD MODEL HERE //';
+                        copyBtn.classList.add('hidden');
+                        loadBtn.classList.remove('hidden');
                     }
                     modal.classList.remove('hidden');
                 } else {
-                    // When closing the modal
+                    // Close Modal
                     modal.classList.add('hidden');
-                    ta.readOnly = false; // Ensure it's not read-only for next input
+                    ta.readOnly = false;
                 }
             }
 
@@ -397,7 +403,7 @@
                     const ta = document.getElementById('raw-json');
                     this.state = JSON.parse(ta.value);
                     this.save();
-                    this.toggleIO(false);
+                    this.toggleIO();
                 } catch(e) {
                     alert("SYNTAX ERROR: Invalid JSON.");
                 }
@@ -407,7 +413,7 @@
                 const ta = document.getElementById('raw-json');
                 ta.select();
                 document.execCommand('copy');
-                alert("DATA COPIED. UPLOAD TO ZYQRAL.");
+                alert("DATA COPIED.");
             }
         }
 
