@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Z-OS | UNRESTRICTED INPUT FLOW</title>
+    <title>Z-OS | VERTICAL WRAP PROTOCOL</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
@@ -36,20 +36,23 @@
             margin-left: 3px;
         }
         
-        /* Inputs */
-        input.edit-input {
+        /* Inputs - Modified to be Textarea for multiline editing */
+        textarea.edit-input {
             background: #111;
             color: var(--accent-color);
             border: 1px solid #333;
             font-family: 'JetBrains Mono', monospace;
             font-size: 14px;
-            padding: 2px 6px;
-            /* CRUCIAL FIX: Allow expansion horizontally */
-            width: max-content; 
-            min-width: 100%; /* Ensures it fills parent if content is short */
+            padding: 4px 6px;
+            width: 100%;
+            min-height: 40px; /* Base height */
+            resize: vertical; /* Allow user to manually resize vertically */
             border-radius: 2px;
+            /* CRUCIAL FIX: Ensure wrapping and full width usage */
+            white-space: pre-wrap;
+            overflow: auto;
         }
-        input.edit-input:focus {
+        textarea.edit-input:focus {
             outline: none;
             border-color: var(--accent-color);
         }
@@ -72,6 +75,10 @@
             border-bottom: 1px solid #111;
             min-height: 36px;
         }
+        /* New row for multiline editing */
+        .node-row.editing-multiline {
+            align-items: flex-start; /* Align controls to the top */
+        }
         
         .key-display {
             color: #666;
@@ -80,11 +87,12 @@
             margin-right: 6px;
             white-space: nowrap;
             letter-spacing: 0.5px;
+            margin-top: 6px; /* Align key to the top of the textarea */
         }
         
         .val-display {
             font-size: 13px;
-            word-break: break-all;
+            word-break: break-word; /* Ensure wrapping */
             cursor: pointer;
             padding: 2px 4px;
             border-radius: 2px;
@@ -102,8 +110,8 @@
         /* Modal */
         #io-modal { background: rgba(0,0,0,0.95); backdrop-filter: blur(5px); }
         
-        /* Enable horizontal scrolling on the main viewport */
-        #viewport { overflow-x: auto; }
+        /* Disable horizontal scrolling on the main viewport for wrapping */
+        #viewport { overflow-x: hidden; }
     </style>
 </head>
 <body class="flex flex-col h-screen">
@@ -112,7 +120,7 @@
     <header class="bg-black border-b border-green-900/30 p-3 flex justify-between items-center sticky top-0 z-50 shadow-lg shadow-green-900/10">
         <div class="flex items-center gap-2">
             <i class="fa-solid fa-network-wired text-green-500 text-sm"></i>
-            <span class="text-green-500 font-bold tracking-widest text-sm">Z-OS <span class="text-gray-600 text-xs">v5.8</span></span>
+            <span class="text-green-500 font-bold tracking-widest text-sm">Z-OS <span class="text-gray-600 text-xs">v5.9</span></span>
         </div>
         <div class="flex gap-2">
             <button onclick="app.reset()" class="text-red-800 hover:text-red-500 text-[10px] border border-red-900/30 px-2 py-1 rounded font-bold tracking-wider">RESET</button>
@@ -154,12 +162,12 @@
             }
 
             load() {
-                const s = localStorage.getItem('zos_v5_8');
+                const s = localStorage.getItem('zos_v5_9');
                 return s ? JSON.parse(s) : JSON.parse(JSON.stringify(NULL_STATE));
             }
 
             save() {
-                localStorage.setItem('zos_v5_8', JSON.stringify(this.state));
+                localStorage.setItem('zos_v5_9', JSON.stringify(this.state));
                 this.render();
             }
 
@@ -326,7 +334,7 @@
                     if (isPrimitive) {
                         html += `
                             <div class="node-row group hover:bg-[#0a0a0a]">
-                                <div class="flex-grow flex items-center mr-2"> 
+                                <div class="flex-grow flex items-start mr-2"> 
                                     ${keyDisplay}
                                     ${this.buildPrimitive(value, safeP)}
                                 </div>
@@ -361,13 +369,19 @@
             }
 
             buildPrimitive(val, path) {
-                // Edit Mode
+                const initialValue = typeof val === 'object' && val !== null ? JSON.stringify(val) : val;
+
+                // Edit Mode (Textarea for multiline)
                 if (this.editingPath === path) {
+                    const lineCount = String(initialValue).split('\n').length;
+                    const rows = Math.max(3, lineCount + 1); // Set minimum rows
                     return `
-                        <div class="flex items-center w-full gap-1">
-                            <input id="input-${path}" class="edit-input" value="${val}" onkeydown="if(event.key==='Enter') app.updateValue('${path}', this.value)" />
-                            <button onclick="app.updateValue('${path}', document.getElementById('input-${path}').value)" class="text-green-500 px-2"><i class="fa-solid fa-check"></i></button>
-                            <button onclick="app.cancelEdit()" class="text-gray-500 px-2"><i class="fa-solid fa-ban"></i></button>
+                        <div class="flex items-start w-full gap-1">
+                            <textarea id="input-${path}" class="edit-input" rows="${rows}" onkeydown="if(event.key==='Enter' && event.shiftKey) {event.preventDefault(); app.updateValue('${path}', this.value)}" >${initialValue}</textarea>
+                            <div class="flex flex-col gap-1 mt-1">
+                                <button onclick="app.updateValue('${path}', document.getElementById('input-${path}').value)" class="text-green-500"><i class="fa-solid fa-check"></i></button>
+                                <button onclick="app.cancelEdit()" class="text-gray-500"><i class="fa-solid fa-ban"></i></button>
+                            </div>
                         </div>
                     `;
                 }
@@ -442,7 +456,11 @@
             saveRaw() {
                 try {
                     const ta = document.getElementById('raw-json');
-                    this.state = JSON.parse(ta.value);
+                    // Attempt to parse the new data before saving
+                    const newState = JSON.parse(ta.value);
+
+                    // If successful, update state
+                    this.state = newState;
                     this.save();
                     this.toggleIO();
                 } catch(e) {
