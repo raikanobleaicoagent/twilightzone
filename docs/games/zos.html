@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Z-OS | VERTICAL WRAP PROTOCOL (v5.16)</title>
+    <title>Z-OS | VERTICAL WRAP PROTOCOL (v5.17)</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
@@ -53,20 +53,7 @@
         }
         textarea.edit-input:focus { outline: none; border-color: var(--accent-color); }
         
-        input.key-edit-input {
-            background: #111;
-            color: var(--warn-color);
-            border: 1px solid #333;
-            font-family: 'JetBrains Mono', monospace;
-            font-size: 11px;
-            padding: 2px 4px;
-            width: 150px;
-            border-radius: 2px;
-            margin-top: 4px;
-            font-weight: 700;
-            text-transform: uppercase;
-        }
-        input.key-edit-input:focus { outline: none; border-color: var(--warn-color); }
+        /* Removed key-edit-input CSS */
 
         /* Buttons */
         .btn-action { opacity: 0.6; transition: opacity 0.2s; padding: 4px 12px; cursor: pointer; }
@@ -93,7 +80,7 @@
         .reorder-arrows {
             display: flex;
             flex-direction: column;
-            margin-right: 8px; /* Spacing from key/value */
+            margin-right: 8px; 
             opacity: 0.6;
             transition: opacity 0.2s;
         }
@@ -104,7 +91,7 @@
             background: none;
             border: none;
             padding: 0;
-            color: #333; /* Default subtle color */
+            color: #333; 
             font-size: 10px;
             cursor: pointer;
             line-height: 1;
@@ -114,7 +101,7 @@
             color: var(--accent-color);
         }
         .reorder-arrows button:disabled {
-            color: #1a1a1a; /* Even more subtle when disabled */
+            color: #1a1a1a; 
             cursor: not-allowed;
         }
 
@@ -135,12 +122,10 @@
             margin-right: 6px;
             white-space: nowrap;
             letter-spacing: 0.5px;
-            cursor: pointer;
             padding: 2px 4px;
             border-radius: 2px;
-            transition: background 0.2s;
+            /* Key is now static and not clickable */
         }
-        .key-display:hover { background: #080808; }
         
         .val-display {
             font-size: 13px;
@@ -166,10 +151,11 @@
 </head>
 <body class="flex flex-col h-screen">
 
-    <!-- HEADER --><header class="bg-black border-b border-green-900/30 p-3 flex justify-between items-center sticky top-0 z-50 shadow-lg shadow-green-900/10">
+    
+<header class="bg-black border-b border-green-900/30 p-3 flex justify-between items-center sticky top-0 z-50 shadow-lg shadow-green-900/10">
         <div class="flex items-center gap-2">
             <i class="fa-solid fa-network-wired text-green-500 text-sm"></i>
-            <span class="text-green-500 font-bold tracking-widest text-sm">Z-OS <span class="text-gray-600 text-xs">v5.16</span></span>
+            <span class="text-green-500 font-bold tracking-widest text-sm">Z-OS <span class="text-gray-600 text-xs">v5.17</span></span>
         </div>
         <div class="flex gap-2">
             <button onclick="app.reset()" class="text-red-800 hover:text-red-500 text-[10px] border border-red-900/30 px-2 py-1 rounded font-bold tracking-wider">RESET</button>
@@ -178,10 +164,13 @@
         </div>
     </header>
 
-    <!-- MAIN VIEWPORT --><main id="viewport" class="flex-grow overflow-y-auto p-2 pb-20">
-        <!-- Tree Injected Here --></main>
+    
+<main id="viewport" class="flex-grow overflow-y-auto p-2 pb-20">
+        
+</main>
 
-    <!-- IMPORT/EXPORT MODAL --><div id="io-modal" class="fixed inset-0 z-[60] hidden flex flex-col">
+    
+<div id="io-modal" class="fixed inset-0 z-[60] hidden flex flex-col">
         <div class="p-4 border-b border-gray-800 flex justify-between items-center bg-black">
             <h2 id="modal-header" class="text-green-500 font-bold text-xs tracking-[0.2em]">DATA SYNCHRONIZATION</h2>
             <button onclick="app.toggleIO()" class="text-gray-500 hover:text-white"><i class="fa-solid fa-xmark fa-lg"></i></button>
@@ -193,7 +182,8 @@
         </div>
     </div>
 
-    <!-- APP LOGIC --><script>
+    
+<script>
         const NULL_STATE = { 
             "system_status": "BOOT_REQUIRED",
             "instruction": "Click 'IMPORT' to inject the data stream."
@@ -203,7 +193,7 @@
             constructor() {
                 this.state = this.load();
                 this.editingPath = null;
-                this.editingKeyPath = null; 
+                // this.editingKeyPath is now obsolete
                 this.render();
             }
 
@@ -244,16 +234,6 @@
                 return { parent: current, key: targetKey, isArray: isArray, index: index, parentPath: parts.join('|') };
             }
 
-            // --- DRAG AND DROP HANDLERS (REMOVED) ---
-            // These functions are no longer needed
-            /*
-            handleDragStart() { ... }
-            handleDragOver() { ... }
-            handleDragLeave() { ... }
-            reorderInObject() { ... } // ReorderInObject logic is moved to moveItem and renameKey
-            handleDrop() { ... }
-            */
-
             reorderInObject(obj, oldKey, newKey, newIndex) {
                 const keys = Object.keys(obj);
                 const oldIndex = keys.indexOf(oldKey);
@@ -270,20 +250,8 @@
                 Object.assign(obj, rebuiltObject);
             }
 
-            // --- OTHER ACTIONS ---
-            renameKey(oldPathStr, newKey) {
-                if (!newKey || newKey.trim() === '') { this.editingKeyPath = null; this.render(); return; }
-                const { parent, key: oldKey, isArray } = this.getParent(oldPathStr);
-                if (isArray) return; 
-                if (parent.hasOwnProperty(newKey) && newKey !== oldKey) { alert(`Collision: Key '${newKey}' already exists.`); return; }
-                if (newKey === oldKey) { this.editingKeyPath = null; this.render(); return; }
+            // Removed renameKey method
 
-                this.reorderInObject(parent, oldKey, newKey, Object.keys(parent).indexOf(oldKey)); 
-                
-                this.editingKeyPath = null;
-                this.save();
-            }
-            
             moveItem(pathStr, direction) {
                 const { parent, isArray, key, index } = this.getParent(pathStr);
                 
@@ -311,7 +279,6 @@
                 }
 
                 this.editingPath = null; 
-                this.editingKeyPath = null; 
                 this.save();
             }
             
@@ -355,7 +322,6 @@
                 if (Array.isArray(parent)) parent.splice(Number(key), 1);
                 else delete parent[key];
                 this.editingPath = null;
-                this.editingKeyPath = null;
                 this.save();
             }
 
@@ -402,10 +368,8 @@
                 root.innerHTML = this.buildTree(this.state, '');
             }
 
-            // --- NEW: ARROWS RENDERED DIRECTLY AT KEY/VALUE LEVEL ---
             buildReorderArrows(path, key, parentLength) {
                 const { isArray, parent } = this.getParent(path);
-                // Determines if the item is part of an array OR an object (and thus reorderable)
                 const isReorderable = isArray || (typeof parent === 'object' && !Array.isArray(parent) && path !== '');
                 if (!isReorderable) return '';
 
@@ -453,7 +417,7 @@
                                 <div class="flex justify-between items-center bg-[#0a0a0a] px-2 py-1 border-b border-[#222] rounded-t">
                                     <div class="flex items-center">
                                         ${this.buildReorderArrows(currentPath, key, data.length)}
-                                        <div class="text-[10px] font-bold text-gray-400 uppercase tracking-widest cursor-pointer hover:text-white transition" onclick="${isArray ? '' : `app.setKeyEdit('${safeP}')`}">
+                                        <div class="text-[10px] font-bold text-gray-400 uppercase tracking-widest transition">
                                             ${this.buildKeyDisplay(key, safeP, isArray, true)}
                                         </div>
                                     </div>
@@ -479,43 +443,32 @@
             }
             
             buildKeyDisplay(key, path, isArray, isHeader = false) {
-                if (this.editingKeyPath === path) {
-                    if (isArray && !isHeader) return `<span class="text-green-800 font-bold mr-2 text-[10px]">[${key}]</span>`;
-                    
-                    return `
-                        <div class="flex items-center gap-1">
-                            <input id="key-input-${path}" class="key-edit-input" value="${key}" onkeydown="if(event.key==='Enter') {event.preventDefault(); app.renameKey('${path}', this.value)}" />
-                            <button onclick="app.renameKey('${path}', document.getElementById('key-input-${path}').value)" class="text-green-500 hover:bg-green-900/50 large-control-btn"><i class="fa-solid fa-check"></i></button>
-                            <button onclick="app.cancelKeyEdit()" class="text-gray-500 hover:bg-gray-800 large-control-btn"><i class="fa-solid fa-ban"></i></button>
-                        </div>
-                    `;
-                }
+                // Key editing is removed, so we only display the static key.
                 if (isArray) return `<span class="text-green-800 font-bold mr-2 text-[10px]">[${key}]</span>`;
+                
+                // For object keys, just display the text
                 const displayClass = isHeader ? 'text-gray-400 uppercase tracking-widest' : 'key-display uppercase';
-                return `<span class="${displayClass}" onclick="app.setKeyEdit('${path}')">${key}</span>`;
+                return `<span class="${displayClass}">${key}</span>`;
             }
             
             buildPrimitiveControls(safeP, isArray, key, arrayLength) {
                 if (this.editingPath === safeP) return ''; 
                 let html = `<div class="flex items-center gap-2">`;
-                // The main reorder arrows are now integrated into the key/value display, not here
                 html += `<button onclick="app.deleteItem('${safeP}')" class="btn-action text-red-900 hover:text-red-500"><i class="fa-solid fa-xmark"></i></button></div>`;
                 return html;
             }
 
-            // Removed buildMoveButtons function as it's replaced by buildReorderArrows
-            /*
-            buildMoveButtons(safeP, key, arrayLength) {
-                // ...
-            }
-            */
-
             buildPrimitive(val, path) {
                 const initialValue = typeof val === 'object' && val !== null ? JSON.stringify(val) : val;
                 const { isArray, key, parent } = this.getParent(path);
+                
+                // --- Value Editing Mode ---
                 if (this.editingPath === path) {
                     const lineCount = String(initialValue).split('\n').length;
                     const rows = Math.max(3, lineCount + 1); 
+                    
+                    const { isArray: itemIsArrayElement } = this.getParent(path);
+                    const isReorderable = itemIsArrayElement || (typeof parent === 'object' && !Array.isArray(parent) && path !== '');
                     
                     return `
                         <div class="flex items-start w-full gap-1">
@@ -524,12 +477,15 @@
                                 <div class="flex items-center gap-1">
                                     <button onclick="app.updateValue('${path}', document.getElementById('input-${path}').value)" class="text-green-500 hover:bg-green-900/50 large-control-btn"><i class="fa-solid fa-check"></i></button>
                                     <button onclick="app.cancelEdit()" class="text-gray-500 hover:bg-gray-800 large-control-btn"><i class="fa-solid fa-ban"></i></button>
+                                    ${isReorderable ? this.buildReorderArrows(path, key, parent.length) : ''}
                                 </div>
                                 <button onclick="app.deleteItem('${path}')" class="text-red-900 hover:text-red-500 text-[10px] p-1"><i class="fa-solid fa-trash"></i></button>
                             </div>
                         </div>
                     `; 
                 }
+                
+                // --- Display Mode ---
                 const vUpper = String(val).toUpperCase();
                 const isToggle = ['ACTIVE', 'INACTIVE', 'COMPLETED', 'PENDING', 'TRUE', 'FALSE'].includes(vUpper) || typeof val === 'boolean';
                 if (isToggle) {
@@ -542,10 +498,11 @@
                 return `<span class="val-display mono text-green-400 hover:underline" onclick="app.setEdit('${path}')">${val}</span>`;
             }
 
-            setKeyEdit(path) { this.editingPath = null; this.editingKeyPath = path; this.render(); setTimeout(() => { const el = document.getElementById(`key-input-${path}`); if(el) { el.focus(); el.select(); } }, 50); }
-            cancelKeyEdit() { this.editingKeyPath = null; this.render(); }
-            setEdit(path) { this.editingPath = path; this.editingKeyPath = null; this.render(); setTimeout(() => { const el = document.getElementById(`input-${path}`); if(el) { el.focus(); el.select(); } }, 50); }
+            // Removed setKeyEdit and cancelKeyEdit methods
+            
+            setEdit(path) { this.editingPath = path; this.render(); setTimeout(() => { const el = document.getElementById(`input-${path}`); if(el) { el.focus(); el.select(); } }, 50); }
             cancelEdit() { this.editingPath = null; this.render(); }
+            
             toggleIO(mode) {
                 const modal = document.getElementById('io-modal');
                 const ta = document.getElementById('raw-json');
