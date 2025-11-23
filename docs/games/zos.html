@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Z-OS | VERTICAL WRAP PROTOCOL (v5.15)</title>
+    <title>Z-OS | VERTICAL WRAP PROTOCOL (v5.16)</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
@@ -72,7 +72,7 @@
         .btn-action { opacity: 0.6; transition: opacity 0.2s; padding: 4px 12px; cursor: pointer; }
         .btn-action:hover { opacity: 1; }
         
-        /* New: Large Control Buttons for Editing */
+        /* Large Control Buttons for Editing */
         .large-control-btn {
             padding: 4px 6px;
             cursor: pointer;
@@ -89,22 +89,34 @@
             cursor: not-allowed;
         }
         
-        /* Drag Handle */
-        .drag-handle {
-            cursor: grab;
-            color: #333;
-            padding: 0 6px;
+        /* Reorder Arrows */
+        .reorder-arrows {
             display: flex;
-            align-items: center;
-            justify-content: center;
-            transition: color 0.2s;
+            flex-direction: column;
+            margin-right: 8px; /* Spacing from key/value */
+            opacity: 0.6;
+            transition: opacity 0.2s;
         }
-        .drag-handle:hover { color: var(--accent-color); }
-        .drag-handle:active { cursor: grabbing; color: #fff; }
-
-        /* Draggable Target Styles */
-        .draggable-source { opacity: 0.4; border: 1px dashed #555; }
-        .drag-over { border-top: 2px solid var(--accent-color); background: #0a1a0a; }
+        .reorder-arrows:hover {
+            opacity: 1;
+        }
+        .reorder-arrows button {
+            background: none;
+            border: none;
+            padding: 0;
+            color: #333; /* Default subtle color */
+            font-size: 10px;
+            cursor: pointer;
+            line-height: 1;
+            margin: 1px 0;
+        }
+        .reorder-arrows button:hover {
+            color: var(--accent-color);
+        }
+        .reorder-arrows button:disabled {
+            color: #1a1a1a; /* Even more subtle when disabled */
+            cursor: not-allowed;
+        }
 
         /* Node Styling */
         .node-row {
@@ -154,11 +166,10 @@
 </head>
 <body class="flex flex-col h-screen">
 
-    <!-- HEADER -->
-    <header class="bg-black border-b border-green-900/30 p-3 flex justify-between items-center sticky top-0 z-50 shadow-lg shadow-green-900/10">
+    <!-- HEADER --><header class="bg-black border-b border-green-900/30 p-3 flex justify-between items-center sticky top-0 z-50 shadow-lg shadow-green-900/10">
         <div class="flex items-center gap-2">
             <i class="fa-solid fa-network-wired text-green-500 text-sm"></i>
-            <span class="text-green-500 font-bold tracking-widest text-sm">Z-OS <span class="text-gray-600 text-xs">v5.15</span></span>
+            <span class="text-green-500 font-bold tracking-widest text-sm">Z-OS <span class="text-gray-600 text-xs">v5.16</span></span>
         </div>
         <div class="flex gap-2">
             <button onclick="app.reset()" class="text-red-800 hover:text-red-500 text-[10px] border border-red-900/30 px-2 py-1 rounded font-bold tracking-wider">RESET</button>
@@ -167,13 +178,10 @@
         </div>
     </header>
 
-    <!-- MAIN VIEWPORT -->
-    <main id="viewport" class="flex-grow overflow-y-auto p-2 pb-20">
-        <!-- Tree Injected Here -->
-    </main>
+    <!-- MAIN VIEWPORT --><main id="viewport" class="flex-grow overflow-y-auto p-2 pb-20">
+        <!-- Tree Injected Here --></main>
 
-    <!-- IMPORT/EXPORT MODAL -->
-    <div id="io-modal" class="fixed inset-0 z-[60] hidden flex flex-col">
+    <!-- IMPORT/EXPORT MODAL --><div id="io-modal" class="fixed inset-0 z-[60] hidden flex flex-col">
         <div class="p-4 border-b border-gray-800 flex justify-between items-center bg-black">
             <h2 id="modal-header" class="text-green-500 font-bold text-xs tracking-[0.2em]">DATA SYNCHRONIZATION</h2>
             <button onclick="app.toggleIO()" class="text-gray-500 hover:text-white"><i class="fa-solid fa-xmark fa-lg"></i></button>
@@ -185,8 +193,7 @@
         </div>
     </div>
 
-    <!-- APP LOGIC -->
-    <script>
+    <!-- APP LOGIC --><script>
         const NULL_STATE = { 
             "system_status": "BOOT_REQUIRED",
             "instruction": "Click 'IMPORT' to inject the data stream."
@@ -197,7 +204,6 @@
                 this.state = this.load();
                 this.editingPath = null;
                 this.editingKeyPath = null; 
-                this.dragSrcPath = null; 
                 this.render();
             }
 
@@ -238,25 +244,15 @@
                 return { parent: current, key: targetKey, isArray: isArray, index: index, parentPath: parts.join('|') };
             }
 
-            // --- DRAG AND DROP HANDLERS ---
-            handleDragStart(e, path) {
-                this.dragSrcPath = path;
-                e.dataTransfer.effectAllowed = 'move';
-                e.dataTransfer.setData('text/plain', path);
-                e.target.closest('[draggable]').classList.add('draggable-source');
-                e.stopPropagation();
-            }
-
-            handleDragOver(e) {
-                if (e.preventDefault) e.preventDefault(); 
-                e.dataTransfer.dropEffect = 'move';
-                e.target.closest('[draggable]')?.classList.add('drag-over');
-                return false;
-            }
-
-            handleDragLeave(e) {
-                e.target.closest('[draggable]')?.classList.remove('drag-over');
-            }
+            // --- DRAG AND DROP HANDLERS (REMOVED) ---
+            // These functions are no longer needed
+            /*
+            handleDragStart() { ... }
+            handleDragOver() { ... }
+            handleDragLeave() { ... }
+            reorderInObject() { ... } // ReorderInObject logic is moved to moveItem and renameKey
+            handleDrop() { ... }
+            */
 
             reorderInObject(obj, oldKey, newKey, newIndex) {
                 const keys = Object.keys(obj);
@@ -274,50 +270,6 @@
                 Object.assign(obj, rebuiltObject);
             }
 
-            handleDrop(e, targetPath) {
-                e.stopPropagation();
-                e.target.closest('[draggable]')?.classList.remove('drag-over');
-                e.target.closest('.draggable-source')?.classList.remove('draggable-source'); 
-
-                const srcPath = this.dragSrcPath;
-                if (srcPath === targetPath) return false;
-
-                const srcInfo = this.getParent(srcPath);
-                const targetInfo = this.getParent(targetPath);
-
-                if (srcInfo.parentPath !== targetInfo.parentPath) {
-                    console.log("Cross-list dropping prevented for data safety.");
-                    return false;
-                }
-
-                const parent = srcInfo.parent;
-
-                if (srcInfo.isArray) {
-                    if (!targetInfo.isArray) return false;
-                    const arr = parent;
-                    const oldIndex = srcInfo.index;
-                    const newIndex = targetInfo.index;
-                    const [item] = arr.splice(oldIndex, 1);
-                    arr.splice(newIndex, 0, item);
-
-                } else if (typeof parent === 'object' && !Array.isArray(parent)) {
-                    const oldKey = srcInfo.key;
-                    const targetKey = targetInfo.key;
-
-                    const keys = Object.keys(parent);
-                    const oldIndex = keys.indexOf(oldKey);
-                    const newIndex = keys.indexOf(targetKey);
-                    
-                    if (oldIndex === -1 || newIndex === -1) return false;
-
-                    this.reorderInObject(parent, oldKey, targetKey, newIndex);
-                }
-
-                this.dragSrcPath = null;
-                this.save();
-                return false;
-            }
-
             // --- OTHER ACTIONS ---
             renameKey(oldPathStr, newKey) {
                 if (!newKey || newKey.trim() === '') { this.editingKeyPath = null; this.render(); return; }
@@ -326,7 +278,7 @@
                 if (parent.hasOwnProperty(newKey) && newKey !== oldKey) { alert(`Collision: Key '${newKey}' already exists.`); return; }
                 if (newKey === oldKey) { this.editingKeyPath = null; this.render(); return; }
 
-                this.reorderInObject(parent, oldKey, newKey, Object.keys(parent).indexOf(oldKey)); // Rebuild to change key name
+                this.reorderInObject(parent, oldKey, newKey, Object.keys(parent).indexOf(oldKey)); 
                 
                 this.editingKeyPath = null;
                 this.save();
@@ -450,18 +402,26 @@
                 root.innerHTML = this.buildTree(this.state, '');
             }
 
-            buildDragHandle(path, isArray, isObjectProperty) {
-                if (!isArray && !isObjectProperty) return ''; 
-                return `<div class="drag-handle" title="Drag to reorder"><i class="fa-solid fa-grip-vertical text-[10px]"></i></div>`;
-            }
+            // --- NEW: ARROWS RENDERED DIRECTLY AT KEY/VALUE LEVEL ---
+            buildReorderArrows(path, key, parentLength) {
+                const { isArray, parent } = this.getParent(path);
+                // Determines if the item is part of an array OR an object (and thus reorderable)
+                const isReorderable = isArray || (typeof parent === 'object' && !Array.isArray(parent) && path !== '');
+                if (!isReorderable) return '';
 
-            getDragAttrs(path, isArray, isObjectProperty) {
-                if (!isArray && !isObjectProperty) return '';
-                return `draggable="true" 
-                        ondragstart="app.handleDragStart(event, '${path}')" 
-                        ondragover="app.handleDragOver(event)" 
-                        ondragleave="app.handleDragLeave(event)"
-                        ondrop="app.handleDrop(event, '${path}')"`;
+                const length = isArray ? parentLength : Object.keys(parent).length; 
+                const index = isArray ? parseInt(key) : Object.keys(parent).indexOf(key);
+                if (index === -1) return ''; 
+
+                const upDisabled = index === 0;
+                const downDisabled = index === length - 1;
+
+                return `
+                    <div class="reorder-arrows">
+                        <button onclick="app.moveUp('${this.safePath(path)}')" ${upDisabled ? 'disabled' : ''}><i class="fa-solid fa-angle-up"></i></button>
+                        <button onclick="app.moveDown('${this.safePath(path)}')" ${downDisabled ? 'disabled' : ''}><i class="fa-solid fa-angle-down"></i></button>
+                    </div>
+                `;
             }
 
             buildTree(data, path) {
@@ -477,31 +437,27 @@
                     const value = data[key];
                     const isPrimitive = typeof value !== 'object' || value === null;
                     
-                    const { isArray: itemIsArrayElement } = this.getParent(safeP);
-                    const itemIsObjectProperty = !itemIsArrayElement && path !== '';
-
                     if (isPrimitive) {
                         html += `
-                            <div class="node-row group hover:bg-[#0a0a0a]" ${this.getDragAttrs(safeP, itemIsArrayElement, itemIsObjectProperty)}>
+                            <div class="node-row group hover:bg-[#0a0a0a]">
                                 <div class="flex-grow flex items-center mr-2"> 
-                                    ${this.buildDragHandle(safeP, itemIsArrayElement, itemIsObjectProperty)}
+                                    ${this.buildReorderArrows(currentPath, key, data.length)}
                                     ${this.buildKeyDisplay(key, safeP, isArray)}
                                     ${this.buildPrimitive(value, safeP)}
                                 </div>
-                                ${this.buildPrimitiveControls(safeP, itemIsArrayElement, key, data.length)}
+                                ${this.buildPrimitiveControls(safeP, isArray, key, data.length)}
                             </div>`;
                     } else {
                         html += `
-                            <div class="mt-2 mb-1" ${this.getDragAttrs(safeP, itemIsArrayElement, itemIsObjectProperty)}>
+                            <div class="mt-2 mb-1">
                                 <div class="flex justify-between items-center bg-[#0a0a0a] px-2 py-1 border-b border-[#222] rounded-t">
                                     <div class="flex items-center">
-                                        ${this.buildDragHandle(safeP, itemIsArrayElement, itemIsObjectProperty)}
+                                        ${this.buildReorderArrows(currentPath, key, data.length)}
                                         <div class="text-[10px] font-bold text-gray-400 uppercase tracking-widest cursor-pointer hover:text-white transition" onclick="${isArray ? '' : `app.setKeyEdit('${safeP}')`}">
                                             ${this.buildKeyDisplay(key, safeP, isArray, true)}
                                         </div>
                                     </div>
                                     <div class="flex gap-2 items-center">
-                                        ${this.buildMoveButtons(safeP, key, data.length, isArray)}
                                         <button onclick="app.addItem('${safeP}', ${Array.isArray(value)})" class="text-green-700 hover:text-green-400 text-[10px]"><i class="fa-solid fa-plus"></i></button>
                                         <button onclick="app.deleteItem('${safeP}')" class="text-red-900 hover:text-red-500 text-[10px]"><i class="fa-solid fa-trash"></i></button>
                                     </div>
@@ -526,7 +482,6 @@
                 if (this.editingKeyPath === path) {
                     if (isArray && !isHeader) return `<span class="text-green-800 font-bold mr-2 text-[10px]">[${key}]</span>`;
                     
-                    // --- MODIFIED: INLINE KEY EDIT CONTROLS ---
                     return `
                         <div class="flex items-center gap-1">
                             <input id="key-input-${path}" class="key-edit-input" value="${key}" onkeydown="if(event.key==='Enter') {event.preventDefault(); app.renameKey('${path}', this.value)}" />
@@ -534,7 +489,6 @@
                             <button onclick="app.cancelKeyEdit()" class="text-gray-500 hover:bg-gray-800 large-control-btn"><i class="fa-solid fa-ban"></i></button>
                         </div>
                     `;
-                    // --- END MODIFIED BLOCK ---
                 }
                 if (isArray) return `<span class="text-green-800 font-bold mr-2 text-[10px]">[${key}]</span>`;
                 const displayClass = isHeader ? 'text-gray-400 uppercase tracking-widest' : 'key-display uppercase';
@@ -544,27 +498,17 @@
             buildPrimitiveControls(safeP, isArray, key, arrayLength) {
                 if (this.editingPath === safeP) return ''; 
                 let html = `<div class="flex items-center gap-2">`;
-                
-                const { isArray: itemIsArrayElement } = this.getParent(safeP);
-                if (itemIsArrayElement || !isArray) html += this.buildMoveButtons(safeP, key, arrayLength);
-                
+                // The main reorder arrows are now integrated into the key/value display, not here
                 html += `<button onclick="app.deleteItem('${safeP}')" class="btn-action text-red-900 hover:text-red-500"><i class="fa-solid fa-xmark"></i></button></div>`;
                 return html;
             }
 
+            // Removed buildMoveButtons function as it's replaced by buildReorderArrows
+            /*
             buildMoveButtons(safeP, key, arrayLength) {
-                const { isArray, parent } = this.getParent(safeP);
-                const length = isArray ? arrayLength : Object.keys(parent).length; 
-                
-                const index = isArray ? parseInt(key) : Object.keys(parent).indexOf(key);
-                if (index === -1) return ''; 
-
-                const upDisabled = index === 0;
-                const downDisabled = index === length - 1;
-
-                const baseClass = 'text-[10px] border border-gray-900/50 rounded hover:bg-[#111]';
-                return `<div class="flex flex-col justify-center"><button onclick="app.moveUp('${safeP}')" ${upDisabled ? 'disabled' : ''} class="${baseClass} ${upDisabled ? 'text-gray-900/50' : 'text-green-500 hover:text-green-300'}"><i class="fa-solid fa-angle-up"></i></button><button onclick="app.moveDown('${safeP}')" ${downDisabled ? 'disabled' : ''} class="${baseClass} ${downDisabled ? 'text-gray-900/50' : 'text-green-500 hover:text-green-300'}"><i class="fa-solid fa-angle-down"></i></button></div>`;
+                // ...
             }
+            */
 
             buildPrimitive(val, path) {
                 const initialValue = typeof val === 'object' && val !== null ? JSON.stringify(val) : val;
@@ -573,9 +517,6 @@
                     const lineCount = String(initialValue).split('\n').length;
                     const rows = Math.max(3, lineCount + 1); 
                     
-                    const showMoveButtons = isArray || (typeof parent === 'object' && !Array.isArray(parent) && path !== '');
-                    
-                    // --- MODIFIED: INLINE VALUE EDIT CONTROLS ---
                     return `
                         <div class="flex items-start w-full gap-1">
                             <textarea id="input-${path}" class="edit-input" rows="${rows}" onkeydown="if(event.key==='Enter' && event.shiftKey) {event.preventDefault(); app.updateValue('${path}', this.value)}" >${initialValue}</textarea>
@@ -583,13 +524,11 @@
                                 <div class="flex items-center gap-1">
                                     <button onclick="app.updateValue('${path}', document.getElementById('input-${path}').value)" class="text-green-500 hover:bg-green-900/50 large-control-btn"><i class="fa-solid fa-check"></i></button>
                                     <button onclick="app.cancelEdit()" class="text-gray-500 hover:bg-gray-800 large-control-btn"><i class="fa-solid fa-ban"></i></button>
-                                    ${showMoveButtons ? this.buildMoveButtons(path, key, parent.length) : ''}
                                 </div>
                                 <button onclick="app.deleteItem('${path}')" class="text-red-900 hover:text-red-500 text-[10px] p-1"><i class="fa-solid fa-trash"></i></button>
                             </div>
                         </div>
                     `; 
-                    // --- END MODIFIED BLOCK ---
                 }
                 const vUpper = String(val).toUpperCase();
                 const isToggle = ['ACTIVE', 'INACTIVE', 'COMPLETED', 'PENDING', 'TRUE', 'FALSE'].includes(vUpper) || typeof val === 'boolean';
@@ -626,4 +565,3 @@
     </script>
 </body>
 </html>
-
