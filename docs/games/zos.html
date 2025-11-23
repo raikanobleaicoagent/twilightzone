@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Z-OS | VERTICAL WRAP PROTOCOL</title>
+    <title>Z-OS | VERTICAL WRAP PROTOCOL (v5.13)</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
@@ -36,7 +36,7 @@
             margin-left: 3px;
         }
         
-        /* Inputs - Modified to be Textarea for multiline editing */
+        /* Inputs */
         textarea.edit-input {
             background: #111;
             color: var(--accent-color);
@@ -45,10 +45,9 @@
             font-size: 14px;
             padding: 4px 6px;
             width: 100%;
-            min-height: 40px; /* Base height */
-            resize: vertical; /* Allow user to manually resize vertically */
+            min-height: 40px; 
+            resize: vertical; 
             border-radius: 2px;
-            /* CRUCIAL FIX: Ensure wrapping and full width usage */
             white-space: pre-wrap;
             overflow: auto;
         }
@@ -56,16 +55,43 @@
             outline: none;
             border-color: var(--accent-color);
         }
+        
+        input.key-edit-input {
+            background: #111;
+            color: var(--warn-color);
+            border: 1px solid #333;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 11px;
+            padding: 2px 4px;
+            width: 150px;
+            border-radius: 2px;
+            margin-top: 4px;
+            font-weight: 700;
+            text-transform: uppercase;
+        }
+        input.key-edit-input:focus { outline: none; border-color: var(--warn-color); }
 
         /* Buttons */
-        .btn-action {
-            opacity: 0.4;
-            transition: opacity 0.2s;
-            padding: 4px 12px;
-            cursor: pointer;
-        }
+        .btn-action { opacity: 0.6; transition: opacity 0.2s; padding: 4px 12px; cursor: pointer; }
         .btn-action:hover { opacity: 1; }
         
+        /* Drag Handle */
+        .drag-handle {
+            cursor: grab;
+            color: #333;
+            padding: 0 6px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: color 0.2s;
+        }
+        .drag-handle:hover { color: var(--accent-color); }
+        .drag-handle:active { cursor: grabbing; color: #fff; }
+
+        /* Draggable Target Styles */
+        .draggable-source { opacity: 0.4; border: 1px dashed #555; }
+        .drag-over { border-top: 2px solid var(--accent-color); background: #0a1a0a; }
+
         /* Node Styling */
         .node-row {
             display: flex;
@@ -75,10 +101,6 @@
             border-bottom: 1px solid #111;
             min-height: 36px;
         }
-        /* New row for multiline editing */
-        .node-row.editing-multiline {
-            align-items: flex-start; /* Align controls to the top */
-        }
         
         .key-display {
             color: #666;
@@ -87,12 +109,16 @@
             margin-right: 6px;
             white-space: nowrap;
             letter-spacing: 0.5px;
-            margin-top: 6px; /* Align key to the top of the textarea */
+            cursor: pointer;
+            padding: 2px 4px;
+            border-radius: 2px;
+            transition: background 0.2s;
         }
+        .key-display:hover { background: #080808; }
         
         .val-display {
             font-size: 13px;
-            word-break: break-word; /* Ensure wrapping */
+            word-break: break-word; 
             cursor: pointer;
             padding: 2px 4px;
             border-radius: 2px;
@@ -109,17 +135,16 @@
 
         /* Modal */
         #io-modal { background: rgba(0,0,0,0.95); backdrop-filter: blur(5px); }
-        
-        /* Disable horizontal scrolling on the main viewport for wrapping */
         #viewport { overflow-x: hidden; }
     </style>
 </head>
 <body class="flex flex-col h-screen">
 
+    <!-- HEADER -->
     <header class="bg-black border-b border-green-900/30 p-3 flex justify-between items-center sticky top-0 z-50 shadow-lg shadow-green-900/10">
         <div class="flex items-center gap-2">
             <i class="fa-solid fa-network-wired text-green-500 text-sm"></i>
-            <span class="text-green-500 font-bold tracking-widest text-sm">Z-OS <span class="text-gray-600 text-xs">v5.9</span></span>
+            <span class="text-green-500 font-bold tracking-widest text-sm">Z-OS <span class="text-gray-600 text-xs">v5.13</span></span>
         </div>
         <div class="flex gap-2">
             <button onclick="app.reset()" class="text-red-800 hover:text-red-500 text-[10px] border border-red-900/30 px-2 py-1 rounded font-bold tracking-wider">RESET</button>
@@ -128,9 +153,12 @@
         </div>
     </header>
 
+    <!-- MAIN VIEWPORT -->
     <main id="viewport" class="flex-grow overflow-y-auto p-2 pb-20">
-        </main>
+        <!-- Tree Injected Here -->
+    </main>
 
+    <!-- IMPORT/EXPORT MODAL -->
     <div id="io-modal" class="fixed inset-0 z-[60] hidden flex flex-col">
         <div class="p-4 border-b border-gray-800 flex justify-between items-center bg-black">
             <h2 id="modal-header" class="text-green-500 font-bold text-xs tracking-[0.2em]">DATA SYNCHRONIZATION</h2>
@@ -143,6 +171,7 @@
         </div>
     </div>
 
+    <!-- APP LOGIC -->
     <script>
         const NULL_STATE = { 
             "system_status": "BOOT_REQUIRED",
@@ -153,12 +182,18 @@
             constructor() {
                 this.state = this.load();
                 this.editingPath = null;
+                this.editingKeyPath = null;
+                this.dragSrcPath = null; // Track source of drag
                 this.render();
             }
 
             load() {
                 const s = localStorage.getItem('zos_v5_9');
-                return s ? JSON.parse(s) : JSON.parse(JSON.stringify(NULL_STATE));
+                let sJSON = s ? JSON.parse(s) : null;
+                if (sJSON && sJSON.system_status === "BOOT_REQUIRED" && sJSON.instruction === "Click 'IMPORT' to inject the data stream.") {
+                    sJSON = null;
+                }
+                return sJSON || JSON.parse(JSON.stringify(NULL_STATE));
             }
 
             save() {
@@ -174,99 +209,125 @@
             }
 
             // --- CORE LOGIC ---
-            
-            safePath(path) {
-                return path.replace(/'/g, "\\'").replace(/"/g, '&quot;');
-            }
+            safePath(path) { return path.replace(/'/g, "\\'").replace(/"/g, '&quot;'); }
 
             getParent(pathStr) {
                 const parts = pathStr.split('|');
                 const targetKey = parts.pop();
-                
-                // Navigate to the object containing the target key
                 let current = this.state;
                 for (const part of parts) {
                     if (current[part] === undefined) return null;
                     current = current[part];
                 }
-                
-                // If the key is an index in an array, the parent is the array itself.
-                const parentPath = parts.join('|'); 
                 const isArray = Array.isArray(current);
                 const index = isArray ? parseInt(targetKey) : null;
-
-                return { 
-                    parent: current, 
-                    key: targetKey, 
-                    isArray: isArray, 
-                    index: index, 
-                    parentPath: parentPath
-                };
+                return { parent: current, key: targetKey, isArray: isArray, index: index, parentPath: parts.join('|') };
             }
 
-            // Array reordering logic for objects and primitives
-            moveItem(pathStr, direction) {
-                const { parent, key, isArray, index, parentPath } = this.getParent(pathStr);
-                
-                // Reordering only makes sense within arrays or objects where keys are treated as an order
-                // For simplicity and stability, we prioritize array moves.
-                if (!isArray) {
-                    alert('Reordering is only supported for array elements at this time.');
-                    return;
+            // --- DRAG AND DROP HANDLERS ---
+            handleDragStart(e, path) {
+                this.dragSrcPath = path;
+                e.dataTransfer.effectAllowed = 'move';
+                e.dataTransfer.setData('text/plain', path);
+                e.target.closest('[draggable]').classList.add('draggable-source');
+                e.stopPropagation();
+            }
+
+            handleDragOver(e) {
+                if (e.preventDefault) e.preventDefault(); 
+                e.dataTransfer.dropEffect = 'move';
+                e.target.closest('[draggable]')?.classList.add('drag-over');
+                return false;
+            }
+
+            handleDragLeave(e) {
+                e.target.closest('[draggable]')?.classList.remove('drag-over');
+            }
+
+            handleDrop(e, targetPath) {
+                e.stopPropagation();
+                e.target.closest('[draggable]')?.classList.remove('drag-over');
+                e.target.closest('.draggable-source')?.classList.remove('draggable-source'); // Cleanup source style
+
+                const srcPath = this.dragSrcPath;
+                if (srcPath === targetPath) return false;
+
+                // Validate: Must be same parent array (siblings)
+                const srcInfo = this.getParent(srcPath);
+                const targetInfo = this.getParent(targetPath);
+
+                if (!srcInfo.isArray || !targetInfo.isArray) return false;
+                if (srcInfo.parentPath !== targetInfo.parentPath) {
+                    console.log("Cross-list dropping prevented for data safety.");
+                    return false;
                 }
 
-                const arr = parent; // The array we are moving inside
-                const oldIndex = index;
-                let newIndex = oldIndex;
+                // Perform Move
+                const arr = srcInfo.parent;
+                const oldIndex = srcInfo.index;
+                const newIndex = targetInfo.index;
 
-                if (direction === 'up' && oldIndex > 0) {
-                    newIndex = oldIndex - 1;
-                } else if (direction === 'down' && oldIndex < arr.length - 1) {
-                    newIndex = oldIndex + 1;
-                } else {
-                    // Cannot move further
-                    return;
-                }
-
-                // Swap the elements
                 const [item] = arr.splice(oldIndex, 1);
                 arr.splice(newIndex, 0, item);
 
-                // Clear editing state as the path/index may have changed, forcing re-render
-                this.editingPath = null; 
+                this.dragSrcPath = null;
+                this.save();
+                return false;
+            }
+
+            // --- OTHER ACTIONS ---
+            renameKey(oldPathStr, newKey) {
+                if (!newKey || newKey.trim() === '') { this.editingKeyPath = null; this.render(); return; }
+                const { parent, key: oldKey, isArray } = this.getParent(oldPathStr);
+                if (isArray) return; 
+                if (parent.hasOwnProperty(newKey) && newKey !== oldKey) { alert(`Collision: Key '${newKey}' already exists.`); return; }
+                if (newKey === oldKey) { this.editingKeyPath = null; this.render(); return; }
+
+                const value = parent[oldKey];
+                const tempKeys = Object.keys(parent);
+                const rebuiltObject = {};
+                for (const currentKey of tempKeys) {
+                    if (currentKey === oldKey) rebuiltObject[newKey] = value;
+                    else rebuiltObject[currentKey] = parent[currentKey];
+                }
+                Object.keys(parent).forEach(k => delete parent[k]);
+                Object.assign(parent, rebuiltObject);
+                this.editingKeyPath = null;
                 this.save();
             }
             
-            moveUp(pathStr) {
-                this.moveItem(pathStr, 'up');
+            moveItem(pathStr, direction) {
+                const { parent, isArray, index } = this.getParent(pathStr);
+                if (!isArray) return;
+                const arr = parent;
+                const oldIndex = index;
+                let newIndex = oldIndex;
+                if (direction === 'up' && oldIndex > 0) newIndex = oldIndex - 1;
+                else if (direction === 'down' && oldIndex < arr.length - 1) newIndex = oldIndex + 1;
+                else return;
+                const [item] = arr.splice(oldIndex, 1);
+                arr.splice(newIndex, 0, item);
+                this.editingPath = null; 
+                this.editingKeyPath = null; 
+                this.save();
             }
+            
+            moveUp(pathStr) { this.moveItem(pathStr, 'up'); }
+            moveDown(pathStr) { this.moveItem(pathStr, 'down'); }
 
-            moveDown(pathStr) {
-                this.moveItem(pathStr, 'down');
-            }
-
-            // BINARY LOGIC HANDLER
             toggleState(pathStr, currentVal) {
                 const { parent, key } = this.getParent(pathStr);
                 if (!parent) return;
-
                 let nextVal = currentVal;
                 const v = String(currentVal).toUpperCase();
-
-                // Logic Map
                 if (v === 'ACTIVE') nextVal = 'INACTIVE';
                 else if (v === 'INACTIVE') nextVal = 'ACTIVE';
-                else if (v === 'COMPLETE') nextVal = 'INCOMPLETE';
-                else if (v === 'INCOMPLETE') nextVal = 'COMPLETE';
                 else if (v === 'COMPLETED') nextVal = 'PENDING';
                 else if (v === 'PENDING') nextVal = 'COMPLETED';
-                // Standardizing TRUE/FALSE flips to use string representation
                 else if (v === 'TRUE') nextVal = 'FALSE';
                 else if (v === 'FALSE') nextVal = 'TRUE';
-                // Handling JS primitives that result from JSON.parse (which we want to convert to string)
                 else if (currentVal === true) nextVal = 'FALSE';
                 else if (currentVal === false) nextVal = 'TRUE';
-
                 parent[key] = nextVal;
                 this.save();
             }
@@ -274,22 +335,11 @@
             updateValue(pathStr, newValue) {
                 const { parent, key } = this.getParent(pathStr);
                 if (!parent) return;
-
                 let val = newValue;
                 const vUpper = String(newValue).toUpperCase();
-
-                // Check for number conversion first
-                if (!isNaN(Number(newValue)) && newValue.trim() !== '') {
-                    val = Number(newValue);
-                } 
-                // Then check for TRUE/FALSE strings and enforce capitalization
-                else if (vUpper === 'TRUE') {
-                    val = 'TRUE';
-                }
-                else if (vUpper === 'FALSE') {
-                    val = 'FALSE';
-                }
-                
+                if (!isNaN(Number(newValue)) && newValue.trim() !== '') val = Number(newValue);
+                else if (vUpper === 'TRUE') val = 'TRUE';
+                else if (vUpper === 'FALSE') val = 'FALSE';
                 parent[key] = val;
                 this.editingPath = null;
                 this.save();
@@ -299,13 +349,10 @@
                 if(!confirm('DESTROY NODE: Confirm?')) return;
                 const { parent, key } = this.getParent(pathStr);
                 if (!parent) return;
-
-                if (Array.isArray(parent)) {
-                    parent.splice(Number(key), 1);
-                } else {
-                    delete parent[key];
-                }
-                if (this.editingPath === pathStr) this.editingPath = null;
+                if (Array.isArray(parent)) parent.splice(Number(key), 1);
+                else delete parent[key];
+                this.editingPath = null;
+                this.editingKeyPath = null;
                 this.save();
             }
 
@@ -316,38 +363,27 @@
                 else target = key ? parent[key] : this.state;
 
                 if (isArray) {
-                    // Array Add: Just prompts for value
                     const newVal = prompt("VALUE:");
                     if (newVal === null) return;
                     let val = newVal;
                     const vUpper = String(newVal).toUpperCase();
-
                     if (!isNaN(Number(newVal)) && newVal.trim() !== '') val = Number(newVal);
                     else if (vUpper === 'TRUE') val = 'TRUE';
                     else if (vUpper === 'FALSE') val = 'FALSE';
-                    
                     target.push(val);
                 } else {
-                    // Object Add: Prompts for structure type
                     const newKey = prompt("FIELD NAME:");
                     if (!newKey) return;
-                    
                     const structureType = prompt(`Enter type for '${newKey}': (VALUE, OBJECT, or ARRAY)`);
                     if (structureType === null) return;
-
                     let newVal;
-                    if (structureType.toUpperCase() === 'OBJECT') {
-                        newVal = {};
-                    } else if (structureType.toUpperCase() === 'ARRAY') {
-                        newVal = [];
-                    } else {
-                        // Default to Value
+                    if (structureType.toUpperCase() === 'OBJECT') newVal = {};
+                    else if (structureType.toUpperCase() === 'ARRAY') newVal = [];
+                    else {
                         const valuePrompt = prompt("VALUE:");
                         if (valuePrompt === null) return;
-                        
                         newVal = valuePrompt;
                         const vUpper = String(newVal).toUpperCase();
-                        
                         if (!isNaN(Number(newVal)) && newVal.trim() !== '') newVal = Number(newVal);
                         else if (vUpper === 'TRUE') newVal = 'TRUE';
                         else if (vUpper === 'FALSE') newVal = 'FALSE';
@@ -358,10 +394,25 @@
             }
 
             // --- RENDERING ---
-
             render() {
                 const root = document.getElementById('viewport');
                 root.innerHTML = this.buildTree(this.state, '');
+            }
+
+            // Helper to generate the drag handle HTML
+            buildDragHandle(path, isArray) {
+                if (!isArray) return '';
+                return `<div class="drag-handle" title="Drag to reorder"><i class="fa-solid fa-grip-vertical text-[10px]"></i></div>`;
+            }
+
+            // Helper for draggable attributes
+            getDragAttrs(path, isArray) {
+                if (!isArray) return '';
+                return `draggable="true" 
+                        ondragstart="app.handleDragStart(event, '${path}')" 
+                        ondragover="app.handleDragOver(event)" 
+                        ondragleave="app.handleDragLeave(event)"
+                        ondrop="app.handleDrop(event, '${path}')"`;
             }
 
             buildTree(data, path) {
@@ -376,27 +427,32 @@
                     const safeP = this.safePath(currentPath);
                     const value = data[key];
                     const isPrimitive = typeof value !== 'object' || value === null;
-
-                    const keyDisplay = isArray 
-                        ? `<span class="text-green-800 font-bold mr-2 text-[10px]">[${key}]</span>` 
-                        : `<span class="key-display uppercase">${key}</span>`;
+                    
+                    // Logic to see if *this item* belongs to an array (so it should be draggable)
+                    const { isArray: itemIsArrayElement } = this.getParent(safeP);
 
                     if (isPrimitive) {
                         html += `
-                            <div class="node-row group hover:bg-[#0a0a0a]">
-                                <div class="flex-grow flex items-start mr-2"> 
-                                    ${keyDisplay}
+                            <div class="node-row group hover:bg-[#0a0a0a]" ${this.getDragAttrs(safeP, itemIsArrayElement)}>
+                                <div class="flex-grow flex items-center mr-2"> 
+                                    ${this.buildDragHandle(safeP, itemIsArrayElement)}
+                                    ${this.buildKeyDisplay(key, safeP, isArray)}
                                     ${this.buildPrimitive(value, safeP)}
                                 </div>
                                 ${this.buildPrimitiveControls(safeP, isArray, key, data.length)}
-                            </div>`; // MODIFIED: Moved controls into a dedicated function
+                            </div>`;
                     } else {
                         html += `
-                            <div class="mt-2 mb-1">
+                            <div class="mt-2 mb-1" ${this.getDragAttrs(safeP, itemIsArrayElement)}>
                                 <div class="flex justify-between items-center bg-[#0a0a0a] px-2 py-1 border-b border-[#222] rounded-t">
-                                    <div class="text-[10px] font-bold text-gray-400 uppercase tracking-widest">${key}</div>
-                                    <div class="flex gap-2">
-                                        ${isArray ? this.buildMoveButtons(safeP, key, data.length, true) : ''} 
+                                    <div class="flex items-center">
+                                        ${this.buildDragHandle(safeP, itemIsArrayElement)}
+                                        <div class="text-[10px] font-bold text-gray-400 uppercase tracking-widest cursor-pointer hover:text-white transition" onclick="${isArray ? '' : `app.setKeyEdit('${safeP}')`}">
+                                            ${this.buildKeyDisplay(key, safeP, isArray, true)}
+                                        </div>
+                                    </div>
+                                    <div class="flex gap-2 items-center">
+                                        ${this.buildMoveButtons(safeP, key, data.length, isArray)}
                                         <button onclick="app.addItem('${safeP}', ${Array.isArray(value)})" class="text-green-700 hover:text-green-400 text-[10px]"><i class="fa-solid fa-plus"></i></button>
                                         <button onclick="app.deleteItem('${safeP}')" class="text-red-900 hover:text-red-500 text-[10px]"><i class="fa-solid fa-trash"></i></button>
                                     </div>
@@ -417,159 +473,74 @@
                 return html;
             }
             
-            // NEW FUNCTION: Builds controls for primitive nodes
-            buildPrimitiveControls(safeP, isArray, key, arrayLength) {
-                if (this.editingPath === safeP) return ''; // Controls are built inside buildPrimitive when editing
-                
-                let html = `<div class="flex items-center gap-2">`;
-                
-                if (isArray) {
-                    html += this.buildMoveButtons(safeP, key, arrayLength);
+            buildKeyDisplay(key, path, isArray, isHeader = false) {
+                if (this.editingKeyPath === path) {
+                    if (isArray && !isHeader) return `<span class="text-green-800 font-bold mr-2 text-[10px]">[${key}]</span>`;
+                    return `<div class="flex items-start gap-1"><input id="key-input-${path}" class="key-edit-input" value="${key}" onkeydown="if(event.key==='Enter') {event.preventDefault(); app.renameKey('${path}', this.value)}" /><div class="flex flex-col gap-1 mt-1"><button onclick="app.renameKey('${path}', document.getElementById('key-input-${path}').value)" class="text-green-500"><i class="fa-solid fa-check"></i></button><button onclick="app.cancelKeyEdit()" class="text-gray-500"><i class="fa-solid fa-ban"></i></button></div></div>`;
                 }
-                
-                html += `
-                    <button onclick="app.deleteItem('${safeP}')" class="btn-action text-red-900 hover:text-red-500">
-                        <i class="fa-solid fa-xmark"></i>
-                    </button>
-                </div>`;
+                if (isArray) return `<span class="text-green-800 font-bold mr-2 text-[10px]">[${key}]</span>`;
+                const displayClass = isHeader ? 'text-gray-400 uppercase tracking-widest' : 'key-display uppercase';
+                return `<span class="${displayClass}" onclick="app.setKeyEdit('${path}')">${key}</span>`;
+            }
+            
+            buildPrimitiveControls(safeP, isArray, key, arrayLength) {
+                if (this.editingPath === safeP) return ''; 
+                let html = `<div class="flex items-center gap-2">`;
+                if (isArray) html += this.buildMoveButtons(safeP, key, arrayLength);
+                html += `<button onclick="app.deleteItem('${safeP}')" class="btn-action text-red-900 hover:text-red-500"><i class="fa-solid fa-xmark"></i></button></div>`;
                 return html;
             }
 
-            // NEW FUNCTION: Builds Up/Down buttons
-            buildMoveButtons(safeP, key, arrayLength, isComplexNode = false) {
+            buildMoveButtons(safeP, key, arrayLength) {
+                const { isArray } = this.getParent(safeP);
+                if (!isArray) return '';
                 const index = parseInt(key);
-                if (isNaN(index)) return ''; // Only for arrays
-
+                if (isNaN(index)) return ''; 
                 const upDisabled = index === 0;
                 const downDisabled = index === arrayLength - 1;
-
-                const baseClass = isComplexNode 
-                    ? 'text-[10px] border border-gray-900/50 rounded hover:bg-[#111] px-1' 
-                    : 'btn-action text-[10px]';
-                
-                return `
-                    <div class="flex ${isComplexNode ? 'flex-row' : 'flex-col'} justify-center">
-                        <button onclick="app.moveUp('${safeP}')" ${upDisabled ? 'disabled' : ''} class="${baseClass} ${upDisabled ? 'text-gray-900' : 'text-green-500 hover:text-green-300'}">
-                            <i class="fa-solid fa-angle-up"></i>
-                        </button>
-                        <button onclick="app.moveDown('${safeP}')" ${downDisabled ? 'disabled' : ''} class="${baseClass} ${downDisabled ? 'text-gray-900' : 'text-green-500 hover:text-green-300'}">
-                            <i class="fa-solid fa-angle-down"></i>
-                        </button>
-                    </div>
-                `;
+                const baseClass = 'text-[10px] border border-gray-900/50 rounded hover:bg-[#111]';
+                return `<div class="flex flex-col justify-center"><button onclick="app.moveUp('${safeP}')" ${upDisabled ? 'disabled' : ''} class="${baseClass} ${upDisabled ? 'text-gray-900/50' : 'text-green-500 hover:text-green-300'}"><i class="fa-solid fa-angle-up"></i></button><button onclick="app.moveDown('${safeP}')" ${downDisabled ? 'disabled' : ''} class="${baseClass} ${downDisabled ? 'text-gray-900/50' : 'text-green-500 hover:text-green-300'}"><i class="fa-solid fa-angle-down"></i></button></div>`;
             }
 
             buildPrimitive(val, path) {
                 const initialValue = typeof val === 'object' && val !== null ? JSON.stringify(val) : val;
                 const { isArray, key, parent } = this.getParent(path);
-                
-                // Edit Mode (Textarea for multiline)
                 if (this.editingPath === path) {
                     const lineCount = String(initialValue).split('\n').length;
-                    const rows = Math.max(3, lineCount + 1); // Set minimum rows
-                    return `
-                        <div class="flex items-start w-full gap-1">
-                            <textarea id="input-${path}" class="edit-input" rows="${rows}" onkeydown="if(event.key==='Enter' && event.shiftKey) {event.preventDefault(); app.updateValue('${path}', this.value)}" >${initialValue}</textarea>
-                            <div class="flex flex-col gap-1 mt-1">
-                                ${isArray ? this.buildMoveButtons(path, key, parent.length) : ''}
-                                <button onclick="app.updateValue('${path}', document.getElementById('input-${path}').value)" class="text-green-500"><i class="fa-solid fa-check"></i></button>
-                                <button onclick="app.cancelEdit()" class="text-gray-500"><i class="fa-solid fa-ban"></i></button>
-                                <button onclick="app.deleteItem('${path}')" class="text-red-900 hover:text-red-500 text-[10px]"><i class="fa-solid fa-trash"></i></button>
-                            </div>
-                        </div>
-                    `; // MODIFIED: Added move buttons and delete button inside the editing controls
+                    const rows = Math.max(3, lineCount + 1); 
+                    return `<div class="flex items-start w-full gap-1"><textarea id="input-${path}" class="edit-input" rows="${rows}" onkeydown="if(event.key==='Enter' && event.shiftKey) {event.preventDefault(); app.updateValue('${path}', this.value)}" >${initialValue}</textarea><div class="flex flex-col gap-1 mt-1"><div class="flex items-center gap-1"><button onclick="app.updateValue('${path}', document.getElementById('input-${path}').value)" class="text-green-500 p-1"><i class="fa-solid fa-check"></i></button><button onclick="app.cancelEdit()" class="text-gray-500 p-1"><i class="fa-solid fa-ban"></i></button>${isArray ? this.buildMoveButtons(path, key, parent.length) : ''}</div><button onclick="app.deleteItem('${path}')" class="text-red-900 hover:text-red-500 text-[10px] p-1"><i class="fa-solid fa-trash"></i></button></div></div>`; 
                 }
-
-                // Boolean Logic Detection
                 const vUpper = String(val).toUpperCase();
-                const isToggle = ['ACTIVE', 'INACTIVE', 'COMPLETE', 'INCOMPLETE', 'PENDING', 'COMPLETED', 'TRUE', 'FALSE'].includes(vUpper) || typeof val === 'boolean';
-
+                const isToggle = ['ACTIVE', 'INACTIVE', 'COMPLETED', 'PENDING', 'TRUE', 'FALSE'].includes(vUpper) || typeof val === 'boolean';
                 if (isToggle) {
                     let colorClass = 'state-neutral';
-                    if (['ACTIVE', 'COMPLETE', 'COMPLETED', 'TRUE'].includes(vUpper)) colorClass = 'state-active';
-                    else if (['INACTIVE', 'INCOMPLETE', 'FALSE'].includes(vUpper)) colorClass = 'state-inactive';
+                    if (['ACTIVE', 'COMPLETED', 'TRUE'].includes(vUpper)) colorClass = 'state-active';
+                    else if (['INACTIVE', 'FALSE'].includes(vUpper)) colorClass = 'state-inactive';
                     else if (['PENDING'].includes(vUpper)) colorClass = 'state-pending';
-
-                    // Direct Toggle Click
                     return `<span class="val-display mono ${colorClass}" onclick="app.toggleState('${path}', '${val}')">${vUpper} <i class="fa-solid fa-toggle-on ml-1 text-[10px] opacity-50"></i></span>`;
                 }
-
-                // Standard Edit Click
                 return `<span class="val-display mono text-green-400 hover:underline" onclick="app.setEdit('${path}')">${val}</span>`;
             }
 
-            // --- UI HELPERS ---
-
-            setEdit(path) {
-                this.editingPath = path;
-                this.render();
-                setTimeout(() => {
-                    const el = document.getElementById(`input-${path}`);
-                    if(el) { el.focus(); el.select(); }
-                }, 50);
-            }
-
-            cancelEdit() {
-                this.editingPath = null;
-                this.render();
-            }
-            
-            // Unified Toggle IO Handler
+            setKeyEdit(path) { this.editingPath = null; this.editingKeyPath = path; this.render(); setTimeout(() => { const el = document.getElementById(`key-input-${path}`); if(el) { el.focus(); el.select(); } }, 50); }
+            cancelKeyEdit() { this.editingKeyPath = null; this.render(); }
+            setEdit(path) { this.editingPath = path; this.editingKeyPath = null; this.render(); setTimeout(() => { const el = document.getElementById(`input-${path}`); if(el) { el.focus(); el.select(); } }, 50); }
+            cancelEdit() { this.editingPath = null; this.render(); }
             toggleIO(mode) {
                 const modal = document.getElementById('io-modal');
                 const ta = document.getElementById('raw-json');
                 const header = document.getElementById('modal-header');
                 const copyBtn = document.getElementById('copy-btn');
                 const loadBtn = document.getElementById('load-btn');
-                
                 if (modal.classList.contains('hidden')) {
-                    // Open Modal
-                    if (mode === 'export') {
-                        ta.value = JSON.stringify(this.state, null, 2);
-                        ta.readOnly = true;
-                        header.textContent = 'DATA EXTRACTION';
-                        ta.placeholder = '// COPY DATA STREAM BELOW //';
-                        copyBtn.classList.remove('hidden');
-                        loadBtn.classList.add('hidden');
-                    } else if (mode === 'import') {
-                        ta.value = '';
-                        ta.readOnly = false;
-                        header.textContent = 'DATA INJECTION';
-                        ta.placeholder = '// PASTE WORLD MODEL HERE //';
-                        copyBtn.classList.add('hidden');
-                        loadBtn.classList.remove('hidden');
-                    }
+                    if (mode === 'export') { ta.value = JSON.stringify(this.state, null, 2); ta.readOnly = true; header.textContent = 'DATA EXTRACTION'; ta.placeholder = '// COPY DATA STREAM BELOW //'; copyBtn.classList.remove('hidden'); loadBtn.classList.add('hidden'); }
+                    else if (mode === 'import') { ta.value = ''; ta.readOnly = false; header.textContent = 'DATA INJECTION'; ta.placeholder = '// PASTE WORLD MODEL HERE //'; copyBtn.classList.add('hidden'); loadBtn.classList.remove('hidden'); }
                     modal.classList.remove('hidden');
-                } else {
-                    // Close Modal
-                    modal.classList.add('hidden');
-                    ta.readOnly = false;
-                }
+                } else { modal.classList.add('hidden'); ta.readOnly = false; }
             }
-
-            saveRaw() {
-                try {
-                    const ta = document.getElementById('raw-json');
-                    // Attempt to parse the new data before saving
-                    const newState = JSON.parse(ta.value);
-
-                    // If successful, update state
-                    this.state = newState;
-                    this.save();
-                    this.toggleIO();
-                } catch(e) {
-                    alert("SYNTAX ERROR: Invalid JSON.");
-                }
-            }
-
-            copyRaw() {
-                const ta = document.getElementById('raw-json');
-                ta.select();
-                document.execCommand('copy');
-                alert("DATA COPIED.");
-            }
+            saveRaw() { try { const ta = document.getElementById('raw-json'); const newState = JSON.parse(ta.value); this.state = newState; this.save(); this.toggleIO(); } catch(e) { alert("SYNTAX ERROR: Invalid JSON."); } }
+            copyRaw() { const ta = document.getElementById('raw-json'); ta.select(); document.execCommand('copy'); const tempBtnText = document.getElementById('copy-btn').textContent; document.getElementById('copy-btn').textContent = 'COPIED!'; setTimeout(() => { document.getElementById('copy-btn').textContent = tempBtnText; }, 1000); }
         }
-
         const app = new ZyqralOS();
     </script>
 </body>
