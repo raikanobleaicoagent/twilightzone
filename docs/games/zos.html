@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Z-OS | GRANULAR PROTOCOL (v5.19)</title>
+    <title>Z-OS | GRANULAR PROTOCOL (v5.21)</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
@@ -60,7 +60,7 @@
             background: transparent;
             height: 18px;
             cursor: pointer;
-            width: 100px;
+            width: 100%; /* Stretches to fill container */
         }
         input[type=range]:focus { outline: none; }
         
@@ -75,11 +75,11 @@
         input[type=range]::-webkit-slider-thumb {
             height: 12px;
             width: 12px;
-            border-radius: 0; /* Square aesthetic */
+            border-radius: 0; 
             background: var(--accent-color);
             cursor: pointer;
             -webkit-appearance: none;
-            margin-top: -4px; /* Center on track */
+            margin-top: -4px; 
             box-shadow: 0 0 5px var(--accent-color);
         }
         /* Firefox Slider */
@@ -185,7 +185,7 @@
 <header class="bg-black border-b border-green-900/30 p-3 flex justify-between items-center sticky top-0 z-50 shadow-lg shadow-green-900/10">
         <div class="flex items-center gap-2">
             <i class="fa-solid fa-network-wired text-green-500 text-sm"></i>
-            <span class="text-green-500 font-bold tracking-widest text-sm">Z-OS <span class="text-gray-600 text-xs">v5.19</span></span>
+            <span class="text-green-500 font-bold tracking-widest text-sm">Z-OS <span class="text-gray-600 text-xs">v5.21</span></span>
         </div>
         <div class="flex gap-2">
             <button onclick="app.reset()" class="text-red-800 hover:text-red-500 text-[10px] border border-red-900/30 px-2 py-1 rounded font-bold tracking-wider">RESET</button>
@@ -213,8 +213,7 @@
         const NULL_STATE = { 
             "system_status": "BOOT_REQUIRED",
             "battery_level": "75%",
-            "motivation": "20%",
-            "instruction": "Values ending in % become sliders."
+            "motivation": "20%"
         };
 
         class ZyqralOS {
@@ -225,17 +224,17 @@
             }
 
             load() {
-                const s = localStorage.getItem('zos_v5_19');
+                const s = localStorage.getItem('zos_v5_21');
                 let sJSON = s ? JSON.parse(s) : null;
                 // Quick boot check
-                if (sJSON && sJSON.system_status === "BOOT_REQUIRED" && sJSON.instruction === "Values ending in % become sliders.") {
-                    sJSON = null;
+                if (sJSON && sJSON.system_status === "BOOT_REQUIRED" && sJSON.battery_level === "75%" && !sJSON.instruction) {
+                    sJSON = null; 
                 }
                 return sJSON || JSON.parse(JSON.stringify(NULL_STATE));
             }
 
             save() {
-                localStorage.setItem('zos_v5_19', JSON.stringify(this.state));
+                localStorage.setItem('zos_v5_21', JSON.stringify(this.state));
                 this.render();
             }
 
@@ -344,7 +343,7 @@
                 this.save();
             }
 
-            // NEW: Slider Update Handler
+            // Slider Update Handler
             updateSlider(pathStr, newValue) {
                 const { parent, key } = this.getParent(pathStr);
                 if (!parent) return;
@@ -460,7 +459,7 @@
                                     </div>
                                     <div class="flex gap-2 items-center">
                                         <button onclick="app.addItem('${safeP}', ${Array.isArray(value)})" class="text-green-700 hover:text-green-400 text-[10px]"><i class="fa-solid fa-plus"></i></button>
-                                        <button onclick="app.deleteItem('${safeP}')" class="text-red-900 hover:text-red-500 text-[10px]"><i class="fa-solid fa-trash"></i></button>
+                                        <button onclick="app.deleteItem('${safeP}')" class="text-red-900 hover:text-red-500 text-[10px]"><i class="fa-solid fa-xmark"></i></button>
                                     </div>
                                 </div>
                                 <div class="tree-line">
@@ -513,27 +512,25 @@
                                     <button onclick="app.cancelEdit()" class="text-gray-500 hover:bg-gray-800 large-control-btn"><i class="fa-solid fa-ban"></i></button>
                                     ${isReorderable ? this.buildReorderArrows(path, key, parent.length) : ''}
                                 </div>
-                                <button onclick="app.deleteItem('${path}')" class="text-red-900 hover:text-red-500 text-[10px] p-1"><i class="fa-solid fa-trash"></i></button>
+                                <button onclick="app.deleteItem('${path}')" class="text-red-900 hover:text-red-500 text-[10px] p-1"><i class="fa-solid fa-xmark"></i></button>
                             </div>
                         </div>
                     `; 
                 }
 
-                // --- NEW: SLIDER DETECTION LOGIC ---
-                // Checks for "XX%" where XX is 0-100
+                // --- Slider Detection Logic ---
                 const percentMatch = String(val).match(/^(\d{1,3})%$/);
                 if (percentMatch) {
                     const numVal = parseInt(percentMatch[1]);
-                    // Only render slider if within logical bounds, otherwise treat as text
                     if (numVal >= 0 && numVal <= 100) {
                         return `
-                        <div class="flex items-center gap-2" style="width: 140px;">
-                            <input type="range" min="0" max="100" value="${numVal}" 
+                        <div class="flex-grow flex items-center gap-2">
+                            <input type="range" class="flex-grow" min="0" max="100" value="${numVal}" 
                                 onchange="app.updateSlider('${path}', this.value)" 
                                 oninput="this.nextElementSibling.innerText = this.value + '%'">
                             <span class="mono text-xs text-[#00ff9d] font-bold w-10 text-right">${val}</span>
+                            <button class="ml-2 text-xs text-red-900 hover:text-red-500" onclick="app.deleteItem('${path}')"><i class="fa-solid fa-xmark"></i></button>
                         </div>
-                        <button class="ml-2 text-xs text-gray-600 hover:text-green-400" onclick="app.setEdit('${path}')"><i class="fa-solid fa-pen"></i></button>
                         `;
                     }
                 }
