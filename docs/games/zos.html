@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Z-OS | GRANULAR PROTOCOL (v5.25)</title>
+    <title>Z-OS | GRANULAR PROTOCOL (v5.26)</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
@@ -53,6 +53,48 @@
             overflow: auto;
         }
         textarea.edit-input:focus { outline: none; border-color: var(--accent-color); }
+
+        /* Slider Styling */
+        input[type=range] {
+            -webkit-appearance: none;
+            background: transparent;
+            height: 18px;
+            cursor: pointer;
+            width: 100%; 
+        }
+        input[type=range]:focus { outline: none; }
+        
+        input[type=range]::-webkit-slider-runnable-track {
+            width: 100%;
+            height: 4px;
+            cursor: pointer;
+            background: #333;
+            border-radius: 2px;
+        }
+        input[type=range]::-webkit-slider-thumb {
+            height: 12px;
+            width: 12px;
+            border-radius: 0; 
+            background: var(--accent-color);
+            cursor: pointer;
+            -webkit-appearance: none;
+            margin-top: -4px; 
+            box-shadow: 0 0 5px var(--accent-color);
+        }
+        input[type=range]::-moz-range-track {
+            width: 100%;
+            height: 4px;
+            cursor: pointer;
+            background: #333;
+        }
+        input[type=range]::-moz-range-thumb {
+            height: 12px;
+            width: 12px;
+            border: none;
+            border-radius: 0;
+            background: var(--accent-color);
+            cursor: pointer;
+        }
 
         /* Priority Badges */
         .badge { font-size: 10px; font-weight: bold; padding: 1px 4px; border-radius: 2px; letter-spacing: 0.5px; }
@@ -151,6 +193,7 @@
             border-radius: 2px; 
             border: 1px solid #333;
             transition: all 0.1s;
+            flex-shrink: 0; /* Prevent button squashing */
         }
         .stepper-btn:hover { color: white; border-color: #555; }
         .stepper-btn:active { background: #222; }
@@ -161,7 +204,7 @@
 <header class="bg-black border-b border-green-900/30 p-3 flex justify-between items-center sticky top-0 z-50 shadow-lg shadow-green-900/10">
         <div class="flex items-center gap-2">
             <i class="fa-solid fa-network-wired text-green-500 text-sm"></i>
-            <span class="text-green-500 font-bold tracking-widest text-sm">Z-OS <span class="text-gray-600 text-xs">v5.25</span></span>
+            <span class="text-green-500 font-bold tracking-widest text-sm">Z-OS <span class="text-gray-600 text-xs">v5.26</span></span>
         </div>
         <div class="flex gap-2">
             <button onclick="app.reset()" class="text-red-800 hover:text-red-500 text-[10px] border border-red-900/30 px-2 py-1 rounded font-bold tracking-wider">RESET</button>
@@ -202,7 +245,7 @@
             }
 
             load() {
-                const s = localStorage.getItem('zos_v5_25');
+                const s = localStorage.getItem('zos_v5_26');
                 let sJSON = s ? JSON.parse(s) : null;
                 if (sJSON && sJSON.system_status === "BOOT_REQUIRED" && sJSON.battery_level === "75%" && !sJSON.elapsed_time) {
                     sJSON = null; 
@@ -211,7 +254,7 @@
             }
 
             save() {
-                localStorage.setItem('zos_v5_25', JSON.stringify(this.state));
+                localStorage.setItem('zos_v5_26', JSON.stringify(this.state));
                 this.render();
             }
 
@@ -308,6 +351,13 @@
                 else if (vUpper === 'FALSE') val = 'FALSE';
                 parent[key] = val;
                 this.editingPath = null;
+                this.save();
+            }
+
+            updateSlider(pathStr, newValue) {
+                const { parent, key } = this.getParent(pathStr);
+                if (!parent) return;
+                parent[key] = `${newValue}%`;
                 this.save();
             }
 
@@ -494,6 +544,13 @@
             
             buildPrimitiveControls(safeP, isArray, key, arrayLength) {
                 if (this.editingPath === safeP) return ''; 
+                // Don't show delete button here if it's already in the slider block
+                const { parent } = this.getParent(safeP);
+                const val = parent[isArray ? key : key]; 
+                const isSlider = String(val).match(/^(\d{1,3})%$/);
+                
+                if (isSlider) return ''; // Slider block handles its own delete button
+
                 let html = `<div class="flex items-center gap-2">`;
                 html += `<button onclick="app.deleteItem('${safeP}')" class="btn-action text-red-900 hover:text-red-500"><i class="fa-solid fa-xmark"></i></button></div>`;
                 return html;
@@ -528,7 +585,7 @@
                         <div class="flex items-center gap-1">
                             <button class="stepper-btn" onclick="app.incrementPercent('${path}', -10)"><i class="fa-solid fa-angles-left"></i></button>
                             <button class="stepper-btn" onclick="app.incrementPercent('${path}', -1)"><i class="fa-solid fa-minus"></i></button>
-                            <span class="val-display mono text-[#00ff9d] hover:underline mx-1 w-8 text-center" onclick="app.setEdit('${path}')">${val}</span>
+                            <span class="val-display mono text-[#00ff9d] hover:underline mx-2 whitespace-nowrap min-w-[3rem] text-center flex-shrink-0" onclick="app.setEdit('${path}')">${val}</span>
                             <button class="stepper-btn" onclick="app.incrementPercent('${path}', 1)"><i class="fa-solid fa-plus"></i></button>
                             <button class="stepper-btn" onclick="app.incrementPercent('${path}', 10)"><i class="fa-solid fa-angles-right"></i></button>
                         </div>
@@ -541,7 +598,7 @@
                         <div class="flex items-center gap-1">
                             <button class="stepper-btn" onclick="app.incrementValue('${path}', -10)"><i class="fa-solid fa-angles-left"></i></button>
                             <button class="stepper-btn" onclick="app.incrementValue('${path}', -1)"><i class="fa-solid fa-minus"></i></button>
-                            <span class="val-display mono text-green-400 hover:underline mx-1" onclick="app.setEdit('${path}')">${val}</span>
+                            <span class="val-display mono text-green-400 hover:underline mx-2 whitespace-nowrap min-w-[3rem] text-center flex-shrink-0" onclick="app.setEdit('${path}')">${val}</span>
                             <button class="stepper-btn" onclick="app.incrementValue('${path}', 1)"><i class="fa-solid fa-plus"></i></button>
                             <button class="stepper-btn" onclick="app.incrementValue('${path}', 10)"><i class="fa-solid fa-angles-right"></i></button>
                         </div>
@@ -555,7 +612,7 @@
                         <div class="flex items-center gap-1">
                             <button class="stepper-btn" onclick="app.incrementTime('${path}', -10)"><i class="fa-solid fa-angles-left"></i></button>
                             <button class="stepper-btn" onclick="app.incrementTime('${path}', -1)"><i class="fa-solid fa-minus"></i></button>
-                            <span class="val-display mono text-blue-400 hover:underline mx-1" onclick="app.setEdit('${path}')">${val}</span>
+                            <span class="val-display mono text-blue-400 hover:underline mx-2 whitespace-nowrap min-w-[3rem] text-center flex-shrink-0" onclick="app.setEdit('${path}')">${val}</span>
                             <button class="stepper-btn" onclick="app.incrementTime('${path}', 1)"><i class="fa-solid fa-plus"></i></button>
                             <button class="stepper-btn" onclick="app.incrementTime('${path}', 10)"><i class="fa-solid fa-angles-right"></i></button>
                         </div>
