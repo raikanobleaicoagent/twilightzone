@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Z-OS | VERTICAL WRAP PROTOCOL (v5.17)</title>
+    <title>Z-OS | GRANULAR PROTOCOL (v5.18)</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
@@ -17,6 +17,7 @@
             --text-color: #c0c0c0;
             --danger-color: #ff0055;
             --warn-color: #ffbb00;
+            --process-color: #00aaff; /* Added for IN PROGRESS */
         }
 
         body {
@@ -52,8 +53,6 @@
             overflow: auto;
         }
         textarea.edit-input:focus { outline: none; border-color: var(--accent-color); }
-        
-        /* Removed key-edit-input CSS */
 
         /* Buttons */
         .btn-action { opacity: 0.6; transition: opacity 0.2s; padding: 4px 12px; cursor: pointer; }
@@ -69,7 +68,7 @@
             align-items: center;
         }
         .large-control-btn i {
-            font-size: 16px; /* Explicitly larger icon */
+            font-size: 16px; 
         }
         .large-control-btn:disabled {
             opacity: 0.3;
@@ -124,7 +123,6 @@
             letter-spacing: 0.5px;
             padding: 2px 4px;
             border-radius: 2px;
-            /* Key is now static and not clickable */
         }
         
         .val-display {
@@ -141,6 +139,7 @@
         .state-active { color: var(--accent-color); font-weight: bold; }
         .state-inactive { color: #555; }
         .state-pending { color: var(--warn-color); }
+        .state-inprogress { color: var(--process-color); font-style: italic; } /* New Style */
         .state-incomplete { color: var(--danger-color); }
         .state-neutral { color: #ddd; }
 
@@ -151,11 +150,10 @@
 </head>
 <body class="flex flex-col h-screen">
 
-    
 <header class="bg-black border-b border-green-900/30 p-3 flex justify-between items-center sticky top-0 z-50 shadow-lg shadow-green-900/10">
         <div class="flex items-center gap-2">
             <i class="fa-solid fa-network-wired text-green-500 text-sm"></i>
-            <span class="text-green-500 font-bold tracking-widest text-sm">Z-OS <span class="text-gray-600 text-xs">v5.17</span></span>
+            <span class="text-green-500 font-bold tracking-widest text-sm">Z-OS <span class="text-gray-600 text-xs">v5.18</span></span>
         </div>
         <div class="flex gap-2">
             <button onclick="app.reset()" class="text-red-800 hover:text-red-500 text-[10px] border border-red-900/30 px-2 py-1 rounded font-bold tracking-wider">RESET</button>
@@ -164,12 +162,9 @@
         </div>
     </header>
 
-    
 <main id="viewport" class="flex-grow overflow-y-auto p-2 pb-20">
-        
 </main>
 
-    
 <div id="io-modal" class="fixed inset-0 z-[60] hidden flex flex-col">
         <div class="p-4 border-b border-gray-800 flex justify-between items-center bg-black">
             <h2 id="modal-header" class="text-green-500 font-bold text-xs tracking-[0.2em]">DATA SYNCHRONIZATION</h2>
@@ -182,7 +177,6 @@
         </div>
     </div>
 
-    
 <script>
         const NULL_STATE = { 
             "system_status": "BOOT_REQUIRED",
@@ -193,12 +187,11 @@
             constructor() {
                 this.state = this.load();
                 this.editingPath = null;
-                // this.editingKeyPath is now obsolete
                 this.render();
             }
 
             load() {
-                const s = localStorage.getItem('zos_v5_9');
+                const s = localStorage.getItem('zos_v5_18');
                 let sJSON = s ? JSON.parse(s) : null;
                 if (sJSON && sJSON.system_status === "BOOT_REQUIRED" && sJSON.instruction === "Click 'IMPORT' to inject the data stream.") {
                     sJSON = null;
@@ -207,7 +200,7 @@
             }
 
             save() {
-                localStorage.setItem('zos_v5_9', JSON.stringify(this.state));
+                localStorage.setItem('zos_v5_18', JSON.stringify(this.state));
                 this.render();
             }
 
@@ -250,8 +243,6 @@
                 Object.assign(obj, rebuiltObject);
             }
 
-            // Removed renameKey method
-
             moveItem(pathStr, direction) {
                 const { parent, isArray, key, index } = this.getParent(pathStr);
                 
@@ -290,14 +281,18 @@
                 if (!parent) return;
                 let nextVal = currentVal;
                 const v = String(currentVal).toUpperCase();
+                
+                // Adjusted Cycle Logic
                 if (v === 'ACTIVE') nextVal = 'INACTIVE';
                 else if (v === 'INACTIVE') nextVal = 'ACTIVE';
-                else if (v === 'COMPLETED') nextVal = 'PENDING';
-                else if (v === 'PENDING') nextVal = 'COMPLETED';
+                else if (v === 'PENDING') nextVal = 'IN PROGRESS'; // Cycle Step 1
+                else if (v === 'IN PROGRESS') nextVal = 'COMPLETED'; // Cycle Step 2
+                else if (v === 'COMPLETED') nextVal = 'PENDING'; // Cycle Step 3 (Loop)
                 else if (v === 'TRUE') nextVal = 'FALSE';
                 else if (v === 'FALSE') nextVal = 'TRUE';
                 else if (currentVal === true) nextVal = 'FALSE';
                 else if (currentVal === false) nextVal = 'TRUE';
+                
                 parent[key] = nextVal;
                 this.save();
             }
@@ -443,10 +438,7 @@
             }
             
             buildKeyDisplay(key, path, isArray, isHeader = false) {
-                // Key editing is removed, so we only display the static key.
                 if (isArray) return `<span class="text-green-800 font-bold mr-2 text-[10px]">[${key}]</span>`;
-                
-                // For object keys, just display the text
                 const displayClass = isHeader ? 'text-gray-400 uppercase tracking-widest' : 'key-display uppercase';
                 return `<span class="${displayClass}">${key}</span>`;
             }
@@ -487,19 +479,19 @@
                 
                 // --- Display Mode ---
                 const vUpper = String(val).toUpperCase();
-                const isToggle = ['ACTIVE', 'INACTIVE', 'COMPLETED', 'PENDING', 'TRUE', 'FALSE'].includes(vUpper) || typeof val === 'boolean';
+                // Added 'IN PROGRESS' to check list
+                const isToggle = ['ACTIVE', 'INACTIVE', 'COMPLETED', 'PENDING', 'IN PROGRESS', 'TRUE', 'FALSE'].includes(vUpper) || typeof val === 'boolean';
                 if (isToggle) {
                     let colorClass = 'state-neutral';
                     if (['ACTIVE', 'COMPLETED', 'TRUE'].includes(vUpper)) colorClass = 'state-active';
                     else if (['INACTIVE', 'FALSE'].includes(vUpper)) colorClass = 'state-inactive';
                     else if (['PENDING'].includes(vUpper)) colorClass = 'state-pending';
+                    else if (['IN PROGRESS'].includes(vUpper)) colorClass = 'state-inprogress'; // Applied new class
                     return `<span class="val-display mono ${colorClass}" onclick="app.toggleState('${path}', '${val}')">${vUpper} <i class="fa-solid fa-toggle-on ml-1 text-[10px] opacity-50"></i></span>`;
                 }
                 return `<span class="val-display mono text-green-400 hover:underline" onclick="app.setEdit('${path}')">${val}</span>`;
             }
 
-            // Removed setKeyEdit and cancelKeyEdit methods
-            
             setEdit(path) { this.editingPath = path; this.render(); setTimeout(() => { const el = document.getElementById(`input-${path}`); if(el) { el.focus(); el.select(); } }, 50); }
             cancelEdit() { this.editingPath = null; this.render(); }
             
