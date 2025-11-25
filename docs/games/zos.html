@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Z-OS | ENTITY PROTOCOL (v5.22)</title>
+    <title>Z-OS | GRANULAR PROTOCOL (v5.23)</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
@@ -186,7 +186,7 @@
 <header class="bg-black border-b border-green-900/30 p-3 flex justify-between items-center sticky top-0 z-50 shadow-lg shadow-green-900/10">
         <div class="flex items-center gap-2">
             <i class="fa-solid fa-network-wired text-green-500 text-sm"></i>
-            <span class="text-green-500 font-bold tracking-widest text-sm">Z-OS <span class="text-gray-600 text-xs">v5.22</span></span>
+            <span class="text-green-500 font-bold tracking-widest text-sm">Z-OS <span class="text-gray-600 text-xs">v5.23</span></span>
         </div>
         <div class="flex gap-2">
             <button onclick="app.reset()" class="text-red-800 hover:text-red-500 text-[10px] border border-red-900/30 px-2 py-1 rounded font-bold tracking-wider">RESET</button>
@@ -213,8 +213,9 @@
 <script>
         const NULL_STATE = { 
             "system_status": "BOOT_REQUIRED",
+            "timestamp": "2025-11-25 @ 14:30",
             "battery_level": "75%",
-            "anki_cards_reviewed": 0,
+            "elapsed_time": "00:45",
             "current_priority": "HIGH"
         };
 
@@ -226,16 +227,16 @@
             }
 
             load() {
-                const s = localStorage.getItem('zos_v5_22');
+                const s = localStorage.getItem('zos_v5_23');
                 let sJSON = s ? JSON.parse(s) : null;
-                if (sJSON && sJSON.system_status === "BOOT_REQUIRED" && sJSON.battery_level === "75%" && !sJSON.instruction) {
+                if (sJSON && sJSON.system_status === "BOOT_REQUIRED" && sJSON.battery_level === "75%" && !sJSON.elapsed_time) {
                     sJSON = null; 
                 }
                 return sJSON || JSON.parse(JSON.stringify(NULL_STATE));
             }
 
             save() {
-                localStorage.setItem('zos_v5_22', JSON.stringify(this.state));
+                localStorage.setItem('zos_v5_23', JSON.stringify(this.state));
                 this.render();
             }
 
@@ -351,9 +352,33 @@
                 }
             }
 
+            // BASE-60 TIME STEPPER
+            incrementTime(pathStr, amount) {
+                const { parent, key } = this.getParent(pathStr);
+                if (!parent) return;
+                const val = parent[key];
+                
+                // Expect HH:MM format
+                const parts = String(val).split(':');
+                if (parts.length !== 2) return;
+                
+                let h = parseInt(parts[0]);
+                let m = parseInt(parts[1]);
+                
+                // Convert to minutes, add amount
+                let totalMin = (h * 60) + m + amount;
+                if (totalMin < 0) totalMin = 0; // Clamp to 0
+                
+                // Convert back
+                let newH = Math.floor(totalMin / 60);
+                let newM = totalMin % 60;
+                
+                parent[key] = `${String(newH).padStart(2, '0')}:${String(newM).padStart(2, '0')}`;
+                this.save();
+            }
+
             injectTime(pathStr) {
                 const now = new Date();
-                // Custom format: YYYY-MM-DD @ HH:MM
                 const iso = now.toISOString().split('T')[0] + ' @ ' + now.toTimeString().split(' ')[0].substring(0,5);
                 this.updateValue(pathStr, iso);
             }
@@ -450,7 +475,7 @@
                                 <div class="flex-grow flex items-center mr-2"> 
                                     ${this.buildReorderArrows(currentPath, key, data.length)}
                                     ${this.buildKeyDisplay(key, safeP, isArray)}
-                                    ${this.buildPrimitive(value, safeP)}
+                                    ${this.buildPrimitive(value, safeP, key)}
                                 </div>
                                 ${this.buildPrimitiveControls(safeP, isArray, key, data.length)}
                             </div>`;
@@ -493,18 +518,26 @@
             
             buildPrimitiveControls(safeP, isArray, key, arrayLength) {
                 if (this.editingPath === safeP) return ''; 
+                // Don't show delete button here if it's already in the slider block
+                const { parent } = this.getParent(safeP);
+                const val = parent[isArray ? key : key]; 
+                const isSlider = String(val).match(/^(\d{1,3})%$/);
+                
+                if (isSlider) return ''; // Slider block handles its own delete button
+
                 let html = `<div class="flex items-center gap-2">`;
                 html += `<button onclick="app.deleteItem('${safeP}')" class="btn-action text-red-900 hover:text-red-500"><i class="fa-solid fa-xmark"></i></button></div>`;
                 return html;
             }
 
-            buildPrimitive(val, path) {
+            buildPrimitive(val, path, keyName) {
                 const initialValue = typeof val === 'object' && val !== null ? JSON.stringify(val) : val;
                 
                 // --- Value Editing Mode ---
                 if (this.editingPath === path) {
                     const lineCount = String(initialValue).split('\n').length;
                     const rows = Math.max(3, lineCount + 1); 
+                    const showClock = String(keyName).toLowerCase().includes('timestamp');
                     
                     return `
                         <div class="flex items-start w-full gap-1">
@@ -512,7 +545,7 @@
                             <div class="flex flex-col gap-1 mt-1">
                                 <div class="flex items-center gap-1">
                                     <button onclick="app.updateValue('${path}', document.getElementById('input-${path}').value)" class="text-green-500 hover:bg-green-900/50 large-control-btn"><i class="fa-solid fa-check"></i></button>
-                                    <button onclick="app.injectTime('${path}')" class="text-blue-400 hover:bg-blue-900/30 large-control-btn" title="Inject Timestamp"><i class="fa-solid fa-clock"></i></button>
+                                    ${showClock ? `<button onclick="app.injectTime('${path}')" class="text-blue-400 hover:bg-blue-900/30 large-control-btn" title="Inject Timestamp"><i class="fa-solid fa-clock"></i></button>` : ''}
                                 </div>
                             </div>
                         </div>
@@ -545,6 +578,18 @@
                             <button class="text-xs bg-[#111] text-gray-500 hover:text-white px-1 rounded border border-[#333]" onclick="app.incrementValue('${path}', 1)"><i class="fa-solid fa-plus"></i></button>
                         </div>
                      `;
+                }
+                
+                // --- Time Stepper Logic (HH:MM) ---
+                const timeMatch = String(val).match(/^\d{1,2}:\d{2}$/);
+                if (timeMatch) {
+                    return `
+                        <div class="flex items-center gap-1">
+                            <button class="text-xs bg-[#111] text-gray-500 hover:text-white px-1 rounded border border-[#333]" onclick="app.incrementTime('${path}', -1)"><i class="fa-solid fa-minus"></i></button>
+                            <span class="val-display mono text-blue-400 hover:underline mx-1" onclick="app.setEdit('${path}')">${val}</span>
+                            <button class="text-xs bg-[#111] text-gray-500 hover:text-white px-1 rounded border border-[#333]" onclick="app.incrementTime('${path}', 1)"><i class="fa-solid fa-plus"></i></button>
+                        </div>
+                    `;
                 }
 
                 // --- Heuristic Priority Tags ---
