@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Z-OS | GRANULAR PROTOCOL (v5.36)</title>
+    <title>Z-OS | GRANULAR PROTOCOL (v5.38)</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
@@ -104,6 +104,7 @@
             padding: 4px 0;
             border-bottom: 1px solid #111;
             min-height: 36px;
+            position: relative; /* For background positioning */
         }
         
         .key-display {
@@ -115,6 +116,7 @@
             letter-spacing: 0.5px;
             padding: 2px 4px;
             border-radius: 2px;
+            position: relative; z-index: 10; /* Ensure text is above bar */
         }
         
         .val-display {
@@ -124,6 +126,7 @@
             padding: 2px 4px;
             border-radius: 2px;
             transition: background 0.2s;
+            position: relative; z-index: 10;
         }
         .val-display:hover { background: #111; }
 
@@ -152,6 +155,7 @@
             border: 1px solid #333;
             transition: all 0.1s;
             flex-shrink: 0; 
+            position: relative; z-index: 10;
         }
         .stepper-btn:hover { color: white; border-color: #555; }
         .stepper-btn:active { background: #222; }
@@ -177,7 +181,7 @@
 <header class="bg-black border-b border-green-900/30 p-3 flex justify-between items-center sticky top-0 z-50 shadow-lg shadow-green-900/10">
         <div class="flex items-center gap-2">
             <i class="fa-solid fa-network-wired text-green-500 text-sm"></i>
-            <span class="text-green-500 font-bold tracking-widest text-sm">Z-OS <span class="text-gray-600 text-xs">v5.36</span></span>
+            <span class="text-green-500 font-bold tracking-widest text-sm">Z-OS <span class="text-gray-600 text-xs">v5.38</span></span>
         </div>
         <div class="flex gap-2">
             <button onclick="app.reset()" class="text-red-800 hover:text-red-500 text-[10px] border border-red-900/30 px-2 py-1 rounded font-bold tracking-wider">RESET</button>
@@ -230,7 +234,7 @@
             }
 
             load() {
-                const s = localStorage.getItem('zos_v5_36');
+                const s = localStorage.getItem('zos_v5_38');
                 let sJSON = s ? JSON.parse(s) : null;
                 if (sJSON && sJSON.system_status === "BOOT_REQUIRED" && sJSON.battery_level === "75%" && !sJSON.elapsed_time) {
                     sJSON = null; 
@@ -239,7 +243,7 @@
             }
 
             save() {
-                localStorage.setItem('zos_v5_36', JSON.stringify(this.state));
+                localStorage.setItem('zos_v5_38', JSON.stringify(this.state));
                 this.render();
             }
 
@@ -556,9 +560,19 @@
                     const value = data[key];
                     const isPrimitive = typeof value !== 'object' || value === null;
                     
+                    // --- ROW BACKGROUND LOGIC (v5.38) ---
+                    let rowStyle = '';
+                    if (typeof value === 'string') {
+                        const match = value.match(/^(\d{1,3})%$/);
+                        if (match) {
+                            const pct = parseInt(match[1]);
+                            rowStyle = `style="background: linear-gradient(to right, rgba(128,128,128,0.15) ${pct}%, transparent ${pct}%)"`;
+                        }
+                    }
+                    
                     if (isPrimitive) {
                         html += `
-                            <div class="node-row group hover:bg-[#0a0a0a]">
+                            <div class="node-row group hover:bg-[#0a0a0a]" ${rowStyle}>
                                 <div class="flex-grow flex items-center mr-2"> 
                                     ${this.buildReorderArrows(currentPath, key, data.length)}
                                     ${this.buildKeyDisplay(key, safeP, isArray)}
@@ -652,11 +666,11 @@
                 if (percentMatch) {
                     return `
                         <div class="flex items-center">
-                            <button class="stepper-btn" onclick="app.incrementPercent('${path}', -10)"><i class="fa-solid fa-angles-left"></i></button>
-                            <button class="stepper-btn" onclick="app.incrementPercent('${path}', -1)"><i class="fa-solid fa-minus"></i></button>
+                            <button class="stepper-btn" onclick="app.incrementPercent('${path}', -25)"><i class="fa-solid fa-angles-left"></i></button>
+                            <button class="stepper-btn" onclick="app.incrementPercent('${path}', -5)"><i class="fa-solid fa-minus"></i></button>
                             <span class="val-display mono text-[#00ff9d] hover:underline mx-0 whitespace-nowrap min-w-[3rem] text-center flex-shrink-0" onclick="app.setEdit('${path}')">${val}</span>
-                            <button class="stepper-btn" onclick="app.incrementPercent('${path}', 1)"><i class="fa-solid fa-plus"></i></button>
-                            <button class="stepper-btn" onclick="app.incrementPercent('${path}', 10)"><i class="fa-solid fa-angles-right"></i></button>
+                            <button class="stepper-btn" onclick="app.incrementPercent('${path}', 5)"><i class="fa-solid fa-plus"></i></button>
+                            <button class="stepper-btn" onclick="app.incrementPercent('${path}', 25)"><i class="fa-solid fa-angles-right"></i></button>
                         </div>
                     `;
                 }
