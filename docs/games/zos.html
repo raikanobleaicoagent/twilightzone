@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Z-OS | GRANULAR PROTOCOL (v5.38)</title>
+    <title>Z-OS | GRANULAR PROTOCOL (v5.39)</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
@@ -104,7 +104,7 @@
             padding: 4px 0;
             border-bottom: 1px solid #111;
             min-height: 36px;
-            position: relative; /* For background positioning */
+            position: relative;
         }
         
         .key-display {
@@ -116,7 +116,7 @@
             letter-spacing: 0.5px;
             padding: 2px 4px;
             border-radius: 2px;
-            position: relative; z-index: 10; /* Ensure text is above bar */
+            position: relative; z-index: 10;
         }
         
         .val-display {
@@ -130,13 +130,27 @@
         }
         .val-display:hover { background: #111; }
 
-        /* State Colors */
-        .state-active { color: var(--accent-color); font-weight: bold; }
-        .state-inactive { color: #555; }
-        .state-pending { color: var(--warn-color); }
-        .state-inprogress { color: var(--process-color); font-style: italic; }
-        .state-incomplete { color: var(--danger-color); }
-        .state-neutral { color: #ddd; }
+        /* State Switchers */
+        .state-switch { display: flex; border: 1px solid #222; border-radius: 4px; overflow: hidden; }
+        .state-btn { 
+            font-size: 9px; 
+            font-family: 'JetBrains Mono', monospace; 
+            padding: 2px 6px; 
+            cursor: pointer; 
+            background: #050505; 
+            color: #444; 
+            border-right: 1px solid #222;
+            transition: all 0.2s;
+        }
+        .state-btn:last-child { border-right: none; }
+        .state-btn:hover { color: #888; }
+        
+        .state-btn-active-pend { background: rgba(255, 187, 0, 0.15); color: #ffbb00; font-weight: bold; }
+        .state-btn-active-prog { background: rgba(0, 170, 255, 0.15); color: #00aaff; font-weight: bold; }
+        .state-btn-active-comp { background: rgba(0, 255, 157, 0.15); color: #00ff9d; font-weight: bold; }
+        
+        .state-btn-active-on { background: rgba(0, 255, 157, 0.15); color: #00ff9d; font-weight: bold; }
+        .state-btn-active-off { background: rgba(80, 80, 80, 0.3); color: #888; font-weight: bold; }
 
         #io-modal, #log-modal { background: rgba(0,0,0,0.95); backdrop-filter: blur(5px); }
         #viewport { overflow-x: hidden; }
@@ -181,7 +195,7 @@
 <header class="bg-black border-b border-green-900/30 p-3 flex justify-between items-center sticky top-0 z-50 shadow-lg shadow-green-900/10">
         <div class="flex items-center gap-2">
             <i class="fa-solid fa-network-wired text-green-500 text-sm"></i>
-            <span class="text-green-500 font-bold tracking-widest text-sm">Z-OS <span class="text-gray-600 text-xs">v5.38</span></span>
+            <span class="text-green-500 font-bold tracking-widest text-sm">Z-OS <span class="text-gray-600 text-xs">v5.39</span></span>
         </div>
         <div class="flex gap-2">
             <button onclick="app.reset()" class="text-red-800 hover:text-red-500 text-[10px] border border-red-900/30 px-2 py-1 rounded font-bold tracking-wider">RESET</button>
@@ -234,7 +248,7 @@
             }
 
             load() {
-                const s = localStorage.getItem('zos_v5_38');
+                const s = localStorage.getItem('zos_v5_39');
                 let sJSON = s ? JSON.parse(s) : null;
                 if (sJSON && sJSON.system_status === "BOOT_REQUIRED" && sJSON.battery_level === "75%" && !sJSON.elapsed_time) {
                     sJSON = null; 
@@ -243,7 +257,7 @@
             }
 
             save() {
-                localStorage.setItem('zos_v5_38', JSON.stringify(this.state));
+                localStorage.setItem('zos_v5_39', JSON.stringify(this.state));
                 this.render();
             }
 
@@ -349,30 +363,6 @@
             moveUp(pathStr) { this.moveItem(pathStr, 'up'); }
             moveDown(pathStr) { this.moveItem(pathStr, 'down'); }
 
-            toggleState(pathStr, currentVal) {
-                const { parent, key } = this.getParent(pathStr);
-                if (!parent) return;
-                
-                let nextVal = currentVal;
-                const v = String(currentVal).toUpperCase();
-                
-                if (v === 'ACTIVE') nextVal = 'INACTIVE';
-                else if (v === 'INACTIVE') nextVal = 'ACTIVE';
-                else if (v === 'PENDING') nextVal = 'IN PROGRESS'; 
-                else if (v === 'IN PROGRESS') nextVal = 'COMPLETED'; 
-                else if (v === 'COMPLETED') nextVal = 'PENDING'; 
-                else if (v === 'TRUE') nextVal = 'FALSE';
-                else if (v === 'FALSE') nextVal = 'TRUE';
-                else if (currentVal === true) nextVal = 'FALSE';
-                else if (currentVal === false) nextVal = 'TRUE';
-                
-                parent[key] = nextVal;
-                // LOGGING CHANGE: Using '至' (\u81f3) for display
-                const p = this.formatPath(pathStr);
-                this.addLog(`TOGGLE <span class="log-hl">[${p}]</span><br> ${currentVal} \u81f3 <span class="text-white">${nextVal}</span>`);
-                this.save();
-            }
-
             updateValue(pathStr, newValue) {
                 const { parent, key } = this.getParent(pathStr);
                 if (!parent) return;
@@ -400,7 +390,6 @@
                 if (typeof parent[key] === 'number') {
                     const oldValue = parent[key];
                     parent[key] += amount;
-                    // LOGGING CHANGE: Using '至' (\u81f3) for display
                     const p = this.formatPath(pathStr);
                     this.addLog(`MATH <span class="log-hl">[${p}]</span><br> ${oldValue} \u81f3 <span class="text-white">${parent[key]}</span>`);
                     this.save();
@@ -419,7 +408,6 @@
                     if (val < 0) val = 0;
                     if (val > 100) val = 100;
                     parent[key] = `${val}%`;
-                    // LOGGING CHANGE: Using '至' (\u81f3) for display
                     const p = this.formatPath(pathStr);
                     this.addLog(`MATH <span class="log-hl">[${p}]</span><br> ${oldValue} \u81f3 <span class="text-white">${parent[key]}</span>`);
                     this.save();
@@ -440,7 +428,6 @@
                 let newH = Math.floor(totalMin / 60);
                 let newM = totalMin % 60;
                 parent[key] = `${String(newH).padStart(2, '0')}:${String(newM).padStart(2, '0')}`;
-                // LOGGING CHANGE: Using '至' (\u81f3) for display
                 const p = this.formatPath(pathStr);
                 this.addLog(`TIME <span class="log-hl">[${p}]</span><br> ${oldValue} \u81f3 <span class="text-white">${parent[key]}</span>`);
                 this.save();
@@ -449,7 +436,7 @@
             injectTime(pathStr) {
                 const now = new Date();
                 const iso = now.toISOString().split('T')[0] + ' @ ' + now.toTimeString().split(' ')[0].substring(0,5);
-                this.updateValue(pathStr, iso); // updateValue handles the logging
+                this.updateValue(pathStr, iso); 
             }
 
             deleteItem(pathStr) {
@@ -560,7 +547,7 @@
                     const value = data[key];
                     const isPrimitive = typeof value !== 'object' || value === null;
                     
-                    // --- ROW BACKGROUND LOGIC (v5.38) ---
+                    // --- ROW BACKGROUND LOGIC ---
                     let rowStyle = '';
                     if (typeof value === 'string') {
                         const match = value.match(/^(\d{1,3})%$/);
@@ -625,15 +612,6 @@
             
             buildPrimitiveControls(safeP, isArray, key, arrayLength, val) {
                 if (this.editingPath === safeP) return ''; 
-                
-                // CHECK FOR TOGGLE
-                const vUpper = String(val).toUpperCase();
-                const isToggle = ['ACTIVE', 'INACTIVE', 'COMPLETED', 'PENDING', 'IN PROGRESS', 'TRUE', 'FALSE'].includes(vUpper) || typeof val === 'boolean';
-
-                if (isToggle) {
-                    // Show X for toggles
-                    return `<div class="flex items-center gap-2"><button onclick="app.deleteItem('${safeP}')" class="btn-action text-red-900 hover:text-red-500"><i class="fa-solid fa-xmark"></i></button></div>`;
-                }
                 return ''; 
             }
 
@@ -675,6 +653,34 @@
                     `;
                 }
                 
+                // --- STATUS RADIO SWITCHES (v5.39) ---
+                const vUpper = String(val).toUpperCase();
+                if (['PENDING', 'IN PROGRESS', 'COMPLETED'].includes(vUpper)) {
+                    return `
+                    <div class="state-switch">
+                        <div class="state-btn ${vUpper === 'PENDING' ? 'state-btn-active-pend' : ''}" onclick="app.updateValue('${path}', 'PENDING')">PEND</div>
+                        <div class="state-btn ${vUpper === 'IN PROGRESS' ? 'state-btn-active-prog' : ''}" onclick="app.updateValue('${path}', 'IN PROGRESS')">PROG</div>
+                        <div class="state-btn ${vUpper === 'COMPLETED' ? 'state-btn-active-comp' : ''}" onclick="app.updateValue('${path}', 'COMPLETED')">DONE</div>
+                    </div>`;
+                }
+                
+                if (['ACTIVE', 'INACTIVE'].includes(vUpper)) {
+                    return `
+                    <div class="state-switch">
+                        <div class="state-btn ${vUpper === 'ACTIVE' ? 'state-btn-active-on' : ''}" onclick="app.updateValue('${path}', 'ACTIVE')">ACTIVE</div>
+                        <div class="state-btn ${vUpper === 'INACTIVE' ? 'state-btn-active-off' : ''}" onclick="app.updateValue('${path}', 'INACTIVE')">INACTIVE</div>
+                    </div>`;
+                }
+                
+                if (['TRUE', 'FALSE'].includes(vUpper) || typeof val === 'boolean') {
+                    const isTrue = vUpper === 'TRUE' || val === true;
+                    return `
+                    <div class="state-switch">
+                        <div class="state-btn ${isTrue ? 'state-btn-active-on' : ''}" onclick="app.updateValue('${path}', 'TRUE')">TRUE</div>
+                        <div class="state-btn ${!isTrue ? 'state-btn-active-off' : ''}" onclick="app.updateValue('${path}', 'FALSE')">FALSE</div>
+                    </div>`;
+                }
+                
                 // --- Numeric Stepper Logic ---
                 if (typeof val === 'number') {
                      return `
@@ -703,22 +709,11 @@
                 }
 
                 // --- Heuristic Priority Tags ---
-                const vUpper = String(val).toUpperCase();
                 if (vUpper === 'CRITICAL') return `<span class="badge badge-critical cursor-pointer" onclick="app.setEdit('${path}')">CRITICAL</span>`;
                 if (vUpper === 'HIGH') return `<span class="badge badge-high cursor-pointer" onclick="app.setEdit('${path}')">HIGH</span>`;
                 if (vUpper === 'MEDIUM') return `<span class="badge badge-medium cursor-pointer" onclick="app.setEdit('${path}')">MEDIUM</span>`;
                 if (vUpper === 'LOW') return `<span class="badge badge-low cursor-pointer" onclick="app.setEdit('${path}')">LOW</span>`;
 
-                // --- Display Mode (Standard) ---
-                const isToggle = ['ACTIVE', 'INACTIVE', 'COMPLETED', 'PENDING', 'IN PROGRESS', 'TRUE', 'FALSE'].includes(vUpper) || typeof val === 'boolean';
-                if (isToggle) {
-                    let colorClass = 'state-neutral';
-                    if (['ACTIVE', 'COMPLETED', 'TRUE'].includes(vUpper)) colorClass = 'state-active';
-                    else if (['INACTIVE', 'FALSE'].includes(vUpper)) colorClass = 'state-inactive';
-                    else if (['PENDING'].includes(vUpper)) colorClass = 'state-pending';
-                    else if (['IN PROGRESS'].includes(vUpper)) colorClass = 'state-inprogress';
-                    return `<span class="val-display mono ${colorClass}" onclick="app.toggleState('${path}', '${val}')">${vUpper} <i class="fa-solid fa-toggle-on ml-1 text-[10px] opacity-50"></i></span>`;
-                }
                 return `<span class="val-display mono text-green-400 hover:underline" onclick="app.setEdit('${path}')">${val}</span>`;
             }
 
@@ -742,7 +737,7 @@
                                     .replace(/<span class="text-white">/g, '『ホワイト』')
                                     .replace(/<\/span>/g, '『エンド』')
                                     .replace(/<br>/g, '『改行』')
-                                    .replace(/\u81f3/g, '『トゥ』'); // CODE THE ARROW (ZHÌ)
+                                    .replace(/\u81f3/g, '『トゥ』'); 
                                 return log;
                             });
                         }
@@ -776,7 +771,7 @@
                                 .replace(/『ホワイト』/g, '<span class="text-white">')
                                 .replace(/『エンド』/g, '</span>')
                                 .replace(/『改行』/g, '<br>')
-                                .replace(/『トゥ』/g, '\u81f3'); // DECODE THE ARROW (ZHÌ)
+                                .replace(/『トゥ』/g, '\u81f3'); 
                             return log;
                         });
                     }
