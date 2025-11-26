@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Z-OS | GRANULAR PROTOCOL (v5.40)</title>
+    <title>Z-OS | AGENCY PROTOCOL (v6.00)</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
@@ -59,6 +59,21 @@
             -webkit-appearance: none; 
             margin: 0; 
         }
+
+        /* Search Input */
+        .search-input {
+            background: #111;
+            border: 1px solid #333;
+            color: var(--accent-color);
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 10px;
+            padding: 2px 8px;
+            border-radius: 4px;
+            width: 120px;
+            transition: all 0.2s;
+        }
+        .search-input:focus { outline: none; border-color: var(--accent-color); width: 160px; }
+        .search-input::placeholder { color: #444; }
 
         /* Priority Badges */
         .badge { font-size: 10px; font-weight: bold; padding: 1px 4px; border-radius: 2px; letter-spacing: 0.5px; }
@@ -199,9 +214,15 @@
 <body class="flex flex-col h-screen">
 
 <header class="bg-black border-b border-green-900/30 p-3 flex justify-between items-center sticky top-0 z-50 shadow-lg shadow-green-900/10">
-        <div class="flex items-center gap-2">
-            <i class="fa-solid fa-network-wired text-green-500 text-sm"></i>
-            <span class="text-green-500 font-bold tracking-widest text-sm">Z-OS <span class="text-gray-600 text-xs">v5.40</span></span>
+        <div class="flex items-center gap-3">
+            <div class="flex items-center gap-2">
+                <i class="fa-solid fa-network-wired text-green-500 text-sm"></i>
+                <span class="text-green-500 font-bold tracking-widest text-sm">Z-OS <span class="text-white text-xs">v6.00</span></span>
+            </div>
+            <div class="relative">
+                <input type="text" id="tree-search" class="search-input" placeholder="FILTER NODES..." onkeyup="app.updateSearch(this.value)">
+                <i class="fa-solid fa-filter text-gray-700 text-[10px] absolute right-2 top-1.5 pointer-events-none"></i>
+            </div>
         </div>
         <div class="flex gap-2">
             <button onclick="app.reset()" class="text-red-800 hover:text-red-500 text-[10px] border border-red-900/30 px-2 py-1 rounded font-bold tracking-wider">RESET</button>
@@ -257,14 +278,17 @@
             "_meta_log": []
         };
 
+        const STORAGE_KEY = 'zos_v6_00';
+        const LEGACY_KEY = 'zos_v5_40';
+
         class ZyqralOS {
             constructor() {
+                this.searchTerm = '';
                 this.state = this.load();
                 this.editingPath = null;
                 this.collapsed = new Set(); 
-                this.pendingEdits = {}; // TRACKS GRANULAR EDITS
+                this.pendingEdits = {}; 
                 
-                // Ensure legacy saves have log_config and _meta_log
                 if(!this.state.log_config) this.state.log_config = { "limit": 10, "enabled": true };
                 if(!this.state._meta_log) this.state._meta_log = [];
                 
@@ -272,7 +296,19 @@
             }
 
             load() {
-                const s = localStorage.getItem('zos_v5_40');
+                // Try load v6
+                let s = localStorage.getItem(STORAGE_KEY);
+                
+                // If v6 missing, try v5 migration
+                if (!s) {
+                    const legacy = localStorage.getItem(LEGACY_KEY);
+                    if (legacy) {
+                        console.log("MIGRATING Z-OS v5.40 -> v6.00");
+                        s = legacy;
+                        localStorage.setItem(STORAGE_KEY, s);
+                    }
+                }
+
                 let sJSON = s ? JSON.parse(s) : null;
                 if (sJSON && sJSON.system_status === "BOOT_REQUIRED" && sJSON.battery_level === "75%" && !sJSON.elapsed_time) {
                     sJSON = null; 
@@ -281,7 +317,7 @@
             }
 
             save() {
-                localStorage.setItem('zos_v5_40', JSON.stringify(this.state));
+                localStorage.setItem(STORAGE_KEY, JSON.stringify(this.state));
                 this.render();
             }
 
@@ -290,23 +326,38 @@
                     this.state = JSON.parse(JSON.stringify(NULL_STATE));
                     this.collapsed.clear();
                     this.pendingEdits = {};
+                    this.searchTerm = '';
+                    document.getElementById('tree-search').value = '';
                     this.save();
                 }
+            }
+            
+            // --- SEARCH FILTERING ---
+            updateSearch(val) {
+                this.searchTerm = val.toLowerCase();
+                this.render();
+            }
+
+            hasMatch(data, term) {
+                // Recursively check if data or children matches term
+                if (typeof data !== 'object' || data === null) {
+                    return String(data).toLowerCase().includes(term);
+                }
+                // Array or Object
+                return Object.keys(data).some(key => {
+                    if (key.toLowerCase().includes(term)) return true; // Key match
+                    return this.hasMatch(data[key], term); // Value/Child match
+                });
             }
 
             // --- LOGGING SYSTEM ---
             addLog(action) {
-                // Check if logging is enabled
                 if (!this.state.log_config.enabled) return;
-
                 const now = new Date();
-                const ts = now.toTimeString().split(' ')[0]; // HH:MM:SS
+                const ts = now.toTimeString().split(' ')[0];
                 const entry = { t: ts, a: action };
-                
                 if(!this.state._meta_log) this.state._meta_log = [];
                 this.state._meta_log.unshift(entry);
-                
-                // Enforce User Defined Limit
                 const limit = parseInt(this.state.log_config.limit) || 10;
                 if(this.state._meta_log.length > limit) {
                     this.state._meta_log = this.state._meta_log.slice(0, limit);
@@ -314,38 +365,29 @@
             }
 
             logGranular(type, pathStr, displayOld, displayNew) {
-                // Check if logging is enabled
                 if (!this.state.log_config.enabled) return;
-
                 const now = new Date();
                 const ts = now.toTimeString().split(' ')[0];
                 const p = this.formatPath(pathStr);
                 const logContent = `${type} <span class="log-hl">[${p}]</span><br> ${displayOld} \u81f3 <span class="text-white">${displayNew}</span>`;
-
                 const pending = this.pendingEdits[pathStr];
                 const nowTime = Date.now();
-
                 if (pending && (nowTime - pending.startTime < 30000)) {
-                    // Update the existing log entry in state
                     const combinedContent = `${type} <span class="log-hl">[${p}]</span><br> ${pending.initialVal} \u81f3 <span class="text-white">${displayNew}</span>`;
                     pending.entry.t = ts; 
                     pending.entry.a = combinedContent;
                 } else {
-                    // Check limit before adding new
                     const limit = parseInt(this.state.log_config.limit) || 10;
                     if(!this.state._meta_log) this.state._meta_log = [];
-                    
                     const entry = { t: ts, a: logContent };
                     this.state._meta_log.unshift(entry);
-                    
                     if (this.state._meta_log.length > limit) {
                          this.state._meta_log = this.state._meta_log.slice(0, limit);
                     }
-                    
                     this.pendingEdits[pathStr] = {
                         startTime: nowTime,
                         initialVal: displayOld,
-                        entry: this.state._meta_log[0] // Reference the newly added entry
+                        entry: this.state._meta_log[0]
                     };
                 }
             }
@@ -355,13 +397,11 @@
                 let limit = parseInt(val);
                 if (limit < 0) limit = 0;
                 this.state.log_config.limit = limit;
-                
-                // Trim existing logs immediately if new limit is smaller
                 if (this.state._meta_log.length > limit) {
                     this.state._meta_log = this.state._meta_log.slice(0, limit);
                 }
                 this.save();
-                this.renderLogs(); // Re-render log view
+                this.renderLogs(); 
             }
 
             toggleLogState() {
@@ -373,7 +413,7 @@
             clearLogs() {
                 if(confirm("Clear all log history?")) {
                     this.state._meta_log = [];
-                    this.pendingEdits = {}; // Clear pending state references
+                    this.pendingEdits = {}; 
                     this.save();
                     this.renderLogs();
                 }
@@ -383,10 +423,8 @@
                 const btn = document.getElementById('log-toggle-btn');
                 const input = document.getElementById('log-limit-input');
                 const headerText = document.getElementById('log-header-text');
-                
                 input.value = this.state.log_config.limit;
                 headerText.textContent = `SYSTEM LOGS (${this.state._meta_log.length})`;
-
                 if (this.state.log_config.enabled) {
                     btn.textContent = "ENABLED";
                     btn.className = "bg-green-900/30 text-green-400 border border-green-800 px-2 py-0.5 rounded text-[9px] font-bold tracking-wider hover:bg-green-900/50";
@@ -494,6 +532,13 @@
                 if (!isNaN(Number(newValue)) && newValue.trim() !== '') val = Number(newValue);
                 else if (vUpper === 'TRUE') val = 'TRUE';
                 else if (vUpper === 'FALSE') val = 'FALSE';
+                
+                // CHECK IF VALUE CHANGED
+                if (oldValue === val) {
+                    this.editingPath = null;
+                    this.render();
+                    return;
+                }
                 
                 parent[key] = val;
                 this.editingPath = null;
@@ -658,12 +703,18 @@
                 let html = `<div class="w-full">`;
 
                 Object.keys(data).forEach(key => {
-                    if (key === '_meta_log') return; // Hide logs from main view
-                    if (key === 'log_config') return; // Hide log config from main view
+                    if (key === '_meta_log') return; 
+                    if (key === 'log_config') return; 
                     
+                    const value = data[key];
+                    
+                    // --- TREE FILTERING LOGIC ---
+                    // If searchTerm exists, only render if Key matches OR Value structure contains match
+                    const matchesSearch = this.searchTerm ? (key.toLowerCase().includes(this.searchTerm) || this.hasMatch(value, this.searchTerm)) : true;
+                    if (!matchesSearch) return;
+
                     const currentPath = path ? `${path}|${key}` : key;
                     const safeP = this.safePath(currentPath);
-                    const value = data[key];
                     const isPrimitive = typeof value !== 'object' || value === null;
                     
                     let rowStyle = '';
@@ -686,7 +737,9 @@
                                 ${this.buildPrimitiveControls(safeP, isArray, key, data.length, value)}
                             </div>`;
                     } else {
-                        const isCollapsed = this.collapsed.has(currentPath);
+                        // AUTO-EXPAND if searching
+                        const isCollapsed = this.searchTerm ? false : this.collapsed.has(currentPath);
+                        
                         html += `
                             <div class="mt-2 mb-1">
                                 <div class="flex justify-between items-center bg-[#0a0a0a] px-2 py-1 border-b border-[#222] rounded-t">
@@ -712,7 +765,8 @@
                 });
                 
                 const visibleKeys = Object.keys(data).filter(k => k !== '_meta_log' && k !== 'log_config');
-                if (visibleKeys.length === 0) {
+                // Only show empty if NOT searching (to avoid clutter) OR if user specifically wants to see everything
+                if (visibleKeys.length === 0 && !this.searchTerm) {
                     const safeP = this.safePath(path);
                     html += `<div class="text-[10px] text-gray-700 italic p-2 flex items-center">EMPTY <button onclick="app.addItem('${safeP}', ${isArray})" class="ml-2 text-green-700 hover:text-green-400"><i class="fa-solid fa-plus"></i></button></div>`;
                 }
@@ -724,6 +778,10 @@
             buildKeyDisplay(key, path, isArray, isHeader = false) {
                 if (isArray) return `<span class="text-green-800 font-bold mr-2 text-[10px]">[${key}]</span>`;
                 const displayClass = isHeader ? 'text-gray-400 uppercase tracking-widest' : 'key-display uppercase';
+                // HIGHLIGHT MATCH IN KEY
+                if (this.searchTerm && key.toLowerCase().includes(this.searchTerm)) {
+                    return `<span class="${displayClass} text-green-400 border-b border-green-500">${key}</span>`;
+                }
                 return `<span class="${displayClass}">${key}</span>`;
             }
             
