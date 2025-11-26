@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Z-OS | GRANULAR PROTOCOL (v5.34)</title>
+    <title>Z-OS | GRANULAR PROTOCOL (v5.35)</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
@@ -177,7 +177,7 @@
 <header class="bg-black border-b border-green-900/30 p-3 flex justify-between items-center sticky top-0 z-50 shadow-lg shadow-green-900/10">
         <div class="flex items-center gap-2">
             <i class="fa-solid fa-network-wired text-green-500 text-sm"></i>
-            <span class="text-green-500 font-bold tracking-widest text-sm">Z-OS <span class="text-gray-600 text-xs">v5.34</span></span>
+            <span class="text-green-500 font-bold tracking-widest text-sm">Z-OS <span class="text-gray-600 text-xs">v5.35</span></span>
         </div>
         <div class="flex gap-2">
             <button onclick="app.reset()" class="text-red-800 hover:text-red-500 text-[10px] border border-red-900/30 px-2 py-1 rounded font-bold tracking-wider">RESET</button>
@@ -230,7 +230,7 @@
             }
 
             load() {
-                const s = localStorage.getItem('zos_v5_34');
+                const s = localStorage.getItem('zos_v5_35');
                 let sJSON = s ? JSON.parse(s) : null;
                 if (sJSON && sJSON.system_status === "BOOT_REQUIRED" && sJSON.battery_level === "75%" && !sJSON.elapsed_time) {
                     sJSON = null; 
@@ -239,7 +239,7 @@
             }
 
             save() {
-                localStorage.setItem('zos_v5_34', JSON.stringify(this.state));
+                localStorage.setItem('zos_v5_35', JSON.stringify(this.state));
                 this.render();
             }
 
@@ -263,7 +263,6 @@
             }
             
             formatPath(pathStr) {
-                // Replaces | with > for readability
                 return pathStr.replace(/\|/g, ' > ');
             }
 
@@ -719,12 +718,57 @@
                 const copyBtn = document.getElementById('copy-btn');
                 const loadBtn = document.getElementById('load-btn');
                 if (modal.classList.contains('hidden')) {
-                    if (mode === 'export') { ta.value = JSON.stringify(this.state, null, 2); ta.readOnly = true; header.textContent = 'DATA EXTRACTION'; ta.placeholder = '// COPY DATA STREAM BELOW //'; copyBtn.classList.remove('hidden'); loadBtn.classList.add('hidden'); }
-                    else if (mode === 'import') { ta.value = ''; ta.readOnly = false; header.textContent = 'DATA INJECTION'; ta.placeholder = '// PASTE WORLD MODEL HERE //'; copyBtn.classList.add('hidden'); loadBtn.classList.remove('hidden'); }
+                    if (mode === 'export') { 
+                        // EXPORT ENCODING
+                        const exportState = JSON.parse(JSON.stringify(this.state));
+                        if (exportState._meta_log) {
+                            exportState._meta_log = exportState._meta_log.map(log => {
+                                log.a = log.a
+                                    .replace(/<span class="log-hl">/g, '『ハイライト』')
+                                    .replace(/<span class="text-white">/g, '『ホワイト』')
+                                    .replace(/<\/span>/g, '『エンド』')
+                                    .replace(/<br>/g, '『改行』');
+                                return log;
+                            });
+                        }
+                        ta.value = JSON.stringify(exportState, null, 2); 
+                        ta.readOnly = true; 
+                        header.textContent = 'DATA EXTRACTION'; 
+                        ta.placeholder = '// COPY DATA STREAM BELOW //'; 
+                        copyBtn.classList.remove('hidden'); 
+                        loadBtn.classList.add('hidden'); 
+                    }
+                    else if (mode === 'import') { 
+                        ta.value = ''; 
+                        ta.readOnly = false; 
+                        header.textContent = 'DATA INJECTION'; 
+                        ta.placeholder = '// PASTE WORLD MODEL HERE //'; 
+                        copyBtn.classList.add('hidden'); 
+                        loadBtn.classList.remove('hidden'); 
+                    }
                     modal.classList.remove('hidden');
                 } else { modal.classList.add('hidden'); ta.readOnly = false; }
             }
-            saveRaw() { try { const ta = document.getElementById('raw-json'); const newState = JSON.parse(ta.value); this.state = newState; this.save(); this.toggleIO(); } catch(e) { alert("SYNTAX ERROR: Invalid JSON."); } }
+            saveRaw() { 
+                try { 
+                    const ta = document.getElementById('raw-json'); 
+                    let newState = JSON.parse(ta.value); 
+                    // IMPORT DECODING
+                    if (newState._meta_log) {
+                        newState._meta_log = newState._meta_log.map(log => {
+                            log.a = log.a
+                                .replace(/『ハイライト』/g, '<span class="log-hl">')
+                                .replace(/『ホワイト』/g, '<span class="text-white">')
+                                .replace(/『エンド』/g, '</span>')
+                                .replace(/『改行』/g, '<br>');
+                            return log;
+                        });
+                    }
+                    this.state = newState; 
+                    this.save(); 
+                    this.toggleIO(); 
+                } catch(e) { alert("SYNTAX ERROR: Invalid JSON."); } 
+            }
             copyRaw() { const ta = document.getElementById('raw-json'); ta.select(); document.execCommand('copy'); const tempBtnText = document.getElementById('copy-btn').textContent; document.getElementById('copy-btn').textContent = 'COPIED!'; setTimeout(() => { document.getElementById('copy-btn').textContent = tempBtnText; }, 1000); }
         }
         const app = new ZyqralOS();
