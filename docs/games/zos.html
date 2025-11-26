@@ -60,19 +60,23 @@
             margin: 0; 
         }
 
-        /* Search Input */
+        /* Search Input - COMPACT MODE */
         .search-input {
             background: #111;
             border: 1px solid #333;
             color: var(--accent-color);
             font-family: 'JetBrains Mono', monospace;
             font-size: 10px;
-            padding: 2px 8px;
+            padding: 2px 4px 2px 8px;
             border-radius: 4px;
-            width: 120px;
-            transition: all 0.2s;
+            width: 60px; /* COMPRESSED DEFAULT */
+            transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
         }
-        .search-input:focus { outline: none; border-color: var(--accent-color); width: 160px; }
+        .search-input:focus { 
+            outline: none; 
+            border-color: var(--accent-color); 
+            width: 160px; /* EXPANDED ACTIVE STATE */
+        }
         .search-input::placeholder { color: #444; }
 
         /* Priority Badges */
@@ -220,8 +224,8 @@
                 <span class="text-green-500 font-bold tracking-widest text-sm">Z-OS <span class="text-white text-xs">v6.00</span></span>
             </div>
             <div class="relative">
-                <input type="text" id="tree-search" class="search-input" placeholder="FILTER NODES..." onkeyup="app.updateSearch(this.value)">
-                <i class="fa-solid fa-filter text-gray-700 text-[10px] absolute right-2 top-1.5 pointer-events-none"></i>
+                <input type="text" id="tree-search" class="search-input" placeholder="FILTER" onkeyup="app.updateSearch(this.value)">
+                <i class="fa-solid fa-filter text-gray-700 text-[9px] absolute right-2 top-1.5 pointer-events-none"></i>
             </div>
         </div>
         <div class="flex gap-2">
