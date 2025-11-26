@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Z-OS | AGENCY PROTOCOL (v6.00)</title>
+    <title>Z-OS | AGENCY PROTOCOL (v6.01)</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
@@ -60,24 +60,27 @@
             margin: 0; 
         }
 
-        /* Search Input - COMPACT MODE */
+        /* Search Input - MATCHING HEIGHT */
         .search-input {
             background: #111;
             border: 1px solid #333;
             color: var(--accent-color);
             font-family: 'JetBrains Mono', monospace;
             font-size: 10px;
-            padding: 2px 4px 2px 8px;
+            /* Matches py-1 (4px) of buttons roughly, tweaked for input box model */
+            padding: 3px 8px; 
             border-radius: 4px;
-            width: 60px; /* COMPRESSED DEFAULT */
+            width: 60px; 
             transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+            height: 24px; /* Explicit height to match buttons */
+            line-height: 1;
         }
         .search-input:focus { 
             outline: none; 
             border-color: var(--accent-color); 
-            width: 160px; /* EXPANDED ACTIVE STATE */
+            width: 160px; 
         }
-        .search-input::placeholder { color: #444; }
+        .search-input::placeholder { color: #444; line-height: 16px; }
 
         /* Priority Badges */
         .badge { font-size: 10px; font-weight: bold; padding: 1px 4px; border-radius: 2px; letter-spacing: 0.5px; }
@@ -221,9 +224,9 @@
         <div class="flex items-center gap-3">
             <div class="flex items-center gap-2">
                 <i class="fa-solid fa-network-wired text-green-500 text-sm"></i>
-                <span class="text-green-500 font-bold tracking-widest text-sm">Z-OS <span class="text-white text-xs">v6.00</span></span>
+                <span class="text-green-500 font-bold tracking-widest text-sm">Z-OS <span class="text-white text-xs">v6.01</span></span>
             </div>
-            <div class="relative">
+            <div class="relative mr-2">
                 <input type="text" id="tree-search" class="search-input" placeholder="FILTER" onkeyup="app.updateSearch(this.value)">
                 <i class="fa-solid fa-filter text-gray-700 text-[9px] absolute right-2 top-1.5 pointer-events-none"></i>
             </div>
@@ -300,19 +303,14 @@
             }
 
             load() {
-                // Try load v6
                 let s = localStorage.getItem(STORAGE_KEY);
-                
-                // If v6 missing, try v5 migration
                 if (!s) {
                     const legacy = localStorage.getItem(LEGACY_KEY);
                     if (legacy) {
-                        console.log("MIGRATING Z-OS v5.40 -> v6.00");
                         s = legacy;
                         localStorage.setItem(STORAGE_KEY, s);
                     }
                 }
-
                 let sJSON = s ? JSON.parse(s) : null;
                 if (sJSON && sJSON.system_status === "BOOT_REQUIRED" && sJSON.battery_level === "75%" && !sJSON.elapsed_time) {
                     sJSON = null; 
@@ -336,25 +334,21 @@
                 }
             }
             
-            // --- SEARCH FILTERING ---
             updateSearch(val) {
                 this.searchTerm = val.toLowerCase();
                 this.render();
             }
 
             hasMatch(data, term) {
-                // Recursively check if data or children matches term
                 if (typeof data !== 'object' || data === null) {
                     return String(data).toLowerCase().includes(term);
                 }
-                // Array or Object
                 return Object.keys(data).some(key => {
-                    if (key.toLowerCase().includes(term)) return true; // Key match
-                    return this.hasMatch(data[key], term); // Value/Child match
+                    if (key.toLowerCase().includes(term)) return true;
+                    return this.hasMatch(data[key], term);
                 });
             }
 
-            // --- LOGGING SYSTEM ---
             addLog(action) {
                 if (!this.state.log_config.enabled) return;
                 const now = new Date();
@@ -396,7 +390,6 @@
                 }
             }
             
-            // --- LOG CONTROLS ---
             updateLogLimit(val) {
                 let limit = parseInt(val);
                 if (limit < 0) limit = 0;
@@ -469,7 +462,6 @@
                 return pathStr.replace(/\|/g, ' > ');
             }
 
-            // --- CORE LOGIC ---
             safePath(path) { return path.replace(/'/g, "\\'").replace(/"/g, '&quot;'); }
 
             getParent(pathStr) {
@@ -537,7 +529,6 @@
                 else if (vUpper === 'TRUE') val = 'TRUE';
                 else if (vUpper === 'FALSE') val = 'FALSE';
                 
-                // CHECK IF VALUE CHANGED
                 if (oldValue === val) {
                     this.editingPath = null;
                     this.render();
@@ -699,7 +690,7 @@
                 `;
             }
 
-            buildTree(data, path) {
+            buildTree(data, path, forceShow = false) {
                 if (data === null) return `<span class="text-gray-600 italic">null</span>`;
                 if (typeof data !== 'object') return this.buildPrimitive(data, path);
 
@@ -712,10 +703,23 @@
                     
                     const value = data[key];
                     
-                    // --- TREE FILTERING LOGIC ---
-                    // If searchTerm exists, only render if Key matches OR Value structure contains match
-                    const matchesSearch = this.searchTerm ? (key.toLowerCase().includes(this.searchTerm) || this.hasMatch(value, this.searchTerm)) : true;
-                    if (!matchesSearch) return;
+                    // SEARCH LOGIC:
+                    const keyMatches = this.searchTerm && key.toLowerCase().includes(this.searchTerm);
+                    const childMatches = this.searchTerm && this.hasMatch(value, this.searchTerm);
+                    
+                    // SHOW IF: 
+                    // 1. No search active
+                    // 2. Parent matched (forceShow)
+                    // 3. Key matches directly
+                    // 4. Children contain match
+                    const isVisible = !this.searchTerm || forceShow || keyMatches || childMatches;
+                    
+                    if (!isVisible) return;
+
+                    // FORCE EXPANSION IF:
+                    // 1. Parent was forced (inherit)
+                    // 2. This key matches directly (User typed "INVENTORY" -> Show all inventory)
+                    const nextForceShow = forceShow || keyMatches;
 
                     const currentPath = path ? `${path}|${key}` : key;
                     const safeP = this.safePath(currentPath);
@@ -741,7 +745,7 @@
                                 ${this.buildPrimitiveControls(safeP, isArray, key, data.length, value)}
                             </div>`;
                     } else {
-                        // AUTO-EXPAND if searching
+                        // AUTO-EXPAND if searching OR forced
                         const isCollapsed = this.searchTerm ? false : this.collapsed.has(currentPath);
                         
                         html += `
@@ -762,14 +766,13 @@
                                     </div>
                                 </div>
                                 <div class="tree-line ${isCollapsed ? 'hidden' : ''}">
-                                    ${!isCollapsed ? this.buildTree(value, currentPath) : ''}
+                                    ${!isCollapsed ? this.buildTree(value, currentPath, nextForceShow) : ''}
                                 </div>
                             </div>`;
                     }
                 });
                 
                 const visibleKeys = Object.keys(data).filter(k => k !== '_meta_log' && k !== 'log_config');
-                // Only show empty if NOT searching (to avoid clutter) OR if user specifically wants to see everything
                 if (visibleKeys.length === 0 && !this.searchTerm) {
                     const safeP = this.safePath(path);
                     html += `<div class="text-[10px] text-gray-700 italic p-2 flex items-center">EMPTY <button onclick="app.addItem('${safeP}', ${isArray})" class="ml-2 text-green-700 hover:text-green-400"><i class="fa-solid fa-plus"></i></button></div>`;
