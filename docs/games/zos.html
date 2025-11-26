@@ -53,6 +53,12 @@
             overflow: auto;
         }
         textarea.edit-input:focus { outline: none; border-color: var(--accent-color); }
+        
+        input[type="number"]::-webkit-inner-spin-button, 
+        input[type="number"]::-webkit-outer-spin-button { 
+            -webkit-appearance: none; 
+            margin: 0; 
+        }
 
         /* Priority Badges */
         .badge { font-size: 10px; font-weight: bold; padding: 1px 4px; border-radius: 2px; letter-spacing: 0.5px; }
@@ -222,9 +228,21 @@
 
 <div id="log-modal" class="fixed inset-0 z-[60] hidden flex flex-col">
     <div class="p-4 border-b border-gray-800 flex justify-between items-center bg-black">
-        <h2 class="text-green-500 font-bold text-xs tracking-[0.2em]">SYSTEM LOGS (LAST 30)</h2>
+        <h2 id="log-header-text" class="text-green-500 font-bold text-xs tracking-[0.2em]">SYSTEM LOGS</h2>
         <button onclick="app.toggleLog()" class="text-gray-500 hover:text-white"><i class="fa-solid fa-xmark fa-lg"></i></button>
     </div>
+    
+    <div class="p-2 border-b border-gray-900 bg-[#050505] flex justify-between items-center text-[10px] font-mono">
+        <div class="flex items-center gap-2">
+            <span class="text-gray-500 uppercase">Limit:</span>
+            <input type="number" id="log-limit-input" class="bg-[#111] border border-gray-700 text-green-400 w-12 px-1 py-0.5 text-center focus:outline-none focus:border-green-500 rounded-sm" min="0" onchange="app.updateLogLimit(this.value)">
+        </div>
+        <div class="flex items-center gap-2">
+            <button id="log-toggle-btn" onclick="app.toggleLogState()" class="border px-2 py-0.5 rounded text-[9px] font-bold tracking-wider transition-colors"></button>
+            <button onclick="app.clearLogs()" class="text-red-900 hover:text-red-500 hover:bg-red-900/10 border border-red-900/30 px-2 py-0.5 rounded text-[9px] transition-colors">CLEAR</button>
+        </div>
+    </div>
+
     <div id="log-viewport" class="flex-grow overflow-y-auto p-4 bg-black"></div>
 </div>
 
@@ -235,6 +253,7 @@
             "battery_level": "75%",
             "elapsed_time": "00:45",
             "current_priority": "HIGH",
+            "log_config": { "limit": 10, "enabled": true },
             "_meta_log": []
         };
 
@@ -243,7 +262,12 @@
                 this.state = this.load();
                 this.editingPath = null;
                 this.collapsed = new Set(); 
+                this.pendingEdits = {}; // TRACKS GRANULAR EDITS
+                
+                // Ensure legacy saves have log_config and _meta_log
+                if(!this.state.log_config) this.state.log_config = { "limit": 10, "enabled": true };
                 if(!this.state._meta_log) this.state._meta_log = [];
+                
                 this.render();
             }
 
@@ -265,46 +289,142 @@
                 if(confirm('FACTORY RESET: Purge all local data?')) {
                     this.state = JSON.parse(JSON.stringify(NULL_STATE));
                     this.collapsed.clear();
+                    this.pendingEdits = {};
                     this.save();
                 }
             }
 
             // --- LOGGING SYSTEM ---
             addLog(action) {
+                // Check if logging is enabled
+                if (!this.state.log_config.enabled) return;
+
                 const now = new Date();
                 const ts = now.toTimeString().split(' ')[0]; // HH:MM:SS
                 const entry = { t: ts, a: action };
                 
                 if(!this.state._meta_log) this.state._meta_log = [];
                 this.state._meta_log.unshift(entry);
-                if(this.state._meta_log.length > 30) this.state._meta_log.pop();
+                
+                // Enforce User Defined Limit
+                const limit = parseInt(this.state.log_config.limit) || 10;
+                if(this.state._meta_log.length > limit) {
+                    this.state._meta_log = this.state._meta_log.slice(0, limit);
+                }
+            }
+
+            logGranular(type, pathStr, displayOld, displayNew) {
+                // Check if logging is enabled
+                if (!this.state.log_config.enabled) return;
+
+                const now = new Date();
+                const ts = now.toTimeString().split(' ')[0];
+                const p = this.formatPath(pathStr);
+                const logContent = `${type} <span class="log-hl">[${p}]</span><br> ${displayOld} \u81f3 <span class="text-white">${displayNew}</span>`;
+
+                const pending = this.pendingEdits[pathStr];
+                const nowTime = Date.now();
+
+                if (pending && (nowTime - pending.startTime < 30000)) {
+                    // Update the existing log entry in state
+                    const combinedContent = `${type} <span class="log-hl">[${p}]</span><br> ${pending.initialVal} \u81f3 <span class="text-white">${displayNew}</span>`;
+                    pending.entry.t = ts; 
+                    pending.entry.a = combinedContent;
+                } else {
+                    // Check limit before adding new
+                    const limit = parseInt(this.state.log_config.limit) || 10;
+                    if(!this.state._meta_log) this.state._meta_log = [];
+                    
+                    const entry = { t: ts, a: logContent };
+                    this.state._meta_log.unshift(entry);
+                    
+                    if (this.state._meta_log.length > limit) {
+                         this.state._meta_log = this.state._meta_log.slice(0, limit);
+                    }
+                    
+                    this.pendingEdits[pathStr] = {
+                        startTime: nowTime,
+                        initialVal: displayOld,
+                        entry: this.state._meta_log[0] // Reference the newly added entry
+                    };
+                }
             }
             
-            formatPath(pathStr) {
-                return pathStr.replace(/\|/g, ' > ');
+            // --- LOG CONTROLS ---
+            updateLogLimit(val) {
+                let limit = parseInt(val);
+                if (limit < 0) limit = 0;
+                this.state.log_config.limit = limit;
+                
+                // Trim existing logs immediately if new limit is smaller
+                if (this.state._meta_log.length > limit) {
+                    this.state._meta_log = this.state._meta_log.slice(0, limit);
+                }
+                this.save();
+                this.renderLogs(); // Re-render log view
+            }
+
+            toggleLogState() {
+                this.state.log_config.enabled = !this.state.log_config.enabled;
+                this.save();
+                this.updateLogControlUI();
+            }
+
+            clearLogs() {
+                if(confirm("Clear all log history?")) {
+                    this.state._meta_log = [];
+                    this.pendingEdits = {}; // Clear pending state references
+                    this.save();
+                    this.renderLogs();
+                }
+            }
+
+            updateLogControlUI() {
+                const btn = document.getElementById('log-toggle-btn');
+                const input = document.getElementById('log-limit-input');
+                const headerText = document.getElementById('log-header-text');
+                
+                input.value = this.state.log_config.limit;
+                headerText.textContent = `SYSTEM LOGS (${this.state._meta_log.length})`;
+
+                if (this.state.log_config.enabled) {
+                    btn.textContent = "ENABLED";
+                    btn.className = "bg-green-900/30 text-green-400 border border-green-800 px-2 py-0.5 rounded text-[9px] font-bold tracking-wider hover:bg-green-900/50";
+                } else {
+                    btn.textContent = "DISABLED";
+                    btn.className = "bg-red-900/30 text-red-400 border border-red-800 px-2 py-0.5 rounded text-[9px] font-bold tracking-wider hover:bg-red-900/50";
+                }
+            }
+
+            renderLogs() {
+                const vp = document.getElementById('log-viewport');
+                let html = '';
+                if(this.state._meta_log && this.state._meta_log.length > 0) {
+                    this.state._meta_log.forEach(log => {
+                        html += `<div class="log-entry">
+                            <span class="log-ts">${log.t}</span>
+                            <span class="log-act">${log.a}</span>
+                        </div>`;
+                    });
+                } else {
+                    html = '<div class="text-gray-600 italic text-xs mt-4 text-center">NO LOGS RECORDED</div>';
+                }
+                vp.innerHTML = html;
+                this.updateLogControlUI();
             }
 
             toggleLog() {
                 const el = document.getElementById('log-modal');
-                const vp = document.getElementById('log-viewport');
                 if(el.classList.contains('hidden')) {
-                    // Render logs
-                    let html = '';
-                    if(this.state._meta_log && this.state._meta_log.length > 0) {
-                        this.state._meta_log.forEach(log => {
-                            html += `<div class="log-entry">
-                                <span class="log-ts">${log.t}</span>
-                                <span class="log-act">${log.a}</span>
-                            </div>`;
-                        });
-                    } else {
-                        html = '<div class="text-gray-600 italic text-xs mt-4 text-center">NO LOGS RECORDED</div>';
-                    }
-                    vp.innerHTML = html;
+                    this.renderLogs();
                     el.classList.remove('hidden');
                 } else {
                     el.classList.add('hidden');
                 }
+            }
+
+            formatPath(pathStr) {
+                return pathStr.replace(/\|/g, ' > ');
             }
 
             // --- CORE LOGIC ---
@@ -378,7 +498,8 @@
                 parent[key] = val;
                 this.editingPath = null;
                 
-                // LOGGING CHANGE: Using '至' (\u81f3) for display
+                if(this.pendingEdits[pathStr]) delete this.pendingEdits[pathStr];
+                
                 const p = this.formatPath(pathStr);
                 this.addLog(`UPDATE <span class="log-hl">[${p}]</span><br> ${oldValue} \u81f3 <span class="text-white">${val}</span>`);
                 this.save();
@@ -390,13 +511,11 @@
                 if (typeof parent[key] === 'number') {
                     const oldValue = parent[key];
                     parent[key] += amount;
-                    const p = this.formatPath(pathStr);
-                    this.addLog(`MATH <span class="log-hl">[${p}]</span><br> ${oldValue} \u81f3 <span class="text-white">${parent[key]}</span>`);
+                    this.logGranular('MATH', pathStr, oldValue, parent[key]);
                     this.save();
                 }
             }
 
-            // Percentage Stepper
             incrementPercent(pathStr, amount) {
                 const { parent, key } = this.getParent(pathStr);
                 if (!parent) return;
@@ -408,13 +527,11 @@
                     if (val < 0) val = 0;
                     if (val > 100) val = 100;
                     parent[key] = `${val}%`;
-                    const p = this.formatPath(pathStr);
-                    this.addLog(`MATH <span class="log-hl">[${p}]</span><br> ${oldValue} \u81f3 <span class="text-white">${parent[key]}</span>`);
+                    this.logGranular('MATH', pathStr, oldValue, parent[key]);
                     this.save();
                 }
             }
 
-            // BASE-60 TIME STEPPER
             incrementTime(pathStr, amount) {
                 const { parent, key } = this.getParent(pathStr);
                 if (!parent) return;
@@ -428,8 +545,7 @@
                 let newH = Math.floor(totalMin / 60);
                 let newM = totalMin % 60;
                 parent[key] = `${String(newH).padStart(2, '0')}:${String(newM).padStart(2, '0')}`;
-                const p = this.formatPath(pathStr);
-                this.addLog(`TIME <span class="log-hl">[${p}]</span><br> ${oldValue} \u81f3 <span class="text-white">${parent[key]}</span>`);
+                this.logGranular('TIME', pathStr, oldValue, parent[key]);
                 this.save();
             }
 
@@ -451,6 +567,8 @@
                 else delete parent[key];
                 
                 this.editingPath = null;
+                if(this.pendingEdits[pathStr]) delete this.pendingEdits[pathStr];
+
                 const p = this.formatPath(pathStr);
                 this.addLog(`DELETE <span class="log-hl">[${p}]</span><br> VALUE: ${valLog}`);
                 this.save();
@@ -500,7 +618,6 @@
                 return val;
             }
 
-            // Collapse logic
             toggleCollapse(path) {
                 if (this.collapsed.has(path)) this.collapsed.delete(path);
                 else this.collapsed.add(path);
@@ -542,12 +659,13 @@
 
                 Object.keys(data).forEach(key => {
                     if (key === '_meta_log') return; // Hide logs from main view
+                    if (key === 'log_config') return; // Hide log config from main view
+                    
                     const currentPath = path ? `${path}|${key}` : key;
                     const safeP = this.safePath(currentPath);
                     const value = data[key];
                     const isPrimitive = typeof value !== 'object' || value === null;
                     
-                    // --- ROW BACKGROUND LOGIC ---
                     let rowStyle = '';
                     if (typeof value === 'string') {
                         const match = value.match(/^(\d{1,3})%$/);
@@ -593,8 +711,7 @@
                     }
                 });
                 
-                // Check empty excluding _meta_log
-                const visibleKeys = Object.keys(data).filter(k => k !== '_meta_log');
+                const visibleKeys = Object.keys(data).filter(k => k !== '_meta_log' && k !== 'log_config');
                 if (visibleKeys.length === 0) {
                     const safeP = this.safePath(path);
                     html += `<div class="text-[10px] text-gray-700 italic p-2 flex items-center">EMPTY <button onclick="app.addItem('${safeP}', ${isArray})" class="ml-2 text-green-700 hover:text-green-400"><i class="fa-solid fa-plus"></i></button></div>`;
@@ -613,7 +730,6 @@
             buildPrimitiveControls(safeP, isArray, key, arrayLength, val) {
                 if (this.editingPath === safeP) return ''; 
                 
-                // CHECK FOR SWITCHABLE TYPES (v5.40: Added Delete Button Logic)
                 const vUpper = String(val).toUpperCase();
                 const isSwitch = ['PENDING', 'IN PROGRESS', 'COMPLETED', 'ACTIVE', 'INACTIVE', 'TRUE', 'FALSE'].includes(vUpper) || typeof val === 'boolean';
 
@@ -626,7 +742,6 @@
             buildPrimitive(val, path, keyName) {
                 const initialValue = typeof val === 'object' && val !== null ? JSON.stringify(val) : val;
                 
-                // --- Value Editing Mode ---
                 if (this.editingPath === path) {
                     const lineCount = String(initialValue).split('\n').length;
                     const rows = Math.max(3, lineCount + 1); 
@@ -647,7 +762,6 @@
                     `; 
                 }
 
-                // --- Percentage Stepper Logic ---
                 const percentMatch = String(val).match(/^(\d{1,3})%$/);
                 if (percentMatch) {
                     return `
@@ -661,7 +775,6 @@
                     `;
                 }
                 
-                // --- STATUS RADIO SWITCHES ---
                 const vUpper = String(val).toUpperCase();
                 if (['PENDING', 'IN PROGRESS', 'COMPLETED'].includes(vUpper)) {
                     return `
@@ -689,7 +802,6 @@
                     </div>`;
                 }
                 
-                // --- Numeric Stepper Logic ---
                 if (typeof val === 'number') {
                      return `
                         <div class="flex items-center">
@@ -702,7 +814,6 @@
                      `;
                 }
                 
-                // --- Time Stepper Logic (HH:MM) ---
                 const timeMatch = String(val).match(/^\d{1,2}:\d{2}$/);
                 if (timeMatch) {
                     return `
@@ -716,7 +827,6 @@
                     `;
                 }
 
-                // --- Heuristic Priority Tags ---
                 if (vUpper === 'CRITICAL') return `<span class="badge badge-critical cursor-pointer" onclick="app.setEdit('${path}')">CRITICAL</span>`;
                 if (vUpper === 'HIGH') return `<span class="badge badge-high cursor-pointer" onclick="app.setEdit('${path}')">HIGH</span>`;
                 if (vUpper === 'MEDIUM') return `<span class="badge badge-medium cursor-pointer" onclick="app.setEdit('${path}')">MEDIUM</span>`;
@@ -736,7 +846,6 @@
                 const loadBtn = document.getElementById('load-btn');
                 if (modal.classList.contains('hidden')) {
                     if (mode === 'export') { 
-                        // EXPORT ENCODING
                         const exportState = JSON.parse(JSON.stringify(this.state));
                         if (exportState._meta_log) {
                             exportState._meta_log = exportState._meta_log.map(log => {
@@ -771,7 +880,6 @@
                 try { 
                     const ta = document.getElementById('raw-json'); 
                     let newState = JSON.parse(ta.value); 
-                    // IMPORT DECODING
                     if (newState._meta_log) {
                         newState._meta_log = newState._meta_log.map(log => {
                             log.a = log.a
