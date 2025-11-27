@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Z-OS | AGENCY PROTOCOL (v6.01)</title>
+    <title>Z-OS | AGENCY PROTOCOL (v6.02)</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
@@ -60,19 +60,18 @@
             margin: 0; 
         }
 
-        /* Search Input - MATCHING HEIGHT */
+        /* Search Input */
         .search-input {
             background: #111;
             border: 1px solid #333;
             color: var(--accent-color);
             font-family: 'JetBrains Mono', monospace;
             font-size: 10px;
-            /* Matches py-1 (4px) of buttons roughly, tweaked for input box model */
             padding: 3px 8px; 
             border-radius: 4px;
             width: 60px; 
             transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
-            height: 24px; /* Explicit height to match buttons */
+            height: 24px; 
             line-height: 1;
         }
         .search-input:focus { 
@@ -224,7 +223,7 @@
         <div class="flex items-center gap-3">
             <div class="flex items-center gap-2">
                 <i class="fa-solid fa-network-wired text-green-500 text-sm"></i>
-                <span class="text-green-500 font-bold tracking-widest text-sm">Z-OS <span class="text-white text-xs">v6.01</span></span>
+                <span class="text-green-500 font-bold tracking-widest text-sm">Z-OS <span class="text-white text-xs">v6.02</span></span>
             </div>
             <div class="relative mr-2">
                 <input type="text" id="tree-search" class="search-input" placeholder="FILTER" onkeyup="app.updateSearch(this.value)">
@@ -244,7 +243,13 @@
 
 <div id="io-modal" class="fixed inset-0 z-[60] hidden flex flex-col">
         <div class="p-4 border-b border-gray-800 flex justify-between items-center bg-black">
-            <h2 id="modal-header" class="text-green-500 font-bold text-xs tracking-[0.2em]">DATA SYNCHRONIZATION</h2>
+            <div class="flex items-center gap-4">
+                <h2 id="modal-header" class="text-green-500 font-bold text-xs tracking-[0.2em]">DATA SYNCHRONIZATION</h2>
+                <label id="export-option-container" class="hidden flex items-center gap-2 cursor-pointer group">
+                    <input type="checkbox" id="export-visible-check" onchange="app.updateExportPreview()" class="accent-green-500 cursor-pointer w-3 h-3">
+                    <span class="text-[10px] text-gray-500 font-bold tracking-wider group-hover:text-green-400">VISIBLE ONLY</span>
+                </label>
+            </div>
             <button onclick="app.toggleIO()" class="text-gray-500 hover:text-white"><i class="fa-solid fa-xmark fa-lg"></i></button>
         </div>
         <textarea id="raw-json" class="flex-grow bg-black text-green-400 p-4 text-xs mono resize-none focus:outline-none" spellcheck="false" placeholder="// PASTE WORLD MODEL HERE //"></textarea>
@@ -285,8 +290,8 @@
             "_meta_log": []
         };
 
-        const STORAGE_KEY = 'zos_v6_00';
-        const LEGACY_KEY = 'zos_v5_40';
+        const STORAGE_KEY = 'zos_v6_02';
+        const LEGACY_KEY = 'zos_v6_00';
 
         class ZyqralOS {
             constructor() {
@@ -664,6 +669,72 @@
                 this.render();
             }
 
+            // --- FILTER LOGIC (NEW) ---
+            filterVisible(data, path = '') {
+                if (data === null || typeof data !== 'object') return data;
+
+                // Prepare result container based on type
+                const isArray = Array.isArray(data);
+                const result = isArray ? [] : {};
+
+                Object.keys(data).forEach(key => {
+                    // Always skip hidden system fields in "Visible Only" mode
+                    if (key === '_meta_log' || key === 'log_config') return;
+
+                    const value = data[key];
+                    
+                    const currentPath = path ? `${path}|${key}` : key;
+                    const isCollapsed = this.collapsed.has(currentPath);
+                    const isSearchActive = this.searchTerm.length > 0;
+                    
+                    if (isCollapsed && !isSearchActive) {
+                        // Node is minimized. Return a placeholder.
+                        if (Array.isArray(value)) {
+                            result[key] = `[ARRAY(${value.length}) - MINIMIZED]`;
+                        } else if (typeof value === 'object' && value !== null) {
+                            result[key] = '{OBJECT - MINIMIZED}';
+                        } else {
+                            result[key] = value;
+                        }
+                    } else {
+                        // Node is expanded or search is active. Recurse.
+                        result[key] = this.filterVisible(value, currentPath);
+                    }
+                });
+
+                return result;
+            }
+
+            updateExportPreview() {
+                const ta = document.getElementById('raw-json');
+                const checkbox = document.getElementById('export-visible-check');
+                
+                let dataToExport;
+
+                if (checkbox.checked) {
+                    // Filter based on collapsed state
+                    dataToExport = this.filterVisible(this.state);
+                } else {
+                    // Full Export
+                    dataToExport = JSON.parse(JSON.stringify(this.state));
+                }
+
+                // Handle Log Formatting for Export
+                if (dataToExport._meta_log) {
+                    dataToExport._meta_log = dataToExport._meta_log.map(log => {
+                        log.a = log.a
+                            .replace(/<span class="log-hl">/g, '『ハイライト』')
+                            .replace(/<span class="text-white">/g, '『ホワイト』')
+                            .replace(/<\/span>/g, '『エンド』')
+                            .replace(/<br>/g, '『改行』')
+                            .replace(/\u81f3/g, '『トゥ』'); 
+                        return log;
+                    });
+                }
+
+                ta.value = JSON.stringify(dataToExport, null, 2);
+            }
+
             // --- RENDERING ---
             render() {
                 const root = document.getElementById('viewport');
@@ -909,21 +980,16 @@
                 const header = document.getElementById('modal-header');
                 const copyBtn = document.getElementById('copy-btn');
                 const loadBtn = document.getElementById('load-btn');
+                const exportOption = document.getElementById('export-option-container');
+                const exportCheck = document.getElementById('export-visible-check');
+
                 if (modal.classList.contains('hidden')) {
                     if (mode === 'export') { 
-                        const exportState = JSON.parse(JSON.stringify(this.state));
-                        if (exportState._meta_log) {
-                            exportState._meta_log = exportState._meta_log.map(log => {
-                                log.a = log.a
-                                    .replace(/<span class="log-hl">/g, '『ハイライト』')
-                                    .replace(/<span class="text-white">/g, '『ホワイト』')
-                                    .replace(/<\/span>/g, '『エンド』')
-                                    .replace(/<br>/g, '『改行』')
-                                    .replace(/\u81f3/g, '『トゥ』'); 
-                                return log;
-                            });
-                        }
-                        ta.value = JSON.stringify(exportState, null, 2); 
+                        exportOption.classList.remove('hidden'); 
+                        exportCheck.checked = false; 
+                        
+                        this.updateExportPreview(); 
+                        
                         ta.readOnly = true; 
                         header.textContent = 'DATA EXTRACTION'; 
                         ta.placeholder = '// COPY DATA STREAM BELOW //'; 
@@ -931,6 +997,8 @@
                         loadBtn.classList.add('hidden'); 
                     }
                     else if (mode === 'import') { 
+                        exportOption.classList.add('hidden'); 
+                        
                         ta.value = ''; 
                         ta.readOnly = false; 
                         header.textContent = 'DATA INJECTION'; 
@@ -939,7 +1007,11 @@
                         loadBtn.classList.remove('hidden'); 
                     }
                     modal.classList.remove('hidden');
-                } else { modal.classList.add('hidden'); ta.readOnly = false; }
+                } else { 
+                    modal.classList.add('hidden'); 
+                    ta.readOnly = false; 
+                    exportOption.classList.add('hidden');
+                }
             }
             saveRaw() { 
                 try { 
