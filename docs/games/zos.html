@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Z-OS | AGENCY PROTOCOL (v6.02)</title>
+    <title>Z-OS | AGENCY PROTOCOL (v6.03)</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
@@ -223,7 +223,7 @@
         <div class="flex items-center gap-3">
             <div class="flex items-center gap-2">
                 <i class="fa-solid fa-network-wired text-green-500 text-sm"></i>
-                <span class="text-green-500 font-bold tracking-widest text-sm">Z-OS <span class="text-white text-xs">v6.02</span></span>
+                <span class="text-green-500 font-bold tracking-widest text-sm">Z-OS <span class="text-white text-xs">v6.03</span></span>
             </div>
             <div class="relative mr-2">
                 <input type="text" id="tree-search" class="search-input" placeholder="FILTER" onkeyup="app.updateSearch(this.value)">
@@ -297,8 +297,8 @@
             constructor() {
                 this.searchTerm = '';
                 this.state = this.load();
+                this.collapsed = this.loadUI(); // Load collapsed state from storage
                 this.editingPath = null;
-                this.collapsed = new Set(); 
                 this.pendingEdits = {}; 
                 
                 if(!this.state.log_config) this.state.log_config = { "limit": 10, "enabled": true };
@@ -323,15 +323,32 @@
                 return sJSON || JSON.parse(JSON.stringify(NULL_STATE));
             }
 
+            // New: Load UI state (collapsed nodes)
+            loadUI() {
+                const stored = localStorage.getItem(STORAGE_KEY + '_ui');
+                if (stored) {
+                    try {
+                        return new Set(JSON.parse(stored));
+                    } catch (e) { return new Set(); }
+                }
+                return new Set();
+            }
+
             save() {
                 localStorage.setItem(STORAGE_KEY, JSON.stringify(this.state));
                 this.render();
+            }
+
+            // New: Save UI state
+            saveUI() {
+                localStorage.setItem(STORAGE_KEY + '_ui', JSON.stringify(Array.from(this.collapsed)));
             }
 
             reset() {
                 if(confirm('FACTORY RESET: Purge all local data?')) {
                     this.state = JSON.parse(JSON.stringify(NULL_STATE));
                     this.collapsed.clear();
+                    this.saveUI(); // Clear UI pref
                     this.pendingEdits = {};
                     this.searchTerm = '';
                     document.getElementById('tree-search').value = '';
@@ -395,32 +412,6 @@
                 }
             }
             
-            updateLogLimit(val) {
-                let limit = parseInt(val);
-                if (limit < 0) limit = 0;
-                this.state.log_config.limit = limit;
-                if (this.state._meta_log.length > limit) {
-                    this.state._meta_log = this.state._meta_log.slice(0, limit);
-                }
-                this.save();
-                this.renderLogs(); 
-            }
-
-            toggleLogState() {
-                this.state.log_config.enabled = !this.state.log_config.enabled;
-                this.save();
-                this.updateLogControlUI();
-            }
-
-            clearLogs() {
-                if(confirm("Clear all log history?")) {
-                    this.state._meta_log = [];
-                    this.pendingEdits = {}; 
-                    this.save();
-                    this.renderLogs();
-                }
-            }
-
             updateLogControlUI() {
                 const btn = document.getElementById('log-toggle-btn');
                 const input = document.getElementById('log-limit-input');
@@ -666,6 +657,7 @@
             toggleCollapse(path) {
                 if (this.collapsed.has(path)) this.collapsed.delete(path);
                 else this.collapsed.add(path);
+                this.saveUI(); // SAVE UI STATE ON TOGGLE
                 this.render();
             }
 
