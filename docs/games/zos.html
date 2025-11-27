@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Z-OS | AGENCY PROTOCOL (v6.03)</title>
+    <title>Z-OS | AGENCY PROTOCOL (v6.04)</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
@@ -223,7 +223,7 @@
         <div class="flex items-center gap-3">
             <div class="flex items-center gap-2">
                 <i class="fa-solid fa-network-wired text-green-500 text-sm"></i>
-                <span class="text-green-500 font-bold tracking-widest text-sm">Z-OS <span class="text-white text-xs">v6.03</span></span>
+                <span class="text-green-500 font-bold tracking-widest text-sm">Z-OS <span class="text-white text-xs">v6.04</span></span>
             </div>
             <div class="relative mr-2">
                 <input type="text" id="tree-search" class="search-input" placeholder="FILTER" onkeyup="app.updateSearch(this.value)">
@@ -290,19 +290,20 @@
             "_meta_log": []
         };
 
-        const STORAGE_KEY = 'zos_v6_02';
-        const LEGACY_KEY = 'zos_v6_00';
+        const STORAGE_KEY = 'zos_v6_04';
+        const LEGACY_KEY = 'zos_v6_02';
 
         class ZyqralOS {
             constructor() {
                 this.searchTerm = '';
                 this.state = this.load();
-                this.collapsed = this.loadUI(); // Load collapsed state from storage
-                this.editingPath = null;
-                this.pendingEdits = {}; 
-                
+                // Ensure config exists regardless of load source
                 if(!this.state.log_config) this.state.log_config = { "limit": 10, "enabled": true };
                 if(!this.state._meta_log) this.state._meta_log = [];
+
+                this.collapsed = this.loadUI(); 
+                this.editingPath = null;
+                this.pendingEdits = {}; 
                 
                 this.render();
             }
@@ -323,7 +324,6 @@
                 return sJSON || JSON.parse(JSON.stringify(NULL_STATE));
             }
 
-            // New: Load UI state (collapsed nodes)
             loadUI() {
                 const stored = localStorage.getItem(STORAGE_KEY + '_ui');
                 if (stored) {
@@ -339,7 +339,6 @@
                 this.render();
             }
 
-            // New: Save UI state
             saveUI() {
                 localStorage.setItem(STORAGE_KEY + '_ui', JSON.stringify(Array.from(this.collapsed)));
             }
@@ -348,7 +347,7 @@
                 if(confirm('FACTORY RESET: Purge all local data?')) {
                     this.state = JSON.parse(JSON.stringify(NULL_STATE));
                     this.collapsed.clear();
-                    this.saveUI(); // Clear UI pref
+                    this.saveUI(); 
                     this.pendingEdits = {};
                     this.searchTerm = '';
                     document.getElementById('tree-search').value = '';
@@ -416,8 +415,14 @@
                 const btn = document.getElementById('log-toggle-btn');
                 const input = document.getElementById('log-limit-input');
                 const headerText = document.getElementById('log-header-text');
+                
+                // Safety check if elements exist
+                if (!btn || !input || !headerText) return;
+
                 input.value = this.state.log_config.limit;
-                headerText.textContent = `SYSTEM LOGS (${this.state._meta_log.length})`;
+                const count = this.state._meta_log ? this.state._meta_log.length : 0;
+                headerText.textContent = `SYSTEM LOGS (${count})`;
+                
                 if (this.state.log_config.enabled) {
                     btn.textContent = "ENABLED";
                     btn.className = "bg-green-900/30 text-green-400 border border-green-800 px-2 py-0.5 rounded text-[9px] font-bold tracking-wider hover:bg-green-900/50";
@@ -427,8 +432,36 @@
                 }
             }
 
+            updateLogLimit(val) {
+                let limit = parseInt(val);
+                if (limit < 0) limit = 0;
+                this.state.log_config.limit = limit;
+                if (this.state._meta_log.length > limit) {
+                    this.state._meta_log = this.state._meta_log.slice(0, limit);
+                }
+                this.save();
+                this.renderLogs(); 
+            }
+
+            toggleLogState() {
+                this.state.log_config.enabled = !this.state.log_config.enabled;
+                this.save();
+                this.renderLogs(); // Trigger redraw to update button
+            }
+
+            clearLogs() {
+                if(confirm("Clear all log history?")) {
+                    this.state._meta_log = [];
+                    this.pendingEdits = {}; 
+                    this.save();
+                    this.renderLogs();
+                }
+            }
+
             renderLogs() {
                 const vp = document.getElementById('log-viewport');
+                if (!vp) return;
+                
                 let html = '';
                 if(this.state._meta_log && this.state._meta_log.length > 0) {
                     this.state._meta_log.forEach(log => {
@@ -657,30 +690,23 @@
             toggleCollapse(path) {
                 if (this.collapsed.has(path)) this.collapsed.delete(path);
                 else this.collapsed.add(path);
-                this.saveUI(); // SAVE UI STATE ON TOGGLE
+                this.saveUI(); 
                 this.render();
             }
 
-            // --- FILTER LOGIC (NEW) ---
             filterVisible(data, path = '') {
                 if (data === null || typeof data !== 'object') return data;
-
-                // Prepare result container based on type
                 const isArray = Array.isArray(data);
                 const result = isArray ? [] : {};
 
                 Object.keys(data).forEach(key => {
-                    // Always skip hidden system fields in "Visible Only" mode
                     if (key === '_meta_log' || key === 'log_config') return;
-
                     const value = data[key];
-                    
                     const currentPath = path ? `${path}|${key}` : key;
                     const isCollapsed = this.collapsed.has(currentPath);
                     const isSearchActive = this.searchTerm.length > 0;
                     
                     if (isCollapsed && !isSearchActive) {
-                        // Node is minimized. Return a placeholder.
                         if (Array.isArray(value)) {
                             result[key] = `[ARRAY(${value.length}) - MINIMIZED]`;
                         } else if (typeof value === 'object' && value !== null) {
@@ -689,11 +715,9 @@
                             result[key] = value;
                         }
                     } else {
-                        // Node is expanded or search is active. Recurse.
                         result[key] = this.filterVisible(value, currentPath);
                     }
                 });
-
                 return result;
             }
 
@@ -704,22 +728,20 @@
                 let dataToExport;
 
                 if (checkbox.checked) {
-                    // Filter based on collapsed state
                     dataToExport = this.filterVisible(this.state);
                 } else {
-                    // Full Export
                     dataToExport = JSON.parse(JSON.stringify(this.state));
                 }
 
-                // Handle Log Formatting for Export
                 if (dataToExport._meta_log) {
                     dataToExport._meta_log = dataToExport._meta_log.map(log => {
-                        log.a = log.a
-                            .replace(/<span class="log-hl">/g, '『ハイライト』')
-                            .replace(/<span class="text-white">/g, '『ホワイト』')
-                            .replace(/<\/span>/g, '『エンド』')
-                            .replace(/<br>/g, '『改行』')
-                            .replace(/\u81f3/g, '『トゥ』'); 
+                        // SANITIZE EXPORT: Remove HTML, Convert Arrow
+                        let cleanText = log.a
+                            .replace(/<br\s*\/?>/gi, '\n') // Convert breaks to newlines
+                            .replace(/<[^>]+>/g, '') // Strip all other HTML tags
+                            .replace(/\u81f3/g, '至'); // Convert arrow symbol
+                        
+                        log.a = cleanText;
                         return log;
                     });
                 }
@@ -727,7 +749,6 @@
                 ta.value = JSON.stringify(dataToExport, null, 2);
             }
 
-            // --- RENDERING ---
             render() {
                 const root = document.getElementById('viewport');
                 root.innerHTML = this.buildTree(this.state, '');
@@ -765,23 +786,11 @@
                     if (key === 'log_config') return; 
                     
                     const value = data[key];
-                    
-                    // SEARCH LOGIC:
                     const keyMatches = this.searchTerm && key.toLowerCase().includes(this.searchTerm);
                     const childMatches = this.searchTerm && this.hasMatch(value, this.searchTerm);
-                    
-                    // SHOW IF: 
-                    // 1. No search active
-                    // 2. Parent matched (forceShow)
-                    // 3. Key matches directly
-                    // 4. Children contain match
                     const isVisible = !this.searchTerm || forceShow || keyMatches || childMatches;
                     
                     if (!isVisible) return;
-
-                    // FORCE EXPANSION IF:
-                    // 1. Parent was forced (inherit)
-                    // 2. This key matches directly (User typed "INVENTORY" -> Show all inventory)
                     const nextForceShow = forceShow || keyMatches;
 
                     const currentPath = path ? `${path}|${key}` : key;
@@ -808,9 +817,7 @@
                                 ${this.buildPrimitiveControls(safeP, isArray, key, data.length, value)}
                             </div>`;
                     } else {
-                        // AUTO-EXPAND if searching OR forced
                         const isCollapsed = this.searchTerm ? false : this.collapsed.has(currentPath);
-                        
                         html += `
                             <div class="mt-2 mb-1">
                                 <div class="flex justify-between items-center bg-[#0a0a0a] px-2 py-1 border-b border-[#222] rounded-t">
@@ -848,7 +855,6 @@
             buildKeyDisplay(key, path, isArray, isHeader = false) {
                 if (isArray) return `<span class="text-green-800 font-bold mr-2 text-[10px]">[${key}]</span>`;
                 const displayClass = isHeader ? 'text-gray-400 uppercase tracking-widest' : 'key-display uppercase';
-                // HIGHLIGHT MATCH IN KEY
                 if (this.searchTerm && key.toLowerCase().includes(this.searchTerm)) {
                     return `<span class="${displayClass} text-green-400 border-b border-green-500">${key}</span>`;
                 }
@@ -1009,17 +1015,11 @@
                 try { 
                     const ta = document.getElementById('raw-json'); 
                     let newState = JSON.parse(ta.value); 
-                    if (newState._meta_log) {
-                        newState._meta_log = newState._meta_log.map(log => {
-                            log.a = log.a
-                                .replace(/『ハイライト』/g, '<span class="log-hl">')
-                                .replace(/『ホワイト』/g, '<span class="text-white">')
-                                .replace(/『エンド』/g, '</span>')
-                                .replace(/『改行』/g, '<br>')
-                                .replace(/『トゥ』/g, '\u81f3'); 
-                            return log;
-                        });
-                    }
+                    
+                    // IMPORT STRIP LOGIC: Remove all imported logs
+                    newState._meta_log = []; 
+                    if (!newState.log_config) newState.log_config = { "limit": 10, "enabled": true };
+
                     this.state = newState; 
                     this.save(); 
                     this.toggleIO(); 
