@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Z-OS | AGENCY PROTOCOL (v6.04)</title>
+    <title>Z-OS | AGENCY PROTOCOL (v6.05)</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
@@ -24,7 +24,7 @@
             font-family: 'Rajdhani', sans-serif;
             background-color: var(--bg-color);
             color: var(--text-color);
-            overflow-x: hidden;
+            overflow: hidden; /* Changed to hidden to manage scroll in main */
             -webkit-tap-highlight-color: transparent;
         }
 
@@ -179,7 +179,7 @@
         .state-btn-active-on { background: rgba(0, 255, 157, 0.15); color: #00ff9d; font-weight: bold; }
         .state-btn-active-off { background: rgba(80, 80, 80, 0.3); color: #888; font-weight: bold; }
 
-        #io-modal, #log-modal { background: rgba(0,0,0,0.95); backdrop-filter: blur(5px); }
+        #io-modal, #log-modal, #chart-modal { background: rgba(0,0,0,0.95); backdrop-filter: blur(5px); }
         #viewport { overflow-x: hidden; }
         
         /* Stepper Button Style */
@@ -215,48 +215,104 @@
         .log-ts { color: #444; font-size: 9px; margin-bottom: 2px; }
         .log-act { color: #aaa; word-break: break-all; }
         .log-hl { color: var(--accent-color); }
+
+        /* Footer */
+        footer {
+            background: #050505;
+            border-top: 1px solid #222;
+            padding: 8px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            position: sticky;
+            bottom: 0;
+            z-index: 50;
+            box-shadow: 0 -4px 10px rgba(0,0,0,0.5);
+        }
+
+        .footer-btn {
+            background: #111;
+            border: 1px solid #333;
+            color: #888;
+            padding: 4px 12px;
+            font-size: 10px;
+            font-weight: bold;
+            border-radius: 3px;
+            cursor: pointer;
+            transition: all 0.2s;
+            letter-spacing: 0.5px;
+        }
+        .footer-btn:hover { color: var(--accent-color); border-color: var(--accent-color); background: rgba(0, 255, 157, 0.05); }
+        .footer-btn.active { color: #000; background: var(--accent-color); border-color: var(--accent-color); }
+
+        /* SVG Chart Styles */
+        .chart-container {
+            width: 100%;
+            height: 300px;
+            position: relative;
+            font-family: 'JetBrains Mono', monospace;
+        }
+        .chart-line { fill: none; stroke-width: 2; }
+        .chart-grid { stroke: #222; stroke-width: 1; stroke-dasharray: 4; }
+        .chart-axis { stroke: #444; stroke-width: 1; }
+        .chart-label { fill: #666; font-size: 9px; }
+        .chart-dot { r: 3; stroke-width: 1; stroke: #000; cursor: pointer; }
+        .chart-dot:hover { r: 5; }
+        
+        .legend-item { display: flex; items-center; font-size: 10px; margin-right: 12px; color: #888; }
+        .legend-color { width: 8px; height: 8px; border-radius: 50%; margin-right: 4px; }
     </style>
 </head>
 <body class="flex flex-col h-screen">
 
-<header class="bg-black border-b border-green-900/30 p-3 flex justify-between items-center sticky top-0 z-50 shadow-lg shadow-green-900/10">
-        <div class="flex items-center gap-3">
-            <div class="flex items-center gap-2">
-                <i class="fa-solid fa-network-wired text-green-500 text-sm"></i>
-                <span class="text-green-500 font-bold tracking-widest text-sm">Z-OS <span class="text-white text-xs">v6.04</span></span>
-            </div>
-            <div class="relative mr-2">
-                <input type="text" id="tree-search" class="search-input" placeholder="FILTER" onkeyup="app.updateSearch(this.value)">
-                <i class="fa-solid fa-filter text-gray-700 text-[9px] absolute right-2 top-1.5 pointer-events-none"></i>
-            </div>
+<header class="bg-black border-b border-green-900/30 p-3 flex justify-between items-center sticky top-0 z-50 shadow-lg shadow-green-900/10 shrink-0">
+    <div class="flex items-center gap-3">
+        <div class="flex items-center gap-2">
+            <i class="fa-solid fa-network-wired text-green-500 text-sm"></i>
+            <span class="text-green-500 font-bold tracking-widest text-sm">Z-OS <span class="text-white text-xs">v6.05</span></span>
         </div>
-        <div class="flex gap-2">
-            <button onclick="app.reset()" class="text-red-800 hover:text-red-500 text-[10px] border border-red-900/30 px-2 py-1 rounded font-bold tracking-wider">RESET</button>
-            <button onclick="app.toggleLog()" class="bg-gray-900/50 text-gray-300 border border-gray-700 px-3 py-1 text-[10px] font-bold rounded hover:bg-gray-800 tracking-wider">LOG</button>
-            <button onclick="app.toggleIO('import')" class="bg-blue-900/20 text-blue-400 border border-blue-800 px-3 py-1 text-[10px] font-bold rounded hover:bg-blue-900/40 tracking-wider">IMPORT</button>
-            <button onclick="app.toggleIO('export')" class="bg-green-900/20 text-green-400 border border-green-800 px-3 py-1 text-[10px] font-bold rounded hover:bg-green-900/40 tracking-wider">EXPORT</button>
+        <div class="relative mr-2">
+            <input type="text" id="tree-search" class="search-input" placeholder="FILTER" onkeyup="app.updateSearch(this.value)">
+            <i class="fa-solid fa-filter text-gray-700 text-[9px] absolute right-2 top-1.5 pointer-events-none"></i>
         </div>
-    </header>
+    </div>
+    <div id="mood-indicator" class="hidden md:flex items-center gap-2 text-[10px] font-mono text-gray-500">
+        <span class="w-2 h-2 rounded-full bg-gray-800" id="mood-pulse"></span>
+        <span id="mood-status">NO TRACKING</span>
+    </div>
+</header>
 
-<main id="viewport" class="flex-grow overflow-y-auto p-2 pb-20">
+<main id="viewport" class="flex-grow overflow-y-auto p-2">
 </main>
 
+<footer>
+    <div class="flex gap-2">
+        <button onclick="app.toggleLog()" class="footer-btn">LOGS</button>
+        <button onclick="app.toggleChart()" class="footer-btn text-blue-400 border-blue-900/50 hover:border-blue-500 hover:text-blue-300">MOOD DELTAS</button>
+    </div>
+    <div class="flex gap-2">
+        <button onclick="app.toggleIO('import')" class="footer-btn">IMPORT</button>
+        <button onclick="app.toggleIO('export')" class="footer-btn">EXPORT</button>
+        <button onclick="app.reset()" class="footer-btn text-red-800 border-red-900/30 hover:border-red-500 hover:text-red-500">RESET</button>
+    </div>
+</footer>
+
 <div id="io-modal" class="fixed inset-0 z-[60] hidden flex flex-col">
-        <div class="p-4 border-b border-gray-800 flex justify-between items-center bg-black">
-            <div class="flex items-center gap-4">
-                <h2 id="modal-header" class="text-green-500 font-bold text-xs tracking-[0.2em]">DATA SYNCHRONIZATION</h2>
-                <label id="export-option-container" class="hidden flex items-center gap-2 cursor-pointer group">
-                    <input type="checkbox" id="export-visible-check" onchange="app.updateExportPreview()" class="accent-green-500 cursor-pointer w-3 h-3">
-                    <span class="text-[10px] text-gray-500 font-bold tracking-wider group-hover:text-green-400">VISIBLE ONLY</span>
-                </label>
-            </div>
-            <button onclick="app.toggleIO()" class="text-gray-500 hover:text-white"><i class="fa-solid fa-xmark fa-lg"></i></button>
+    <div class="p-4 border-b border-gray-800 flex justify-between items-center bg-black">
+        <div class="flex items-center gap-4">
+            <h2 id="modal-header" class="text-green-500 font-bold text-xs tracking-[0.2em]">DATA SYNCHRONIZATION</h2>
+            <label id="export-option-container" class="hidden flex items-center gap-2 cursor-pointer group">
+                <input type="checkbox" id="export-visible-check" onchange="app.updateExportPreview()" class="accent-green-500 cursor-pointer w-3 h-3">
+                <span class="text-[10px] text-gray-500 font-bold tracking-wider group-hover:text-green-400">VISIBLE ONLY</span>
+            </label>
         </div>
-        <textarea id="raw-json" class="flex-grow bg-black text-green-400 p-4 text-xs mono resize-none focus:outline-none" spellcheck="false" placeholder="// PASTE WORLD MODEL HERE //"></textarea>
-        <div class="flex border-t border-gray-800">
-            <button id="copy-btn" onclick="app.copyRaw()" class="flex-1 bg-[#050505] text-white py-4 text-xs font-bold border-r border-gray-800 hover:bg-[#111] tracking-wider">COPY TO CLIPBOARD</button>
-            <button id="load-btn" onclick="app.saveRaw()" class="flex-1 bg-[#0a1a0a] text-green-400 py-4 text-xs font-bold hover:bg-[#0f2f0f] tracking-wider">LOAD DATA</button>
-        </div>
+        <button onclick="app.toggleIO()" class="text-gray-500 hover:text-white"><i class="fa-solid fa-xmark fa-lg"></i></button>
+    </div>
+    <textarea id="raw-json" class="flex-grow bg-black text-green-400 p-4 text-xs mono resize-none focus:outline-none" spellcheck="false" placeholder="// PASTE WORLD MODEL HERE //"></textarea>
+    <div class="flex border-t border-gray-800">
+        <button id="copy-btn" onclick="app.copyRaw()" class="flex-1 bg-[#050505] text-white py-4 text-xs font-bold border-r border-gray-800 hover:bg-[#111] tracking-wider">COPY TO CLIPBOARD</button>
+        <button id="load-btn" onclick="app.saveRaw()" class="flex-1 bg-[#0a1a0a] text-green-400 py-4 text-xs font-bold hover:bg-[#0f2f0f] tracking-wider">LOAD DATA</button>
+    </div>
 </div>
 
 <div id="log-modal" class="fixed inset-0 z-[60] hidden flex flex-col">
@@ -279,755 +335,810 @@
     <div id="log-viewport" class="flex-grow overflow-y-auto p-4 bg-black"></div>
 </div>
 
+<div id="chart-modal" class="fixed inset-0 z-[60] hidden flex flex-col">
+    <div class="p-4 border-b border-gray-800 flex justify-between items-center bg-black">
+        <h2 class="text-blue-400 font-bold text-xs tracking-[0.2em]">MOOD DELTA VISUALIZATION</h2>
+        <button onclick="app.toggleChart()" class="text-gray-500 hover:text-white"><i class="fa-solid fa-xmark fa-lg"></i></button>
+    </div>
+    <div class="bg-black p-4 flex-grow flex flex-col items-center justify-center">
+        <div class="flex gap-4 mb-4 w-full justify-center">
+            <div class="legend-item"><span class="legend-color bg-yellow-500"></span>MOTIVATION</div>
+            <div class="legend-item"><span class="legend-color bg-blue-500"></span>FOCUS</div>
+            <div class="legend-item"><span class="legend-color bg-green-500"></span>WAKEFULNESS</div>
+            <div class="legend-item"><span class="legend-color bg-red-500"></span>EXHAUSTION</div>
+        </div>
+        <div id="chart-svg-container" class="chart-container border border-gray-800 rounded bg-[#050505]"></div>
+        <div class="text-[10px] text-gray-500 mt-4 mono text-center w-full">
+            DISPLAYING LAST <span id="chart-cycle-count" class="text-white">10</span> ADJUSTMENT CYCLES<br>
+            <span class="text-[9px] opacity-60">Cycle triggers on MOOD variable update (30s Grace Period)</span>
+        </div>
+    </div>
+</div>
+
 <script>
-        const NULL_STATE = { 
-            "system_status": "BOOT_REQUIRED",
-            "timestamp": "2025-11-25 @ 14:30",
-            "battery_level": "75%",
-            "elapsed_time": "00:45",
-            "current_priority": "HIGH",
-            "log_config": { "limit": 10, "enabled": true },
-            "_meta_log": []
-        };
-
-        const STORAGE_KEY = 'zos_v6_04';
-        const LEGACY_KEY = 'zos_v6_02';
-
-        class ZyqralOS {
-            constructor() {
-                this.searchTerm = '';
-                this.state = this.load();
-                // Ensure config exists regardless of load source
-                if(!this.state.log_config) this.state.log_config = { "limit": 10, "enabled": true };
-                if(!this.state._meta_log) this.state._meta_log = [];
-
-                this.collapsed = this.loadUI(); 
-                this.editingPath = null;
-                this.pendingEdits = {}; 
-                
-                this.render();
+    const NULL_STATE = { 
+        "system_status": "BOOT_REQUIRED",
+        "timestamp": "2025-11-25 @ 14:30",
+        "battery_level": "75%",
+        "elapsed_time": "00:45",
+        "active_variables": {
+            "MOOD": {
+                "MOTIVATION": "50%",
+                "FOCUS": "50%",
+                "WAKEFULNESS": "50%",
+                "EXHAUSTION": "50%"
             }
+        },
+        "log_config": { "limit": 10, "enabled": true },
+        "_meta_log": [],
+        "_mood_history": []
+    };
 
-            load() {
-                let s = localStorage.getItem(STORAGE_KEY);
-                if (!s) {
-                    const legacy = localStorage.getItem(LEGACY_KEY);
-                    if (legacy) {
-                        s = legacy;
-                        localStorage.setItem(STORAGE_KEY, s);
-                    }
-                }
-                let sJSON = s ? JSON.parse(s) : null;
-                if (sJSON && sJSON.system_status === "BOOT_REQUIRED" && sJSON.battery_level === "75%" && !sJSON.elapsed_time) {
-                    sJSON = null; 
-                }
-                return sJSON || JSON.parse(JSON.stringify(NULL_STATE));
-            }
+    const STORAGE_KEY = 'zos_v6_05';
+    const LEGACY_KEY = 'zos_v6_04';
 
-            loadUI() {
-                const stored = localStorage.getItem(STORAGE_KEY + '_ui');
-                if (stored) {
-                    try {
-                        return new Set(JSON.parse(stored));
-                    } catch (e) { return new Set(); }
-                }
-                return new Set();
-            }
-
-            save() {
-                localStorage.setItem(STORAGE_KEY, JSON.stringify(this.state));
-                this.render();
-            }
-
-            saveUI() {
-                localStorage.setItem(STORAGE_KEY + '_ui', JSON.stringify(Array.from(this.collapsed)));
-            }
-
-            reset() {
-                if(confirm('FACTORY RESET: Purge all local data?')) {
-                    this.state = JSON.parse(JSON.stringify(NULL_STATE));
-                    this.collapsed.clear();
-                    this.saveUI(); 
-                    this.pendingEdits = {};
-                    this.searchTerm = '';
-                    document.getElementById('tree-search').value = '';
-                    this.save();
-                }
-            }
+    class ZyqralOS {
+        constructor() {
+            this.searchTerm = '';
+            this.state = this.load();
             
-            updateSearch(val) {
-                this.searchTerm = val.toLowerCase();
-                this.render();
-            }
+            // Initialization checks
+            if(!this.state.log_config) this.state.log_config = { "limit": 10, "enabled": true };
+            if(!this.state._meta_log) this.state._meta_log = [];
+            if(!this.state._mood_history) this.state._mood_history = [];
 
-            hasMatch(data, term) {
-                if (typeof data !== 'object' || data === null) {
-                    return String(data).toLowerCase().includes(term);
-                }
-                return Object.keys(data).some(key => {
-                    if (key.toLowerCase().includes(term)) return true;
-                    return this.hasMatch(data[key], term);
-                });
-            }
-
-            addLog(action) {
-                if (!this.state.log_config.enabled) return;
-                const now = new Date();
-                const ts = now.toTimeString().split(' ')[0];
-                const entry = { t: ts, a: action };
-                if(!this.state._meta_log) this.state._meta_log = [];
-                this.state._meta_log.unshift(entry);
-                const limit = parseInt(this.state.log_config.limit) || 10;
-                if(this.state._meta_log.length > limit) {
-                    this.state._meta_log = this.state._meta_log.slice(0, limit);
-                }
-            }
-
-            logGranular(type, pathStr, displayOld, displayNew) {
-                if (!this.state.log_config.enabled) return;
-                const now = new Date();
-                const ts = now.toTimeString().split(' ')[0];
-                const p = this.formatPath(pathStr);
-                const logContent = `${type} <span class="log-hl">[${p}]</span><br> ${displayOld} \u81f3 <span class="text-white">${displayNew}</span>`;
-                const pending = this.pendingEdits[pathStr];
-                const nowTime = Date.now();
-                if (pending && (nowTime - pending.startTime < 30000)) {
-                    const combinedContent = `${type} <span class="log-hl">[${p}]</span><br> ${pending.initialVal} \u81f3 <span class="text-white">${displayNew}</span>`;
-                    pending.entry.t = ts; 
-                    pending.entry.a = combinedContent;
-                } else {
-                    const limit = parseInt(this.state.log_config.limit) || 10;
-                    if(!this.state._meta_log) this.state._meta_log = [];
-                    const entry = { t: ts, a: logContent };
-                    this.state._meta_log.unshift(entry);
-                    if (this.state._meta_log.length > limit) {
-                         this.state._meta_log = this.state._meta_log.slice(0, limit);
-                    }
-                    this.pendingEdits[pathStr] = {
-                        startTime: nowTime,
-                        initialVal: displayOld,
-                        entry: this.state._meta_log[0]
-                    };
-                }
-            }
+            this.collapsed = this.loadUI(); 
+            this.editingPath = null;
+            this.pendingEdits = {}; 
             
-            updateLogControlUI() {
-                const btn = document.getElementById('log-toggle-btn');
-                const input = document.getElementById('log-limit-input');
-                const headerText = document.getElementById('log-header-text');
-                
-                // Safety check if elements exist
-                if (!btn || !input || !headerText) return;
+            // Mood Tracking Variables
+            this.moodCycleTimer = null;
+            this.pendingMoodSnapshot = null;
+            this.moodCycleDuration = 30000; // 30 seconds grace period
 
-                input.value = this.state.log_config.limit;
-                const count = this.state._meta_log ? this.state._meta_log.length : 0;
-                headerText.textContent = `SYSTEM LOGS (${count})`;
-                
-                if (this.state.log_config.enabled) {
-                    btn.textContent = "ENABLED";
-                    btn.className = "bg-green-900/30 text-green-400 border border-green-800 px-2 py-0.5 rounded text-[9px] font-bold tracking-wider hover:bg-green-900/50";
-                } else {
-                    btn.textContent = "DISABLED";
-                    btn.className = "bg-red-900/30 text-red-400 border border-red-800 px-2 py-0.5 rounded text-[9px] font-bold tracking-wider hover:bg-red-900/50";
-                }
-            }
-
-            updateLogLimit(val) {
-                let limit = parseInt(val);
-                if (limit < 0) limit = 0;
-                this.state.log_config.limit = limit;
-                if (this.state._meta_log.length > limit) {
-                    this.state._meta_log = this.state._meta_log.slice(0, limit);
-                }
-                this.save();
-                this.renderLogs(); 
-            }
-
-            toggleLogState() {
-                this.state.log_config.enabled = !this.state.log_config.enabled;
-                this.save();
-                this.renderLogs(); // Trigger redraw to update button
-            }
-
-            clearLogs() {
-                if(confirm("Clear all log history?")) {
-                    this.state._meta_log = [];
-                    this.pendingEdits = {}; 
-                    this.save();
-                    this.renderLogs();
-                }
-            }
-
-            renderLogs() {
-                const vp = document.getElementById('log-viewport');
-                if (!vp) return;
-                
-                let html = '';
-                if(this.state._meta_log && this.state._meta_log.length > 0) {
-                    this.state._meta_log.forEach(log => {
-                        html += `<div class="log-entry">
-                            <span class="log-ts">${log.t}</span>
-                            <span class="log-act">${log.a}</span>
-                        </div>`;
-                    });
-                } else {
-                    html = '<div class="text-gray-600 italic text-xs mt-4 text-center">NO LOGS RECORDED</div>';
-                }
-                vp.innerHTML = html;
-                this.updateLogControlUI();
-            }
-
-            toggleLog() {
-                const el = document.getElementById('log-modal');
-                if(el.classList.contains('hidden')) {
-                    this.renderLogs();
-                    el.classList.remove('hidden');
-                } else {
-                    el.classList.add('hidden');
-                }
-            }
-
-            formatPath(pathStr) {
-                return pathStr.replace(/\|/g, ' > ');
-            }
-
-            safePath(path) { return path.replace(/'/g, "\\'").replace(/"/g, '&quot;'); }
-
-            getParent(pathStr) {
-                const parts = pathStr.split('|');
-                const targetKey = parts.pop();
-                let current = this.state;
-                for (const part of parts) {
-                    if (current[part] === undefined) return null;
-                    current = current[part];
-                }
-                const isArray = Array.isArray(current);
-                const index = isArray ? parseInt(targetKey) : null;
-                return { parent: current, key: targetKey, isArray: isArray, index: index, parentPath: parts.join('|') };
-            }
-
-            reorderInObject(obj, oldKey, newKey, newIndex) {
-                const keys = Object.keys(obj);
-                const oldIndex = keys.indexOf(oldKey);
-                const [keyToMove] = keys.splice(oldIndex, 1);
-                keys.splice(newIndex, 0, keyToMove);
-                const rebuiltObject = {};
-                for (const k of keys) rebuiltObject[k] = obj[k];
-                Object.keys(obj).forEach(k => delete obj[k]);
-                Object.assign(obj, rebuiltObject);
-            }
-
-            moveItem(pathStr, direction) {
-                const { parent, isArray, key, index } = this.getParent(pathStr);
-                if (isArray) {
-                    const arr = parent;
-                    const oldIndex = index;
-                    let newIndex = oldIndex;
-                    if (direction === 'up' && oldIndex > 0) newIndex = oldIndex - 1;
-                    else if (direction === 'down' && oldIndex < arr.length - 1) newIndex = oldIndex + 1;
-                    else return;
-                    const [item] = arr.splice(oldIndex, 1);
-                    arr.splice(newIndex, 0, item);
-                } else {
-                    const keys = Object.keys(parent);
-                    const oldKey = key;
-                    const oldIndex = keys.indexOf(oldKey);
-                    let newIndex = oldIndex;
-                    if (direction === 'up' && oldIndex > 0) newIndex = oldIndex - 1;
-                    else if (direction === 'down' && oldIndex < keys.length - 1) newIndex = oldIndex + 1;
-                    else return;
-                    const targetKey = keys[newIndex];
-                    this.reorderInObject(parent, oldKey, targetKey, newIndex);
-                }
-                this.editingPath = null; 
-                this.save();
-            }
-            
-            moveUp(pathStr) { this.moveItem(pathStr, 'up'); }
-            moveDown(pathStr) { this.moveItem(pathStr, 'down'); }
-
-            updateValue(pathStr, newValue) {
-                const { parent, key } = this.getParent(pathStr);
-                if (!parent) return;
-                
-                const oldValue = parent[key];
-                
-                let val = newValue;
-                const vUpper = String(newValue).toUpperCase();
-                if (!isNaN(Number(newValue)) && newValue.trim() !== '') val = Number(newValue);
-                else if (vUpper === 'TRUE') val = 'TRUE';
-                else if (vUpper === 'FALSE') val = 'FALSE';
-                
-                if (oldValue === val) {
-                    this.editingPath = null;
-                    this.render();
-                    return;
-                }
-                
-                parent[key] = val;
-                this.editingPath = null;
-                
-                if(this.pendingEdits[pathStr]) delete this.pendingEdits[pathStr];
-                
-                const p = this.formatPath(pathStr);
-                this.addLog(`UPDATE <span class="log-hl">[${p}]</span><br> ${oldValue} \u81f3 <span class="text-white">${val}</span>`);
-                this.save();
-            }
-
-            incrementValue(pathStr, amount) {
-                const { parent, key } = this.getParent(pathStr);
-                if (!parent) return;
-                if (typeof parent[key] === 'number') {
-                    const oldValue = parent[key];
-                    parent[key] += amount;
-                    this.logGranular('MATH', pathStr, oldValue, parent[key]);
-                    this.save();
-                }
-            }
-
-            incrementPercent(pathStr, amount) {
-                const { parent, key } = this.getParent(pathStr);
-                if (!parent) return;
-                const oldValue = parent[key];
-                const match = String(oldValue).match(/^(\d{1,3})%$/);
-                if (match) {
-                    let val = parseInt(match[1]);
-                    val += amount;
-                    if (val < 0) val = 0;
-                    if (val > 100) val = 100;
-                    parent[key] = `${val}%`;
-                    this.logGranular('MATH', pathStr, oldValue, parent[key]);
-                    this.save();
-                }
-            }
-
-            incrementTime(pathStr, amount) {
-                const { parent, key } = this.getParent(pathStr);
-                if (!parent) return;
-                const oldValue = parent[key];
-                const parts = String(oldValue).split(':');
-                if (parts.length !== 2) return;
-                let h = parseInt(parts[0]);
-                let m = parseInt(parts[1]);
-                let totalMin = (h * 60) + m + amount;
-                if (totalMin < 0) totalMin = 0;
-                let newH = Math.floor(totalMin / 60);
-                let newM = totalMin % 60;
-                parent[key] = `${String(newH).padStart(2, '0')}:${String(newM).padStart(2, '0')}`;
-                this.logGranular('TIME', pathStr, oldValue, parent[key]);
-                this.save();
-            }
-
-            injectTime(pathStr) {
-                const now = new Date();
-                const iso = now.toISOString().split('T')[0] + ' @ ' + now.toTimeString().split(' ')[0].substring(0,5);
-                this.updateValue(pathStr, iso); 
-            }
-
-            deleteItem(pathStr) {
-                if(!confirm('DESTROY NODE: Confirm?')) return;
-                const { parent, key } = this.getParent(pathStr);
-                if (!parent) return;
-                
-                const valToDelete = parent[key];
-                let valLog = typeof valToDelete === 'object' ? '{OBJECT}' : valToDelete;
-                
-                if (Array.isArray(parent)) parent.splice(Number(key), 1);
-                else delete parent[key];
-                
-                this.editingPath = null;
-                if(this.pendingEdits[pathStr]) delete this.pendingEdits[pathStr];
-
-                const p = this.formatPath(pathStr);
-                this.addLog(`DELETE <span class="log-hl">[${p}]</span><br> VALUE: ${valLog}`);
-                this.save();
-            }
-
-            addItem(pathStr, isArray) {
-                const { parent, key } = this.getParent(pathStr);
-                let target;
-                if (pathStr === '') target = this.state;
-                else target = key ? parent[key] : this.state;
-
-                if (isArray) {
-                    const newVal = prompt("VALUE:");
-                    if (newVal === null) return;
-                    target.push(this.parseInput(newVal));
-                    const p = this.formatPath(pathStr);
-                    this.addLog(`ADD <span class="log-hl">[${p} > INDEX ${target.length-1}]</span><br> VALUE: ${newVal}`);
-                } else {
-                    const newKey = prompt("FIELD NAME:");
-                    if (!newKey) return;
-                    const structureType = prompt(`Enter type for '${newKey}': (VALUE, OBJECT, or ARRAY)`);
-                    if (structureType === null) return;
-                    let newVal;
-                    let typeLog = "VALUE";
-                    if (structureType.toUpperCase() === 'OBJECT') { newVal = {}; typeLog = "{OBJECT}"; }
-                    else if (structureType.toUpperCase() === 'ARRAY') { newVal = []; typeLog = "[ARRAY]"; }
-                    else {
-                        const valuePrompt = prompt("VALUE:");
-                        if (valuePrompt === null) return;
-                        newVal = this.parseInput(valuePrompt);
-                        typeLog = newVal;
-                    }
-                    target[newKey] = newVal;
-                    const p = this.formatPath(pathStr);
-                    const separator = p ? ' > ' : '';
-                    this.addLog(`CREATE <span class="log-hl">[${p}${separator}${newKey}]</span><br> INITIAL: ${typeLog}`);
-                }
-                this.save();
-            }
-
-            parseInput(input) {
-                let val = input;
-                const vUpper = String(input).toUpperCase();
-                if (!isNaN(Number(input)) && input.trim() !== '') val = Number(input);
-                else if (vUpper === 'TRUE') val = 'TRUE';
-                else if (vUpper === 'FALSE') val = 'FALSE';
-                return val;
-            }
-
-            toggleCollapse(path) {
-                if (this.collapsed.has(path)) this.collapsed.delete(path);
-                else this.collapsed.add(path);
-                this.saveUI(); 
-                this.render();
-            }
-
-            filterVisible(data, path = '') {
-                if (data === null || typeof data !== 'object') return data;
-                const isArray = Array.isArray(data);
-                const result = isArray ? [] : {};
-
-                Object.keys(data).forEach(key => {
-                    if (key === '_meta_log' || key === 'log_config') return;
-                    const value = data[key];
-                    const currentPath = path ? `${path}|${key}` : key;
-                    const isCollapsed = this.collapsed.has(currentPath);
-                    const isSearchActive = this.searchTerm.length > 0;
-                    
-                    if (isCollapsed && !isSearchActive) {
-                        if (Array.isArray(value)) {
-                            result[key] = `[ARRAY(${value.length}) - MINIMIZED]`;
-                        } else if (typeof value === 'object' && value !== null) {
-                            result[key] = '{OBJECT - MINIMIZED}';
-                        } else {
-                            result[key] = value;
-                        }
-                    } else {
-                        result[key] = this.filterVisible(value, currentPath);
-                    }
-                });
-                return result;
-            }
-
-            updateExportPreview() {
-                const ta = document.getElementById('raw-json');
-                const checkbox = document.getElementById('export-visible-check');
-                
-                let dataToExport;
-
-                if (checkbox.checked) {
-                    dataToExport = this.filterVisible(this.state);
-                } else {
-                    dataToExport = JSON.parse(JSON.stringify(this.state));
-                }
-
-                if (dataToExport._meta_log) {
-                    dataToExport._meta_log = dataToExport._meta_log.map(log => {
-                        // SANITIZE EXPORT: Remove HTML, Convert Arrow
-                        let cleanText = log.a
-                            .replace(/<br\s*\/?>/gi, '\n') // Convert breaks to newlines
-                            .replace(/<[^>]+>/g, '') // Strip all other HTML tags
-                            .replace(/\u81f3/g, '至'); // Convert arrow symbol
-                        
-                        log.a = cleanText;
-                        return log;
-                    });
-                }
-
-                ta.value = JSON.stringify(dataToExport, null, 2);
-            }
-
-            render() {
-                const root = document.getElementById('viewport');
-                root.innerHTML = this.buildTree(this.state, '');
-            }
-
-            buildReorderArrows(path, key, parentLength) {
-                const { isArray, parent } = this.getParent(path);
-                const isReorderable = isArray || (typeof parent === 'object' && !Array.isArray(parent) && path !== '');
-                if (!isReorderable) return '';
-
-                const length = isArray ? parentLength : Object.keys(parent).length; 
-                const index = isArray ? parseInt(key) : Object.keys(parent).indexOf(key);
-                if (index === -1) return ''; 
-
-                const upDisabled = index === 0;
-                const downDisabled = index === length - 1;
-
-                return `
-                    <div class="reorder-arrows">
-                        <button onclick="app.moveUp('${this.safePath(path)}')" ${upDisabled ? 'disabled' : ''}><i class="fa-solid fa-angle-up"></i></button>
-                        <button onclick="app.moveDown('${this.safePath(path)}')" ${downDisabled ? 'disabled' : ''}><i class="fa-solid fa-angle-down"></i></button>
-                    </div>
-                `;
-            }
-
-            buildTree(data, path, forceShow = false) {
-                if (data === null) return `<span class="text-gray-600 italic">null</span>`;
-                if (typeof data !== 'object') return this.buildPrimitive(data, path);
-
-                const isArray = Array.isArray(data);
-                let html = `<div class="w-full">`;
-
-                Object.keys(data).forEach(key => {
-                    if (key === '_meta_log') return; 
-                    if (key === 'log_config') return; 
-                    
-                    const value = data[key];
-                    const keyMatches = this.searchTerm && key.toLowerCase().includes(this.searchTerm);
-                    const childMatches = this.searchTerm && this.hasMatch(value, this.searchTerm);
-                    const isVisible = !this.searchTerm || forceShow || keyMatches || childMatches;
-                    
-                    if (!isVisible) return;
-                    const nextForceShow = forceShow || keyMatches;
-
-                    const currentPath = path ? `${path}|${key}` : key;
-                    const safeP = this.safePath(currentPath);
-                    const isPrimitive = typeof value !== 'object' || value === null;
-                    
-                    let rowStyle = '';
-                    if (typeof value === 'string') {
-                        const match = value.match(/^(\d{1,3})%$/);
-                        if (match) {
-                            const pct = parseInt(match[1]);
-                            rowStyle = `style="background: linear-gradient(to right, rgba(128,128,128,0.15) ${pct}%, transparent ${pct}%)"`;
-                        }
-                    }
-                    
-                    if (isPrimitive) {
-                        html += `
-                            <div class="node-row group hover:bg-[#0a0a0a]" ${rowStyle}>
-                                <div class="flex-grow flex items-center mr-2"> 
-                                    ${this.buildReorderArrows(currentPath, key, data.length)}
-                                    ${this.buildKeyDisplay(key, safeP, isArray)}
-                                    ${this.buildPrimitive(value, safeP, key)}
-                                </div>
-                                ${this.buildPrimitiveControls(safeP, isArray, key, data.length, value)}
-                            </div>`;
-                    } else {
-                        const isCollapsed = this.searchTerm ? false : this.collapsed.has(currentPath);
-                        html += `
-                            <div class="mt-2 mb-1">
-                                <div class="flex justify-between items-center bg-[#0a0a0a] px-2 py-1 border-b border-[#222] rounded-t">
-                                    <div class="flex items-center">
-                                        <button onclick="app.toggleCollapse('${safeP}')" class="mr-2 text-gray-500 hover:text-white w-4 text-center transition-transform">
-                                            <i class="fa-solid fa-caret-${isCollapsed ? 'right' : 'down'}"></i>
-                                        </button>
-                                        ${this.buildReorderArrows(currentPath, key, data.length)}
-                                        <div class="text-[10px] font-bold text-gray-400 uppercase tracking-widest transition cursor-pointer" onclick="app.toggleCollapse('${safeP}')">
-                                            ${this.buildKeyDisplay(key, safeP, isArray, true)}
-                                        </div>
-                                    </div>
-                                    <div class="flex gap-2 items-center">
-                                        <button onclick="app.addItem('${safeP}', ${Array.isArray(value)})" class="text-green-700 hover:text-green-400 text-[10px]"><i class="fa-solid fa-plus"></i></button>
-                                        <button onclick="app.deleteItem('${safeP}')" class="text-red-900 hover:text-red-500 text-[10px]"><i class="fa-solid fa-xmark"></i></button>
-                                    </div>
-                                </div>
-                                <div class="tree-line ${isCollapsed ? 'hidden' : ''}">
-                                    ${!isCollapsed ? this.buildTree(value, currentPath, nextForceShow) : ''}
-                                </div>
-                            </div>`;
-                    }
-                });
-                
-                const visibleKeys = Object.keys(data).filter(k => k !== '_meta_log' && k !== 'log_config');
-                if (visibleKeys.length === 0 && !this.searchTerm) {
-                    const safeP = this.safePath(path);
-                    html += `<div class="text-[10px] text-gray-700 italic p-2 flex items-center">EMPTY <button onclick="app.addItem('${safeP}', ${isArray})" class="ml-2 text-green-700 hover:text-green-400"><i class="fa-solid fa-plus"></i></button></div>`;
-                }
-
-                html += `</div>`;
-                return html;
-            }
-            
-            buildKeyDisplay(key, path, isArray, isHeader = false) {
-                if (isArray) return `<span class="text-green-800 font-bold mr-2 text-[10px]">[${key}]</span>`;
-                const displayClass = isHeader ? 'text-gray-400 uppercase tracking-widest' : 'key-display uppercase';
-                if (this.searchTerm && key.toLowerCase().includes(this.searchTerm)) {
-                    return `<span class="${displayClass} text-green-400 border-b border-green-500">${key}</span>`;
-                }
-                return `<span class="${displayClass}">${key}</span>`;
-            }
-            
-            buildPrimitiveControls(safeP, isArray, key, arrayLength, val) {
-                if (this.editingPath === safeP) return ''; 
-                
-                const vUpper = String(val).toUpperCase();
-                const isSwitch = ['PENDING', 'IN PROGRESS', 'COMPLETED', 'ACTIVE', 'INACTIVE', 'TRUE', 'FALSE'].includes(vUpper) || typeof val === 'boolean';
-
-                if (isSwitch) {
-                     return `<div class="flex items-center gap-2 ml-2"><button onclick="app.deleteItem('${safeP}')" class="btn-action text-red-900 hover:text-red-500"><i class="fa-solid fa-xmark"></i></button></div>`;
-                }
-                return ''; 
-            }
-
-            buildPrimitive(val, path, keyName) {
-                const initialValue = typeof val === 'object' && val !== null ? JSON.stringify(val) : val;
-                
-                if (this.editingPath === path) {
-                    const lineCount = String(initialValue).split('\n').length;
-                    const rows = Math.max(3, lineCount + 1); 
-                    const showClock = /timestamp/i.test(keyName);
-                    
-                    return `
-                        <div class="flex items-start w-full gap-1">
-                            <textarea id="input-${path}" class="edit-input" rows="${rows}" onkeydown="if(event.key==='Enter' && event.shiftKey) {event.preventDefault(); app.updateValue('${path}', this.value)}" >${initialValue}</textarea>
-                            <div class="flex flex-col gap-1 mt-1">
-                                <div class="flex items-center gap-1">
-                                    <button onclick="app.updateValue('${path}', document.getElementById('input-${path}').value)" class="text-green-500 hover:bg-green-900/50 large-control-btn"><i class="fa-solid fa-check"></i></button>
-                                    <button onclick="app.cancelEdit()" class="text-gray-500 hover:bg-gray-800 large-control-btn"><i class="fa-solid fa-ban"></i></button>
-                                    ${showClock ? `<button onclick="app.injectTime('${path}')" class="text-blue-400 hover:bg-blue-900/30 large-control-btn" title="Inject Timestamp"><i class="fa-solid fa-clock"></i></button>` : ''}
-                                </div>
-                                <button onclick="app.deleteItem('${path}')" class="text-red-900 hover:text-red-500 text-[10px] p-1 mt-1 text-right"><i class="fa-solid fa-xmark"></i></button>
-                            </div>
-                        </div>
-                    `; 
-                }
-
-                const percentMatch = String(val).match(/^(\d{1,3})%$/);
-                if (percentMatch) {
-                    return `
-                        <div class="flex items-center">
-                            <button class="stepper-btn" onclick="app.incrementPercent('${path}', -25)"><i class="fa-solid fa-angles-left"></i></button>
-                            <button class="stepper-btn" onclick="app.incrementPercent('${path}', -5)"><i class="fa-solid fa-minus"></i></button>
-                            <span class="val-display mono text-[#00ff9d] hover:underline mx-0 whitespace-nowrap min-w-[3rem] text-center flex-shrink-0" onclick="app.setEdit('${path}')">${val}</span>
-                            <button class="stepper-btn" onclick="app.incrementPercent('${path}', 5)"><i class="fa-solid fa-plus"></i></button>
-                            <button class="stepper-btn" onclick="app.incrementPercent('${path}', 25)"><i class="fa-solid fa-angles-right"></i></button>
-                        </div>
-                    `;
-                }
-                
-                const vUpper = String(val).toUpperCase();
-                if (['PENDING', 'IN PROGRESS', 'COMPLETED'].includes(vUpper)) {
-                    return `
-                    <div class="state-switch">
-                        <div class="state-btn ${vUpper === 'PENDING' ? 'state-btn-active-pend' : ''}" onclick="app.updateValue('${path}', 'PENDING')">PEND</div>
-                        <div class="state-btn ${vUpper === 'IN PROGRESS' ? 'state-btn-active-prog' : ''}" onclick="app.updateValue('${path}', 'IN PROGRESS')">PROG</div>
-                        <div class="state-btn ${vUpper === 'COMPLETED' ? 'state-btn-active-comp' : ''}" onclick="app.updateValue('${path}', 'COMPLETED')">DONE</div>
-                    </div>`;
-                }
-                
-                if (['ACTIVE', 'INACTIVE'].includes(vUpper)) {
-                    return `
-                    <div class="state-switch">
-                        <div class="state-btn ${vUpper === 'ACTIVE' ? 'state-btn-active-on' : ''}" onclick="app.updateValue('${path}', 'ACTIVE')">ACTIVE</div>
-                        <div class="state-btn ${vUpper === 'INACTIVE' ? 'state-btn-active-off' : ''}" onclick="app.updateValue('${path}', 'INACTIVE')">INACTIVE</div>
-                    </div>`;
-                }
-                
-                if (['TRUE', 'FALSE'].includes(vUpper) || typeof val === 'boolean') {
-                    const isTrue = vUpper === 'TRUE' || val === true;
-                    return `
-                    <div class="state-switch">
-                        <div class="state-btn ${isTrue ? 'state-btn-active-on' : ''}" onclick="app.updateValue('${path}', 'TRUE')">TRUE</div>
-                        <div class="state-btn ${!isTrue ? 'state-btn-active-off' : ''}" onclick="app.updateValue('${path}', 'FALSE')">FALSE</div>
-                    </div>`;
-                }
-                
-                if (typeof val === 'number') {
-                     return `
-                        <div class="flex items-center">
-                            <button class="stepper-btn" onclick="app.incrementValue('${path}', -10)"><i class="fa-solid fa-angles-left"></i></button>
-                            <button class="stepper-btn" onclick="app.incrementValue('${path}', -1)"><i class="fa-solid fa-minus"></i></button>
-                            <span class="val-display mono text-green-400 hover:underline mx-0 whitespace-nowrap min-w-[3rem] text-center flex-shrink-0" onclick="app.setEdit('${path}')">${val}</span>
-                            <button class="stepper-btn" onclick="app.incrementValue('${path}', 1)"><i class="fa-solid fa-plus"></i></button>
-                            <button class="stepper-btn" onclick="app.incrementValue('${path}', 10)"><i class="fa-solid fa-angles-right"></i></button>
-                        </div>
-                     `;
-                }
-                
-                const timeMatch = String(val).match(/^\d{1,2}:\d{2}$/);
-                if (timeMatch) {
-                    return `
-                        <div class="flex items-center">
-                            <button class="stepper-btn" onclick="app.incrementTime('${path}', -10)"><i class="fa-solid fa-angles-left"></i></button>
-                            <button class="stepper-btn" onclick="app.incrementTime('${path}', -1)"><i class="fa-solid fa-minus"></i></button>
-                            <span class="val-display mono text-blue-400 hover:underline mx-0 whitespace-nowrap min-w-[3rem] text-center flex-shrink-0" onclick="app.setEdit('${path}')">${val}</span>
-                            <button class="stepper-btn" onclick="app.incrementTime('${path}', 1)"><i class="fa-solid fa-plus"></i></button>
-                            <button class="stepper-btn" onclick="app.incrementTime('${path}', 10)"><i class="fa-solid fa-angles-right"></i></button>
-                        </div>
-                    `;
-                }
-
-                if (vUpper === 'CRITICAL') return `<span class="badge badge-critical cursor-pointer" onclick="app.setEdit('${path}')">CRITICAL</span>`;
-                if (vUpper === 'HIGH') return `<span class="badge badge-high cursor-pointer" onclick="app.setEdit('${path}')">HIGH</span>`;
-                if (vUpper === 'MEDIUM') return `<span class="badge badge-medium cursor-pointer" onclick="app.setEdit('${path}')">MEDIUM</span>`;
-                if (vUpper === 'LOW') return `<span class="badge badge-low cursor-pointer" onclick="app.setEdit('${path}')">LOW</span>`;
-
-                return `<span class="val-display mono text-green-400 hover:underline" onclick="app.setEdit('${path}')">${val}</span>`;
-            }
-
-            setEdit(path) { this.editingPath = path; this.render(); setTimeout(() => { const el = document.getElementById(`input-${path}`); if(el) { el.focus(); el.select(); } }, 50); }
-            cancelEdit() { this.editingPath = null; this.render(); }
-            
-            toggleIO(mode) {
-                const modal = document.getElementById('io-modal');
-                const ta = document.getElementById('raw-json');
-                const header = document.getElementById('modal-header');
-                const copyBtn = document.getElementById('copy-btn');
-                const loadBtn = document.getElementById('load-btn');
-                const exportOption = document.getElementById('export-option-container');
-                const exportCheck = document.getElementById('export-visible-check');
-
-                if (modal.classList.contains('hidden')) {
-                    if (mode === 'export') { 
-                        exportOption.classList.remove('hidden'); 
-                        exportCheck.checked = false; 
-                        
-                        this.updateExportPreview(); 
-                        
-                        ta.readOnly = true; 
-                        header.textContent = 'DATA EXTRACTION'; 
-                        ta.placeholder = '// COPY DATA STREAM BELOW //'; 
-                        copyBtn.classList.remove('hidden'); 
-                        loadBtn.classList.add('hidden'); 
-                    }
-                    else if (mode === 'import') { 
-                        exportOption.classList.add('hidden'); 
-                        
-                        ta.value = ''; 
-                        ta.readOnly = false; 
-                        header.textContent = 'DATA INJECTION'; 
-                        ta.placeholder = '// PASTE WORLD MODEL HERE //'; 
-                        copyBtn.classList.add('hidden'); 
-                        loadBtn.classList.remove('hidden'); 
-                    }
-                    modal.classList.remove('hidden');
-                } else { 
-                    modal.classList.add('hidden'); 
-                    ta.readOnly = false; 
-                    exportOption.classList.add('hidden');
-                }
-            }
-            saveRaw() { 
-                try { 
-                    const ta = document.getElementById('raw-json'); 
-                    let newState = JSON.parse(ta.value); 
-                    
-                    // IMPORT STRIP LOGIC: Remove all imported logs
-                    newState._meta_log = []; 
-                    if (!newState.log_config) newState.log_config = { "limit": 10, "enabled": true };
-
-                    this.state = newState; 
-                    this.save(); 
-                    this.toggleIO(); 
-                } catch(e) { alert("SYNTAX ERROR: Invalid JSON."); } 
-            }
-            copyRaw() { const ta = document.getElementById('raw-json'); ta.select(); document.execCommand('copy'); const tempBtnText = document.getElementById('copy-btn').textContent; document.getElementById('copy-btn').textContent = 'COPIED!'; setTimeout(() => { document.getElementById('copy-btn').textContent = tempBtnText; }, 1000); }
+            this.render();
+            this.updateMoodIndicator();
         }
-        const app = new ZyqralOS();
-    </script>
+
+        load() {
+            let s = localStorage.getItem(STORAGE_KEY);
+            if (!s) {
+                const legacy = localStorage.getItem(LEGACY_KEY);
+                if (legacy) {
+                    s = legacy;
+                    localStorage.setItem(STORAGE_KEY, s);
+                }
+            }
+            let sJSON = s ? JSON.parse(s) : null;
+            if (sJSON && sJSON.system_status === "BOOT_REQUIRED" && sJSON.battery_level === "75%" && !sJSON.elapsed_time) {
+                sJSON = null; 
+            }
+            return sJSON || JSON.parse(JSON.stringify(NULL_STATE));
+        }
+
+        loadUI() {
+            const stored = localStorage.getItem(STORAGE_KEY + '_ui');
+            if (stored) {
+                try {
+                    return new Set(JSON.parse(stored));
+                } catch (e) { return new Set(); }
+            }
+            return new Set();
+        }
+
+        save() {
+            localStorage.setItem(STORAGE_KEY, JSON.stringify(this.state));
+            this.render();
+        }
+
+        saveUI() {
+            localStorage.setItem(STORAGE_KEY + '_ui', JSON.stringify(Array.from(this.collapsed)));
+        }
+
+        reset() {
+            if(confirm('FACTORY RESET: Purge all local data?')) {
+                this.state = JSON.parse(JSON.stringify(NULL_STATE));
+                this.collapsed.clear();
+                this.saveUI(); 
+                this.pendingEdits = {};
+                this.searchTerm = '';
+                document.getElementById('tree-search').value = '';
+                this.save();
+            }
+        }
+        
+        updateSearch(val) {
+            this.searchTerm = val.toLowerCase();
+            this.render();
+        }
+
+        hasMatch(data, term) {
+            if (typeof data !== 'object' || data === null) {
+                return String(data).toLowerCase().includes(term);
+            }
+            return Object.keys(data).some(key => {
+                if (key.toLowerCase().includes(term)) return true;
+                return this.hasMatch(data[key], term);
+            });
+        }
+
+        addLog(action) {
+            if (!this.state.log_config.enabled) return;
+            const now = new Date();
+            const ts = now.toTimeString().split(' ')[0];
+            const entry = { t: ts, a: action };
+            if(!this.state._meta_log) this.state._meta_log = [];
+            this.state._meta_log.unshift(entry);
+            const limit = parseInt(this.state.log_config.limit) || 10;
+            if(this.state._meta_log.length > limit) {
+                this.state._meta_log = this.state._meta_log.slice(0, limit);
+            }
+        }
+
+        trackMoodUpdate(pathStr) {
+            // Check if updated path is part of MOOD structure
+            if (pathStr.toUpperCase().includes('MOOD')) {
+                const now = new Date().toISOString();
+                
+                // Find current mood state in object
+                let moodData = {};
+                const findMood = (obj) => {
+                    for (const key in obj) {
+                        if (key.toUpperCase() === 'MOOD' && typeof obj[key] === 'object') {
+                            return obj[key];
+                        }
+                        if (typeof obj[key] === 'object' && obj[key] !== null) {
+                            const found = findMood(obj[key]);
+                            if (found) return found;
+                        }
+                    }
+                    return null;
+                };
+
+                const currentMoodObj = findMood(this.state);
+                
+                if (currentMoodObj) {
+                    // Create a clean snapshot
+                    const snapshot = {
+                        ts: now,
+                        data: JSON.parse(JSON.stringify(currentMoodObj))
+                    };
+
+                    if (this.moodCycleTimer) {
+                        // Grace period active: update the pending snapshot
+                        this.pendingMoodSnapshot = snapshot;
+                        // Reset timer to extend grace period
+                        clearTimeout(this.moodCycleTimer);
+                        this.activateMoodTimer();
+                    } else {
+                        // New cycle
+                        this.pendingMoodSnapshot = snapshot;
+                        this.activateMoodTimer();
+                    }
+                    this.updateMoodIndicator(true);
+                }
+            }
+        }
+
+        activateMoodTimer() {
+            this.moodCycleTimer = setTimeout(() => {
+                if (this.pendingMoodSnapshot) {
+                    if (!this.state._mood_history) this.state._mood_history = [];
+                    this.state._mood_history.push(this.pendingMoodSnapshot);
+                    // Keep history manageable (e.g., last 100 entries)
+                    if (this.state._mood_history.length > 100) {
+                        this.state._mood_history.shift();
+                    }
+                    this.pendingMoodSnapshot = null;
+                    this.save();
+                    this.updateMoodIndicator(false);
+                }
+                this.moodCycleTimer = null;
+            }, this.moodCycleDuration);
+        }
+
+        updateMoodIndicator(active = false) {
+            const indicator = document.getElementById('mood-pulse');
+            const status = document.getElementById('mood-status');
+            if (!indicator || !status) return;
+
+            if (active) {
+                indicator.className = "w-2 h-2 rounded-full bg-blue-500 animate-pulse";
+                status.textContent = "CYCLE ACTIVE";
+                status.className = "text-blue-400";
+            } else {
+                indicator.className = "w-2 h-2 rounded-full bg-gray-800";
+                status.textContent = "IDLE";
+                status.className = "text-gray-600";
+            }
+        }
+
+        logGranular(type, pathStr, displayOld, displayNew) {
+            this.trackMoodUpdate(pathStr); // Hook for mood tracking
+
+            if (!this.state.log_config.enabled) return;
+            const now = new Date();
+            const ts = now.toTimeString().split(' ')[0];
+            const p = this.formatPath(pathStr);
+            const logContent = `${type} <span class="log-hl">[${p}]</span><br> ${displayOld} \u81f3 <span class="text-white">${displayNew}</span>`;
+            const pending = this.pendingEdits[pathStr];
+            const nowTime = Date.now();
+            if (pending && (nowTime - pending.startTime < 30000)) {
+                const combinedContent = `${type} <span class="log-hl">[${p}]</span><br> ${pending.initialVal} \u81f3 <span class="text-white">${displayNew}</span>`;
+                pending.entry.t = ts; 
+                pending.entry.a = combinedContent;
+            } else {
+                const limit = parseInt(this.state.log_config.limit) || 10;
+                if(!this.state._meta_log) this.state._meta_log = [];
+                const entry = { t: ts, a: logContent };
+                this.state._meta_log.unshift(entry);
+                if (this.state._meta_log.length > limit) {
+                        this.state._meta_log = this.state._meta_log.slice(0, limit);
+                }
+                this.pendingEdits[pathStr] = {
+                    startTime: nowTime,
+                    initialVal: displayOld,
+                    entry: this.state._meta_log[0]
+                };
+            }
+        }
+        
+        // ... (Log control UI methods same as before) ...
+        updateLogControlUI() {
+            const btn = document.getElementById('log-toggle-btn');
+            const input = document.getElementById('log-limit-input');
+            const headerText = document.getElementById('log-header-text');
+            if (!btn || !input || !headerText) return;
+            input.value = this.state.log_config.limit;
+            const count = this.state._meta_log ? this.state._meta_log.length : 0;
+            headerText.textContent = `SYSTEM LOGS (${count})`;
+            if (this.state.log_config.enabled) {
+                btn.textContent = "ENABLED";
+                btn.className = "bg-green-900/30 text-green-400 border border-green-800 px-2 py-0.5 rounded text-[9px] font-bold tracking-wider hover:bg-green-900/50";
+            } else {
+                btn.textContent = "DISABLED";
+                btn.className = "bg-red-900/30 text-red-400 border border-red-800 px-2 py-0.5 rounded text-[9px] font-bold tracking-wider hover:bg-red-900/50";
+            }
+        }
+        updateLogLimit(val) {
+            let limit = parseInt(val);
+            if (limit < 0) limit = 0;
+            this.state.log_config.limit = limit;
+            if (this.state._meta_log.length > limit) {
+                this.state._meta_log = this.state._meta_log.slice(0, limit);
+            }
+            this.save();
+            this.renderLogs(); 
+        }
+        toggleLogState() {
+            this.state.log_config.enabled = !this.state.log_config.enabled;
+            this.save();
+            this.renderLogs(); 
+        }
+        clearLogs() {
+            if(confirm("Clear all log history?")) {
+                this.state._meta_log = [];
+                this.pendingEdits = {}; 
+                this.save();
+                this.renderLogs();
+            }
+        }
+        renderLogs() {
+            const vp = document.getElementById('log-viewport');
+            if (!vp) return;
+            let html = '';
+            if(this.state._meta_log && this.state._meta_log.length > 0) {
+                this.state._meta_log.forEach(log => {
+                    html += `<div class="log-entry"><span class="log-ts">${log.t}</span><span class="log-act">${log.a}</span></div>`;
+                });
+            } else {
+                html = '<div class="text-gray-600 italic text-xs mt-4 text-center">NO LOGS RECORDED</div>';
+            }
+            vp.innerHTML = html;
+            this.updateLogControlUI();
+        }
+        toggleLog() {
+            const el = document.getElementById('log-modal');
+            if(el.classList.contains('hidden')) {
+                this.renderLogs();
+                el.classList.remove('hidden');
+            } else {
+                el.classList.add('hidden');
+            }
+        }
+
+        // ... (Path helpers, parent retrieval, reordering logic same as before) ...
+        formatPath(pathStr) { return pathStr.replace(/\|/g, ' > '); }
+        safePath(path) { return path.replace(/'/g, "\\'").replace(/"/g, '&quot;'); }
+        getParent(pathStr) {
+            const parts = pathStr.split('|');
+            const targetKey = parts.pop();
+            let current = this.state;
+            for (const part of parts) {
+                if (current[part] === undefined) return null;
+                current = current[part];
+            }
+            const isArray = Array.isArray(current);
+            const index = isArray ? parseInt(targetKey) : null;
+            return { parent: current, key: targetKey, isArray: isArray, index: index, parentPath: parts.join('|') };
+        }
+        reorderInObject(obj, oldKey, newKey, newIndex) {
+            const keys = Object.keys(obj);
+            const oldIndex = keys.indexOf(oldKey);
+            const [keyToMove] = keys.splice(oldIndex, 1);
+            keys.splice(newIndex, 0, keyToMove);
+            const rebuiltObject = {};
+            for (const k of keys) rebuiltObject[k] = obj[k];
+            Object.keys(obj).forEach(k => delete obj[k]);
+            Object.assign(obj, rebuiltObject);
+        }
+        moveItem(pathStr, direction) {
+            const { parent, isArray, key, index } = this.getParent(pathStr);
+            if (isArray) {
+                const arr = parent;
+                const oldIndex = index;
+                let newIndex = oldIndex;
+                if (direction === 'up' && oldIndex > 0) newIndex = oldIndex - 1;
+                else if (direction === 'down' && oldIndex < arr.length - 1) newIndex = oldIndex + 1;
+                else return;
+                const [item] = arr.splice(oldIndex, 1);
+                arr.splice(newIndex, 0, item);
+            } else {
+                const keys = Object.keys(parent);
+                const oldKey = key;
+                const oldIndex = keys.indexOf(oldKey);
+                let newIndex = oldIndex;
+                if (direction === 'up' && oldIndex > 0) newIndex = oldIndex - 1;
+                else if (direction === 'down' && oldIndex < keys.length - 1) newIndex = oldIndex + 1;
+                else return;
+                const targetKey = keys[newIndex];
+                this.reorderInObject(parent, oldKey, targetKey, newIndex);
+            }
+            this.editingPath = null; 
+            this.save();
+        }
+        moveUp(pathStr) { this.moveItem(pathStr, 'up'); }
+        moveDown(pathStr) { this.moveItem(pathStr, 'down'); }
+
+        updateValue(pathStr, newValue) {
+            const { parent, key } = this.getParent(pathStr);
+            if (!parent) return;
+            const oldValue = parent[key];
+            let val = newValue;
+            const vUpper = String(newValue).toUpperCase();
+            if (!isNaN(Number(newValue)) && newValue.trim() !== '') val = Number(newValue);
+            else if (vUpper === 'TRUE') val = 'TRUE';
+            else if (vUpper === 'FALSE') val = 'FALSE';
+            
+            if (oldValue === val) {
+                this.editingPath = null;
+                this.render();
+                return;
+            }
+            parent[key] = val;
+            this.editingPath = null;
+            if(this.pendingEdits[pathStr]) delete this.pendingEdits[pathStr];
+            const p = this.formatPath(pathStr);
+            // Log update calls granular which now triggers mood tracking
+            this.logGranular('UPDATE', pathStr, oldValue, val);
+            this.save();
+        }
+
+        // ... (Increment helpers, delete, add same as before, ensuring logGranular is called) ...
+        incrementValue(pathStr, amount) {
+            const { parent, key } = this.getParent(pathStr);
+            if (!parent) return;
+            if (typeof parent[key] === 'number') {
+                const oldValue = parent[key];
+                parent[key] += amount;
+                this.logGranular('MATH', pathStr, oldValue, parent[key]);
+                this.save();
+            }
+        }
+        incrementPercent(pathStr, amount) {
+            const { parent, key } = this.getParent(pathStr);
+            if (!parent) return;
+            const oldValue = parent[key];
+            const match = String(oldValue).match(/^(\d{1,3})%$/);
+            if (match) {
+                let val = parseInt(match[1]);
+                val += amount;
+                if (val < 0) val = 0;
+                if (val > 100) val = 100;
+                parent[key] = `${val}%`;
+                this.logGranular('MATH', pathStr, oldValue, parent[key]);
+                this.save();
+            }
+        }
+        incrementTime(pathStr, amount) {
+            const { parent, key } = this.getParent(pathStr);
+            if (!parent) return;
+            const oldValue = parent[key];
+            const parts = String(oldValue).split(':');
+            if (parts.length !== 2) return;
+            let h = parseInt(parts[0]);
+            let m = parseInt(parts[1]);
+            let totalMin = (h * 60) + m + amount;
+            if (totalMin < 0) totalMin = 0;
+            let newH = Math.floor(totalMin / 60);
+            let newM = totalMin % 60;
+            parent[key] = `${String(newH).padStart(2, '0')}:${String(newM).padStart(2, '0')}`;
+            this.logGranular('TIME', pathStr, oldValue, parent[key]);
+            this.save();
+        }
+        injectTime(pathStr) {
+            const now = new Date();
+            const iso = now.toISOString().split('T')[0] + ' @ ' + now.toTimeString().split(' ')[0].substring(0,5);
+            this.updateValue(pathStr, iso); 
+        }
+        deleteItem(pathStr) {
+            if(!confirm('DESTROY NODE: Confirm?')) return;
+            const { parent, key } = this.getParent(pathStr);
+            if (!parent) return;
+            const valToDelete = parent[key];
+            let valLog = typeof valToDelete === 'object' ? '{OBJECT}' : valToDelete;
+            if (Array.isArray(parent)) parent.splice(Number(key), 1);
+            else delete parent[key];
+            this.editingPath = null;
+            if(this.pendingEdits[pathStr]) delete this.pendingEdits[pathStr];
+            const p = this.formatPath(pathStr);
+            // Delete might affect mood, but path might be gone. Attempt track before delete? 
+            // Simplified: tracking updates mostly.
+            this.addLog(`DELETE <span class="log-hl">[${p}]</span><br> VALUE: ${valLog}`);
+            this.save();
+        }
+        addItem(pathStr, isArray) {
+            const { parent, key } = this.getParent(pathStr);
+            let target;
+            if (pathStr === '') target = this.state;
+            else target = key ? parent[key] : this.state;
+            if (isArray) {
+                const newVal = prompt("VALUE:");
+                if (newVal === null) return;
+                target.push(this.parseInput(newVal));
+                const p = this.formatPath(pathStr);
+                this.addLog(`ADD <span class="log-hl">[${p} > INDEX ${target.length-1}]</span><br> VALUE: ${newVal}`);
+            } else {
+                const newKey = prompt("FIELD NAME:");
+                if (!newKey) return;
+                const structureType = prompt(`Enter type for '${newKey}': (VALUE, OBJECT, or ARRAY)`);
+                if (structureType === null) return;
+                let newVal;
+                let typeLog = "VALUE";
+                if (structureType.toUpperCase() === 'OBJECT') { newVal = {}; typeLog = "{OBJECT}"; }
+                else if (structureType.toUpperCase() === 'ARRAY') { newVal = []; typeLog = "[ARRAY]"; }
+                else {
+                    const valuePrompt = prompt("VALUE:");
+                    if (valuePrompt === null) return;
+                    newVal = this.parseInput(valuePrompt);
+                    typeLog = newVal;
+                }
+                target[newKey] = newVal;
+                const p = this.formatPath(pathStr);
+                const separator = p ? ' > ' : '';
+                this.addLog(`CREATE <span class="log-hl">[${p}${separator}${newKey}]</span><br> INITIAL: ${typeLog}`);
+            }
+            this.save();
+        }
+        parseInput(input) {
+            let val = input;
+            const vUpper = String(input).toUpperCase();
+            if (!isNaN(Number(input)) && input.trim() !== '') val = Number(input);
+            else if (vUpper === 'TRUE') val = 'TRUE';
+            else if (vUpper === 'FALSE') val = 'FALSE';
+            return val;
+        }
+        toggleCollapse(path) {
+            if (this.collapsed.has(path)) this.collapsed.delete(path);
+            else this.collapsed.add(path);
+            this.saveUI(); 
+            this.render();
+        }
+        
+        // ... (Render logic same as before, filterVisible, etc) ...
+        filterVisible(data, path = '') {
+            if (data === null || typeof data !== 'object') return data;
+            const isArray = Array.isArray(data);
+            const result = isArray ? [] : {};
+            Object.keys(data).forEach(key => {
+                if (key === '_meta_log' || key === 'log_config' || key === '_mood_history') return;
+                const value = data[key];
+                const currentPath = path ? `${path}|${key}` : key;
+                const isCollapsed = this.collapsed.has(currentPath);
+                const isSearchActive = this.searchTerm.length > 0;
+                if (isCollapsed && !isSearchActive) {
+                    if (Array.isArray(value)) {
+                        result[key] = `[ARRAY(${value.length}) - MINIMIZED]`;
+                    } else if (typeof value === 'object' && value !== null) {
+                        result[key] = '{OBJECT - MINIMIZED}';
+                    } else {
+                        result[key] = value;
+                    }
+                } else {
+                    result[key] = this.filterVisible(value, currentPath);
+                }
+            });
+            return result;
+        }
+        updateExportPreview() {
+            const ta = document.getElementById('raw-json');
+            const checkbox = document.getElementById('export-visible-check');
+            let dataToExport;
+            if (checkbox.checked) {
+                dataToExport = this.filterVisible(this.state);
+            } else {
+                dataToExport = JSON.parse(JSON.stringify(this.state));
+            }
+            if (dataToExport._meta_log) {
+                dataToExport._meta_log = dataToExport._meta_log.map(log => {
+                    let cleanText = log.a
+                        .replace(/<br\s*\/?>/gi, '\n')
+                        .replace(/<[^>]+>/g, '')
+                        .replace(/\u81f3/g, '至');
+                    log.a = cleanText;
+                    return log;
+                });
+            }
+            ta.value = JSON.stringify(dataToExport, null, 2);
+        }
+        render() {
+            const root = document.getElementById('viewport');
+            root.innerHTML = this.buildTree(this.state, '');
+        }
+        
+        // ... (Build tree methods same as before) ...
+        buildReorderArrows(path, key, parentLength) {
+            const { isArray, parent } = this.getParent(path);
+            const isReorderable = isArray || (typeof parent === 'object' && !Array.isArray(parent) && path !== '');
+            if (!isReorderable) return '';
+            const length = isArray ? parentLength : Object.keys(parent).length; 
+            const index = isArray ? parseInt(key) : Object.keys(parent).indexOf(key);
+            if (index === -1) return ''; 
+            const upDisabled = index === 0;
+            const downDisabled = index === length - 1;
+            return `<div class="reorder-arrows"><button onclick="app.moveUp('${this.safePath(path)}')" ${upDisabled ? 'disabled' : ''}><i class="fa-solid fa-angle-up"></i></button><button onclick="app.moveDown('${this.safePath(path)}')" ${downDisabled ? 'disabled' : ''}><i class="fa-solid fa-angle-down"></i></button></div>`;
+        }
+        buildTree(data, path, forceShow = false) {
+            if (data === null) return `<span class="text-gray-600 italic">null</span>`;
+            if (typeof data !== 'object') return this.buildPrimitive(data, path);
+            const isArray = Array.isArray(data);
+            let html = `<div class="w-full">`;
+            Object.keys(data).forEach(key => {
+                if (key === '_meta_log' || key === 'log_config' || key === '_mood_history') return; 
+                const value = data[key];
+                const keyMatches = this.searchTerm && key.toLowerCase().includes(this.searchTerm);
+                const childMatches = this.searchTerm && this.hasMatch(value, this.searchTerm);
+                const isVisible = !this.searchTerm || forceShow || keyMatches || childMatches;
+                if (!isVisible) return;
+                const nextForceShow = forceShow || keyMatches;
+                const currentPath = path ? `${path}|${key}` : key;
+                const safeP = this.safePath(currentPath);
+                const isPrimitive = typeof value !== 'object' || value === null;
+                let rowStyle = '';
+                if (typeof value === 'string') {
+                    const match = value.match(/^(\d{1,3})%$/);
+                    if (match) {
+                        const pct = parseInt(match[1]);
+                        rowStyle = `style="background: linear-gradient(to right, rgba(128,128,128,0.15) ${pct}%, transparent ${pct}%)"`;
+                    }
+                }
+                if (isPrimitive) {
+                    html += `<div class="node-row group hover:bg-[#0a0a0a]" ${rowStyle}><div class="flex-grow flex items-center mr-2"> ${this.buildReorderArrows(currentPath, key, data.length)}${this.buildKeyDisplay(key, safeP, isArray)}${this.buildPrimitive(value, safeP, key)}</div>${this.buildPrimitiveControls(safeP, isArray, key, data.length, value)}</div>`;
+                } else {
+                    const isCollapsed = this.searchTerm ? false : this.collapsed.has(currentPath);
+                    html += `<div class="mt-2 mb-1"><div class="flex justify-between items-center bg-[#0a0a0a] px-2 py-1 border-b border-[#222] rounded-t"><div class="flex items-center"><button onclick="app.toggleCollapse('${safeP}')" class="mr-2 text-gray-500 hover:text-white w-4 text-center transition-transform"><i class="fa-solid fa-caret-${isCollapsed ? 'right' : 'down'}"></i></button>${this.buildReorderArrows(currentPath, key, data.length)}<div class="text-[10px] font-bold text-gray-400 uppercase tracking-widest transition cursor-pointer" onclick="app.toggleCollapse('${safeP}')">${this.buildKeyDisplay(key, safeP, isArray, true)}</div></div><div class="flex gap-2 items-center"><button onclick="app.addItem('${safeP}', ${Array.isArray(value)})" class="text-green-700 hover:text-green-400 text-[10px]"><i class="fa-solid fa-plus"></i></button><button onclick="app.deleteItem('${safeP}')" class="text-red-900 hover:text-red-500 text-[10px]"><i class="fa-solid fa-xmark"></i></button></div></div><div class="tree-line ${isCollapsed ? 'hidden' : ''}">${!isCollapsed ? this.buildTree(value, currentPath, nextForceShow) : ''}</div></div>`;
+                }
+            });
+            const visibleKeys = Object.keys(data).filter(k => k !== '_meta_log' && k !== 'log_config' && k !== '_mood_history');
+            if (visibleKeys.length === 0 && !this.searchTerm) {
+                const safeP = this.safePath(path);
+                html += `<div class="text-[10px] text-gray-700 italic p-2 flex items-center">EMPTY <button onclick="app.addItem('${safeP}', ${isArray})" class="ml-2 text-green-700 hover:text-green-400"><i class="fa-solid fa-plus"></i></button></div>`;
+            }
+            html += `</div>`;
+            return html;
+        }
+        buildKeyDisplay(key, path, isArray, isHeader = false) {
+            if (isArray) return `<span class="text-green-800 font-bold mr-2 text-[10px]">[${key}]</span>`;
+            const displayClass = isHeader ? 'text-gray-400 uppercase tracking-widest' : 'key-display uppercase';
+            if (this.searchTerm && key.toLowerCase().includes(this.searchTerm)) {
+                return `<span class="${displayClass} text-green-400 border-b border-green-500">${key}</span>`;
+            }
+            return `<span class="${displayClass}">${key}</span>`;
+        }
+        buildPrimitiveControls(safeP, isArray, key, arrayLength, val) {
+            if (this.editingPath === safeP) return ''; 
+            const vUpper = String(val).toUpperCase();
+            const isSwitch = ['PENDING', 'IN PROGRESS', 'COMPLETED', 'ACTIVE', 'INACTIVE', 'TRUE', 'FALSE'].includes(vUpper) || typeof val === 'boolean';
+            if (isSwitch) {
+                    return `<div class="flex items-center gap-2 ml-2"><button onclick="app.deleteItem('${safeP}')" class="btn-action text-red-900 hover:text-red-500"><i class="fa-solid fa-xmark"></i></button></div>`;
+            }
+            return ''; 
+        }
+        buildPrimitive(val, path, keyName) {
+            const initialValue = typeof val === 'object' && val !== null ? JSON.stringify(val) : val;
+            if (this.editingPath === path) {
+                const lineCount = String(initialValue).split('\n').length;
+                const rows = Math.max(3, lineCount + 1); 
+                const showClock = /timestamp/i.test(keyName);
+                return `<div class="flex items-start w-full gap-1"><textarea id="input-${path}" class="edit-input" rows="${rows}" onkeydown="if(event.key==='Enter' && event.shiftKey) {event.preventDefault(); app.updateValue('${path}', this.value)}" >${initialValue}</textarea><div class="flex flex-col gap-1 mt-1"><div class="flex items-center gap-1"><button onclick="app.updateValue('${path}', document.getElementById('input-${path}').value)" class="text-green-500 hover:bg-green-900/50 large-control-btn"><i class="fa-solid fa-check"></i></button><button onclick="app.cancelEdit()" class="text-gray-500 hover:bg-gray-800 large-control-btn"><i class="fa-solid fa-ban"></i></button>${showClock ? `<button onclick="app.injectTime('${path}')" class="text-blue-400 hover:bg-blue-900/30 large-control-btn" title="Inject Timestamp"><i class="fa-solid fa-clock"></i></button>` : ''}</div><button onclick="app.deleteItem('${path}')" class="text-red-900 hover:text-red-500 text-[10px] p-1 mt-1 text-right"><i class="fa-solid fa-xmark"></i></button></div></div>`; 
+            }
+            const percentMatch = String(val).match(/^(\d{1,3})%$/);
+            if (percentMatch) {
+                return `<div class="flex items-center"><button class="stepper-btn" onclick="app.incrementPercent('${path}', -25)"><i class="fa-solid fa-angles-left"></i></button><button class="stepper-btn" onclick="app.incrementPercent('${path}', -5)"><i class="fa-solid fa-minus"></i></button><span class="val-display mono text-[#00ff9d] hover:underline mx-0 whitespace-nowrap min-w-[3rem] text-center flex-shrink-0" onclick="app.setEdit('${path}')">${val}</span><button class="stepper-btn" onclick="app.incrementPercent('${path}', 5)"><i class="fa-solid fa-plus"></i></button><button class="stepper-btn" onclick="app.incrementPercent('${path}', 25)"><i class="fa-solid fa-angles-right"></i></button></div>`;
+            }
+            const vUpper = String(val).toUpperCase();
+            if (['PENDING', 'IN PROGRESS', 'COMPLETED'].includes(vUpper)) {
+                return `<div class="state-switch"><div class="state-btn ${vUpper === 'PENDING' ? 'state-btn-active-pend' : ''}" onclick="app.updateValue('${path}', 'PENDING')">PEND</div><div class="state-btn ${vUpper === 'IN PROGRESS' ? 'state-btn-active-prog' : ''}" onclick="app.updateValue('${path}', 'IN PROGRESS')">PROG</div><div class="state-btn ${vUpper === 'COMPLETED' ? 'state-btn-active-comp' : ''}" onclick="app.updateValue('${path}', 'COMPLETED')">DONE</div></div>`;
+            }
+            if (['ACTIVE', 'INACTIVE'].includes(vUpper)) {
+                return `<div class="state-switch"><div class="state-btn ${vUpper === 'ACTIVE' ? 'state-btn-active-on' : ''}" onclick="app.updateValue('${path}', 'ACTIVE')">ACTIVE</div><div class="state-btn ${vUpper === 'INACTIVE' ? 'state-btn-active-off' : ''}" onclick="app.updateValue('${path}', 'INACTIVE')">INACTIVE</div></div>`;
+            }
+            if (['TRUE', 'FALSE'].includes(vUpper) || typeof val === 'boolean') {
+                const isTrue = vUpper === 'TRUE' || val === true;
+                return `<div class="state-switch"><div class="state-btn ${isTrue ? 'state-btn-active-on' : ''}" onclick="app.updateValue('${path}', 'TRUE')">TRUE</div><div class="state-btn ${!isTrue ? 'state-btn-active-off' : ''}" onclick="app.updateValue('${path}', 'FALSE')">FALSE</div></div>`;
+            }
+            if (typeof val === 'number') {
+                    return `<div class="flex items-center"><button class="stepper-btn" onclick="app.incrementValue('${path}', -10)"><i class="fa-solid fa-angles-left"></i></button><button class="stepper-btn" onclick="app.incrementValue('${path}', -1)"><i class="fa-solid fa-minus"></i></button><span class="val-display mono text-green-400 hover:underline mx-0 whitespace-nowrap min-w-[3rem] text-center flex-shrink-0" onclick="app.setEdit('${path}')">${val}</span><button class="stepper-btn" onclick="app.incrementValue('${path}', 1)"><i class="fa-solid fa-plus"></i></button><button class="stepper-btn" onclick="app.incrementValue('${path}', 10)"><i class="fa-solid fa-angles-right"></i></button></div>`;
+            }
+            const timeMatch = String(val).match(/^\d{1,2}:\d{2}$/);
+            if (timeMatch) {
+                return `<div class="flex items-center"><button class="stepper-btn" onclick="app.incrementTime('${path}', -10)"><i class="fa-solid fa-angles-left"></i></button><button class="stepper-btn" onclick="app.incrementTime('${path}', -1)"><i class="fa-solid fa-minus"></i></button><span class="val-display mono text-blue-400 hover:underline mx-0 whitespace-nowrap min-w-[3rem] text-center flex-shrink-0" onclick="app.setEdit('${path}')">${val}</span><button class="stepper-btn" onclick="app.incrementTime('${path}', 1)"><i class="fa-solid fa-plus"></i></button><button class="stepper-btn" onclick="app.incrementTime('${path}', 10)"><i class="fa-solid fa-angles-right"></i></button></div>`;
+            }
+            if (vUpper === 'CRITICAL') return `<span class="badge badge-critical cursor-pointer" onclick="app.setEdit('${path}')">CRITICAL</span>`;
+            if (vUpper === 'HIGH') return `<span class="badge badge-high cursor-pointer" onclick="app.setEdit('${path}')">HIGH</span>`;
+            if (vUpper === 'MEDIUM') return `<span class="badge badge-medium cursor-pointer" onclick="app.setEdit('${path}')">MEDIUM</span>`;
+            if (vUpper === 'LOW') return `<span class="badge badge-low cursor-pointer" onclick="app.setEdit('${path}')">LOW</span>`;
+            return `<span class="val-display mono text-green-400 hover:underline" onclick="app.setEdit('${path}')">${val}</span>`;
+        }
+        setEdit(path) { this.editingPath = path; this.render(); setTimeout(() => { const el = document.getElementById(`input-${path}`); if(el) { el.focus(); el.select(); } }, 50); }
+        cancelEdit() { this.editingPath = null; this.render(); }
+        
+        toggleIO(mode) {
+            const modal = document.getElementById('io-modal');
+            const ta = document.getElementById('raw-json');
+            const header = document.getElementById('modal-header');
+            const copyBtn = document.getElementById('copy-btn');
+            const loadBtn = document.getElementById('load-btn');
+            const exportOption = document.getElementById('export-option-container');
+            const exportCheck = document.getElementById('export-visible-check');
+            if (modal.classList.contains('hidden')) {
+                if (mode === 'export') { 
+                    exportOption.classList.remove('hidden'); 
+                    exportCheck.checked = false; 
+                    this.updateExportPreview(); 
+                    ta.readOnly = true; 
+                    header.textContent = 'DATA EXTRACTION'; 
+                    ta.placeholder = '// COPY DATA STREAM BELOW //'; 
+                    copyBtn.classList.remove('hidden'); 
+                    loadBtn.classList.add('hidden'); 
+                }
+                else if (mode === 'import') { 
+                    exportOption.classList.add('hidden'); 
+                    ta.value = ''; 
+                    ta.readOnly = false; 
+                    header.textContent = 'DATA INJECTION'; 
+                    ta.placeholder = '// PASTE WORLD MODEL HERE //'; 
+                    copyBtn.classList.add('hidden'); 
+                    loadBtn.classList.remove('hidden'); 
+                }
+                modal.classList.remove('hidden');
+            } else { 
+                modal.classList.add('hidden'); 
+                ta.readOnly = false; 
+                exportOption.classList.add('hidden');
+            }
+        }
+        saveRaw() { 
+            try { 
+                const ta = document.getElementById('raw-json'); 
+                let newState = JSON.parse(ta.value); 
+                newState._meta_log = []; 
+                if (!newState.log_config) newState.log_config = { "limit": 10, "enabled": true };
+                if (!newState._mood_history) newState._mood_history = [];
+                this.state = newState; 
+                this.save(); 
+                this.toggleIO(); 
+            } catch(e) { alert("SYNTAX ERROR: Invalid JSON."); } 
+        }
+        copyRaw() { const ta = document.getElementById('raw-json'); ta.select(); document.execCommand('copy'); const tempBtnText = document.getElementById('copy-btn').textContent; document.getElementById('copy-btn').textContent = 'COPIED!'; setTimeout(() => { document.getElementById('copy-btn').textContent = tempBtnText; }, 1000); }
+
+        // --- Charting Logic ---
+        toggleChart() {
+            const modal = document.getElementById('chart-modal');
+            if(modal.classList.contains('hidden')) {
+                this.renderChart();
+                modal.classList.remove('hidden');
+            } else {
+                modal.classList.add('hidden');
+            }
+        }
+
+        renderChart() {
+            const container = document.getElementById('chart-svg-container');
+            if(!container) return;
+            
+            const history = this.state._mood_history || [];
+            // Take last 10 entries
+            const data = history.slice(-10);
+            
+            if (data.length < 2) {
+                container.innerHTML = `<div class="flex items-center justify-center h-full text-gray-600 text-xs">INSUFFICIENT DATA (${data.length}/2)</div>`;
+                return;
+            }
+
+            document.getElementById('chart-cycle-count').textContent = data.length;
+
+            const width = container.clientWidth || 300;
+            const height = 300;
+            const padding = 20;
+            const contentW = width - (padding * 2);
+            const contentH = height - (padding * 2);
+
+            // Parsing helper
+            const parsePct = (val) => {
+                if(typeof val === 'string') {
+                    const m = val.match(/^(\d+)/);
+                    return m ? parseInt(m[1]) : 0;
+                }
+                return 0;
+            };
+
+            const points = data.map((entry, idx) => {
+                const x = padding + (idx / (data.length - 1)) * contentW;
+                return {
+                    x,
+                    motiv: parsePct(entry.data.MOTIVATION),
+                    focus: parsePct(entry.data.FOCUS),
+                    wake: parsePct(entry.data.WAKEFULNESS),
+                    exhaust: parsePct(entry.data.EXHAUSTION),
+                    ts: entry.ts
+                };
+            });
+
+            const makePath = (key, color) => {
+                let d = `M ${points[0].x} ${height - padding - (points[0][key]/100 * contentH)}`;
+                points.forEach((p, i) => {
+                    if (i === 0) return;
+                    d += ` L ${p.x} ${height - padding - (p[key]/100 * contentH)}`;
+                });
+                return `<path d="${d}" stroke="${color}" class="chart-line" />`;
+            };
+
+            const makeDots = (key, color) => {
+                return points.map(p => 
+                    `<circle cx="${p.x}" cy="${height - padding - (p[key]/100 * contentH)}" r="3" fill="${color}" stroke="#000" class="chart-dot"><title>${key.toUpperCase()}: ${p[key]}%\n${p.ts}</title></circle>`
+                ).join('');
+            };
+
+            const svg = `
+                <svg width="100%" height="100%" viewBox="0 0 ${width} ${height}" xmlns="http://www.w3.org/2000/svg">
+                    <line x1="${padding}" y1="${padding}" x2="${padding}" y2="${height-padding}" class="chart-axis" />
+                    <line x1="${padding}" y1="${height-padding}" x2="${width-padding}" y2="${height-padding}" class="chart-axis" />
+                    
+                    <line x1="${padding}" y1="${padding + contentH*0.25}" x2="${width-padding}" y2="${padding + contentH*0.25}" class="chart-grid" />
+                    <line x1="${padding}" y1="${padding + contentH*0.50}" x2="${width-padding}" y2="${padding + contentH*0.50}" class="chart-grid" />
+                    <line x1="${padding}" y1="${padding + contentH*0.75}" x2="${width-padding}" y2="${padding + contentH*0.75}" class="chart-grid" />
+
+                    <text x="${padding-5}" y="${padding + contentH*0.25 + 3}" text-anchor="end" class="chart-label">75%</text>
+                    <text x="${padding-5}" y="${padding + contentH*0.50 + 3}" text-anchor="end" class="chart-label">50%</text>
+                    <text x="${padding-5}" y="${padding + contentH*0.75 + 3}" text-anchor="end" class="chart-label">25%</text>
+
+                    ${makePath('motiv', '#eab308')}
+                    ${makePath('focus', '#3b82f6')}
+                    ${makePath('wake', '#22c55e')}
+                    ${makePath('exhaust', '#ef4444')}
+
+                    ${makeDots('motiv', '#eab308')}
+                    ${makeDots('focus', '#3b82f6')}
+                    ${makeDots('wake', '#22c55e')}
+                    ${makeDots('exhaust', '#ef4444')}
+                </svg>
+            `;
+            
+            container.innerHTML = svg;
+        }
+    }
+    const app = new ZyqralOS();
+</script>
 </body>
 </html>
