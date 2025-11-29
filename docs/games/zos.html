@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Z-OS | AGENCY PROTOCOL (v6.05)</title>
+    <title>Z-OS | AGENCY PROTOCOL (v6.06)</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
@@ -24,7 +24,7 @@
             font-family: 'Rajdhani', sans-serif;
             background-color: var(--bg-color);
             color: var(--text-color);
-            overflow: hidden; /* Changed to hidden to manage scroll in main */
+            overflow: hidden;
             -webkit-tap-highlight-color: transparent;
         }
 
@@ -269,7 +269,7 @@
     <div class="flex items-center gap-3">
         <div class="flex items-center gap-2">
             <i class="fa-solid fa-network-wired text-green-500 text-sm"></i>
-            <span class="text-green-500 font-bold tracking-widest text-sm">Z-OS <span class="text-white text-xs">v6.05</span></span>
+            <span class="text-green-500 font-bold tracking-widest text-sm">Z-OS <span class="text-white text-xs">v6.06</span></span>
         </div>
         <div class="relative mr-2">
             <input type="text" id="tree-search" class="search-input" placeholder="FILTER" onkeyup="app.updateSearch(this.value)">
@@ -301,10 +301,16 @@
     <div class="p-4 border-b border-gray-800 flex justify-between items-center bg-black">
         <div class="flex items-center gap-4">
             <h2 id="modal-header" class="text-green-500 font-bold text-xs tracking-[0.2em]">DATA SYNCHRONIZATION</h2>
-            <label id="export-option-container" class="hidden flex items-center gap-2 cursor-pointer group">
-                <input type="checkbox" id="export-visible-check" onchange="app.updateExportPreview()" class="accent-green-500 cursor-pointer w-3 h-3">
-                <span class="text-[10px] text-gray-500 font-bold tracking-wider group-hover:text-green-400">VISIBLE ONLY</span>
-            </label>
+            <div id="export-option-container" class="hidden flex items-center gap-4">
+                <label class="flex items-center gap-2 cursor-pointer group">
+                    <input type="checkbox" id="export-visible-check" onchange="app.updateExportPreview()" class="accent-green-500 cursor-pointer w-3 h-3">
+                    <span class="text-[10px] text-gray-500 font-bold tracking-wider group-hover:text-green-400">VISIBLE ONLY</span>
+                </label>
+                <label class="flex items-center gap-2 cursor-pointer group">
+                    <input type="checkbox" id="export-logs-check" onchange="app.updateExportPreview()" class="accent-blue-500 cursor-pointer w-3 h-3">
+                    <span class="text-[10px] text-gray-500 font-bold tracking-wider group-hover:text-blue-400">INCLUDE LOGS</span>
+                </label>
+            </div>
         </div>
         <button onclick="app.toggleIO()" class="text-gray-500 hover:text-white"><i class="fa-solid fa-xmark fa-lg"></i></button>
     </div>
@@ -374,8 +380,8 @@
         "_mood_history": []
     };
 
-    const STORAGE_KEY = 'zos_v6_05';
-    const LEGACY_KEY = 'zos_v6_04';
+    const STORAGE_KEY = 'zos_v6_06';
+    const LEGACY_KEY = 'zos_v6_05';
 
     class ZyqralOS {
         constructor() {
@@ -476,11 +482,9 @@
         }
 
         trackMoodUpdate(pathStr) {
-            // Check if updated path is part of MOOD structure
             if (pathStr.toUpperCase().includes('MOOD')) {
                 const now = new Date().toISOString();
                 
-                // Find current mood state in object
                 let moodData = {};
                 const findMood = (obj) => {
                     for (const key in obj) {
@@ -498,20 +502,16 @@
                 const currentMoodObj = findMood(this.state);
                 
                 if (currentMoodObj) {
-                    // Create a clean snapshot
                     const snapshot = {
                         ts: now,
                         data: JSON.parse(JSON.stringify(currentMoodObj))
                     };
 
                     if (this.moodCycleTimer) {
-                        // Grace period active: update the pending snapshot
                         this.pendingMoodSnapshot = snapshot;
-                        // Reset timer to extend grace period
                         clearTimeout(this.moodCycleTimer);
                         this.activateMoodTimer();
                     } else {
-                        // New cycle
                         this.pendingMoodSnapshot = snapshot;
                         this.activateMoodTimer();
                     }
@@ -525,7 +525,6 @@
                 if (this.pendingMoodSnapshot) {
                     if (!this.state._mood_history) this.state._mood_history = [];
                     this.state._mood_history.push(this.pendingMoodSnapshot);
-                    // Keep history manageable (e.g., last 100 entries)
                     if (this.state._mood_history.length > 100) {
                         this.state._mood_history.shift();
                     }
@@ -554,7 +553,7 @@
         }
 
         logGranular(type, pathStr, displayOld, displayNew) {
-            this.trackMoodUpdate(pathStr); // Hook for mood tracking
+            this.trackMoodUpdate(pathStr); 
 
             if (!this.state.log_config.enabled) return;
             const now = new Date();
@@ -583,7 +582,6 @@
             }
         }
         
-        // ... (Log control UI methods same as before) ...
         updateLogControlUI() {
             const btn = document.getElementById('log-toggle-btn');
             const input = document.getElementById('log-limit-input');
@@ -647,7 +645,6 @@
             }
         }
 
-        // ... (Path helpers, parent retrieval, reordering logic same as before) ...
         formatPath(pathStr) { return pathStr.replace(/\|/g, ' > '); }
         safePath(path) { return path.replace(/'/g, "\\'").replace(/"/g, '&quot;'); }
         getParent(pathStr) {
@@ -719,12 +716,10 @@
             this.editingPath = null;
             if(this.pendingEdits[pathStr]) delete this.pendingEdits[pathStr];
             const p = this.formatPath(pathStr);
-            // Log update calls granular which now triggers mood tracking
             this.logGranular('UPDATE', pathStr, oldValue, val);
             this.save();
         }
 
-        // ... (Increment helpers, delete, add same as before, ensuring logGranular is called) ...
         incrementValue(pathStr, amount) {
             const { parent, key } = this.getParent(pathStr);
             if (!parent) return;
@@ -782,8 +777,6 @@
             this.editingPath = null;
             if(this.pendingEdits[pathStr]) delete this.pendingEdits[pathStr];
             const p = this.formatPath(pathStr);
-            // Delete might affect mood, but path might be gone. Attempt track before delete? 
-            // Simplified: tracking updates mostly.
             this.addLog(`DELETE <span class="log-hl">[${p}]</span><br> VALUE: ${valLog}`);
             this.save();
         }
@@ -835,7 +828,6 @@
             this.render();
         }
         
-        // ... (Render logic same as before, filterVisible, etc) ...
         filterVisible(data, path = '') {
             if (data === null || typeof data !== 'object') return data;
             const isArray = Array.isArray(data);
@@ -862,23 +854,35 @@
         }
         updateExportPreview() {
             const ta = document.getElementById('raw-json');
-            const checkbox = document.getElementById('export-visible-check');
+            const visibleCheck = document.getElementById('export-visible-check');
+            const logsCheck = document.getElementById('export-logs-check');
+            
             let dataToExport;
-            if (checkbox.checked) {
+            if (visibleCheck.checked) {
                 dataToExport = this.filterVisible(this.state);
             } else {
                 dataToExport = JSON.parse(JSON.stringify(this.state));
             }
-            if (dataToExport._meta_log) {
-                dataToExport._meta_log = dataToExport._meta_log.map(log => {
+
+            if (logsCheck.checked) {
+                // If checkbox is checked, ensure logs are present (even if filtered out by visible check)
+                // We use the full state's logs, processed
+                const fullLogs = this.state._meta_log || [];
+                dataToExport._meta_log = fullLogs.map(log => {
                     let cleanText = log.a
                         .replace(/<br\s*\/?>/gi, '\n')
                         .replace(/<[^>]+>/g, '')
                         .replace(/\u81f3/g, '至');
-                    log.a = cleanText;
-                    return log;
+                    return { t: log.t, a: cleanText };
                 });
+            } else {
+                // Explicitly remove logs if unchecked
+                delete dataToExport._meta_log;
             }
+
+            // Always remove Mood history from export to keep it clean, unless specifically requested in future
+            delete dataToExport._mood_history;
+
             ta.value = JSON.stringify(dataToExport, null, 2);
         }
         render() {
@@ -886,7 +890,6 @@
             root.innerHTML = this.buildTree(this.state, '');
         }
         
-        // ... (Build tree methods same as before) ...
         buildReorderArrows(path, key, parentLength) {
             const { isArray, parent } = this.getParent(path);
             const isReorderable = isArray || (typeof parent === 'object' && !Array.isArray(parent) && path !== '');
@@ -1001,11 +1004,16 @@
             const loadBtn = document.getElementById('load-btn');
             const exportOption = document.getElementById('export-option-container');
             const exportCheck = document.getElementById('export-visible-check');
+            const logsCheck = document.getElementById('export-logs-check');
+
             if (modal.classList.contains('hidden')) {
                 if (mode === 'export') { 
                     exportOption.classList.remove('hidden'); 
                     exportCheck.checked = false; 
+                    logsCheck.checked = true; // Default to including logs
+                    
                     this.updateExportPreview(); 
+                    
                     ta.readOnly = true; 
                     header.textContent = 'DATA EXTRACTION'; 
                     ta.placeholder = '// COPY DATA STREAM BELOW //'; 
@@ -1014,6 +1022,7 @@
                 }
                 else if (mode === 'import') { 
                     exportOption.classList.add('hidden'); 
+                    
                     ta.value = ''; 
                     ta.readOnly = false; 
                     header.textContent = 'DATA INJECTION'; 
