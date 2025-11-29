@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Z-OS | AGENCY PROTOCOL (v6.06)</title>
+    <title>Z-OS | AGENCY PROTOCOL (v6.07)</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
@@ -261,24 +261,69 @@
         
         .legend-item { display: flex; items-center; font-size: 10px; margin-right: 12px; color: #888; }
         .legend-color { width: 8px; height: 8px; border-radius: 50%; margin-right: 4px; }
+
+        /* Macro Menu */
+        #macro-menu {
+            position: absolute;
+            top: 100%;
+            right: 0;
+            margin-top: 8px;
+            background: #0a0a0a;
+            border: 1px solid #333;
+            border-radius: 4px;
+            min-width: 160px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.5);
+            z-index: 60;
+            display: none;
+        }
+        .macro-item {
+            display: block;
+            width: 100%;
+            text-align: left;
+            padding: 8px 12px;
+            font-size: 10px;
+            font-weight: bold;
+            color: #888;
+            border-bottom: 1px solid #1a1a1a;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .macro-item:last-child { border-bottom: none; }
+        .macro-item:hover { background: #111; color: var(--accent-color); }
+        .macro-item i { margin-right: 8px; width: 14px; text-align: center; }
+
     </style>
 </head>
 <body class="flex flex-col h-screen">
 
-<header class="bg-black border-b border-green-900/30 p-3 flex justify-between items-center sticky top-0 z-50 shadow-lg shadow-green-900/10 shrink-0">
+<header class="bg-black border-b border-green-900/30 p-3 flex justify-between items-center sticky top-0 z-50 shadow-lg shadow-green-900/10 shrink-0 relative">
     <div class="flex items-center gap-3">
         <div class="flex items-center gap-2">
             <i class="fa-solid fa-network-wired text-green-500 text-sm"></i>
-            <span class="text-green-500 font-bold tracking-widest text-sm">Z-OS <span class="text-white text-xs">v6.06</span></span>
+            <span class="text-green-500 font-bold tracking-widest text-sm">Z-OS <span class="text-white text-xs">v6.07</span></span>
         </div>
         <div class="relative mr-2">
             <input type="text" id="tree-search" class="search-input" placeholder="FILTER" onkeyup="app.updateSearch(this.value)">
             <i class="fa-solid fa-filter text-gray-700 text-[9px] absolute right-2 top-1.5 pointer-events-none"></i>
         </div>
     </div>
-    <div id="mood-indicator" class="hidden md:flex items-center gap-2 text-[10px] font-mono text-gray-500">
-        <span class="w-2 h-2 rounded-full bg-gray-800" id="mood-pulse"></span>
-        <span id="mood-status">NO TRACKING</span>
+    
+    <div class="flex items-center gap-2 relative">
+        <div id="mood-indicator" class="hidden md:flex items-center gap-2 text-[10px] font-mono text-gray-500 mr-2">
+            <span class="w-2 h-2 rounded-full bg-gray-800" id="mood-pulse"></span>
+            <span id="mood-status">NO TRACKING</span>
+        </div>
+        
+        <div class="relative">
+            <button onclick="app.toggleMacros()" class="bg-purple-900/20 text-purple-400 border border-purple-800 px-3 py-1 text-[10px] font-bold rounded hover:bg-purple-900/40 tracking-wider flex items-center gap-2">
+                <i class="fa-solid fa-bolt"></i> MACROS
+            </button>
+            <div id="macro-menu">
+                <button class="macro-item text-yellow-500 hover:text-yellow-400" onclick="app.executeMacro('RESET_TASKS')">
+                    <i class="fa-solid fa-rotate-left"></i> RESET TASKS
+                </button>
+                </div>
+        </div>
     </div>
 </header>
 
@@ -380,8 +425,8 @@
         "_mood_history": []
     };
 
-    const STORAGE_KEY = 'zos_v6_06';
-    const LEGACY_KEY = 'zos_v6_05';
+    const STORAGE_KEY = 'zos_v6_07';
+    const LEGACY_KEY = 'zos_v6_06';
 
     class ZyqralOS {
         constructor() {
@@ -400,7 +445,16 @@
             // Mood Tracking Variables
             this.moodCycleTimer = null;
             this.pendingMoodSnapshot = null;
-            this.moodCycleDuration = 30000; // 30 seconds grace period
+            this.moodCycleDuration = 30000; 
+
+            // Click listener to close macro menu
+            document.addEventListener('click', (e) => {
+                const menu = document.getElementById('macro-menu');
+                const btn = e.target.closest('button');
+                if (menu.style.display === 'block' && (!btn || !btn.onclick || !btn.onclick.toString().includes('toggleMacros'))) {
+                    menu.style.display = 'none';
+                }
+            });
 
             this.render();
             this.updateMoodIndicator();
@@ -481,10 +535,43 @@
             }
         }
 
+        // --- MACRO LOGIC ---
+        toggleMacros() {
+            const menu = document.getElementById('macro-menu');
+            if (menu.style.display === 'block') menu.style.display = 'none';
+            else menu.style.display = 'block';
+        }
+
+        executeMacro(type) {
+            if (type === 'RESET_TASKS') {
+                if(confirm('MACRO EXECUTION: Reset all "IN PROGRESS" and "COMPLETED" tasks to "PENDING"?')) {
+                    let count = 0;
+                    const recursiveReset = (obj) => {
+                        for (let k in obj) {
+                            if (k === '_meta_log' || k === 'log_config' || k === '_mood_history') continue;
+                            if (typeof obj[k] === 'object' && obj[k] !== null) {
+                                recursiveReset(obj[k]);
+                            } else if (typeof obj[k] === 'string') {
+                                const val = obj[k].toUpperCase();
+                                if (val === 'IN PROGRESS' || val === 'COMPLETED') {
+                                    obj[k] = 'PENDING';
+                                    count++;
+                                }
+                            }
+                        }
+                    };
+                    recursiveReset(this.state);
+                    this.addLog(`MACRO EXECUTION <span class="log-hl">[RESET TASKS]</span><br> UPDATED ${count} NODES TO "PENDING"`);
+                    this.save();
+                    this.toggleMacros();
+                }
+            }
+        }
+
+        // --- MOOD LOGIC ---
         trackMoodUpdate(pathStr) {
             if (pathStr.toUpperCase().includes('MOOD')) {
                 const now = new Date().toISOString();
-                
                 let moodData = {};
                 const findMood = (obj) => {
                     for (const key in obj) {
@@ -498,15 +585,12 @@
                     }
                     return null;
                 };
-
                 const currentMoodObj = findMood(this.state);
-                
                 if (currentMoodObj) {
                     const snapshot = {
                         ts: now,
                         data: JSON.parse(JSON.stringify(currentMoodObj))
                     };
-
                     if (this.moodCycleTimer) {
                         this.pendingMoodSnapshot = snapshot;
                         clearTimeout(this.moodCycleTimer);
@@ -540,7 +624,6 @@
             const indicator = document.getElementById('mood-pulse');
             const status = document.getElementById('mood-status');
             if (!indicator || !status) return;
-
             if (active) {
                 indicator.className = "w-2 h-2 rounded-full bg-blue-500 animate-pulse";
                 status.textContent = "CYCLE ACTIVE";
@@ -554,7 +637,6 @@
 
         logGranular(type, pathStr, displayOld, displayNew) {
             this.trackMoodUpdate(pathStr); 
-
             if (!this.state.log_config.enabled) return;
             const now = new Date();
             const ts = now.toTimeString().split(' ')[0];
@@ -582,6 +664,7 @@
             }
         }
         
+        // ... Standard UI methods ...
         updateLogControlUI() {
             const btn = document.getElementById('log-toggle-btn');
             const input = document.getElementById('log-limit-input');
@@ -865,8 +948,6 @@
             }
 
             if (logsCheck.checked) {
-                // If checkbox is checked, ensure logs are present (even if filtered out by visible check)
-                // We use the full state's logs, processed
                 const fullLogs = this.state._meta_log || [];
                 dataToExport._meta_log = fullLogs.map(log => {
                     let cleanText = log.a
@@ -876,13 +957,9 @@
                     return { t: log.t, a: cleanText };
                 });
             } else {
-                // Explicitly remove logs if unchecked
                 delete dataToExport._meta_log;
             }
-
-            // Always remove Mood history from export to keep it clean, unless specifically requested in future
             delete dataToExport._mood_history;
-
             ta.value = JSON.stringify(dataToExport, null, 2);
         }
         render() {
@@ -1010,7 +1087,7 @@
                 if (mode === 'export') { 
                     exportOption.classList.remove('hidden'); 
                     exportCheck.checked = false; 
-                    logsCheck.checked = true; // Default to including logs
+                    logsCheck.checked = true; 
                     
                     this.updateExportPreview(); 
                     
@@ -1051,7 +1128,6 @@
         }
         copyRaw() { const ta = document.getElementById('raw-json'); ta.select(); document.execCommand('copy'); const tempBtnText = document.getElementById('copy-btn').textContent; document.getElementById('copy-btn').textContent = 'COPIED!'; setTimeout(() => { document.getElementById('copy-btn').textContent = tempBtnText; }, 1000); }
 
-        // --- Charting Logic ---
         toggleChart() {
             const modal = document.getElementById('chart-modal');
             if(modal.classList.contains('hidden')) {
@@ -1083,7 +1159,6 @@
             const contentW = width - (padding * 2);
             const contentH = height - (padding * 2);
 
-            // Parsing helper
             const parsePct = (val) => {
                 if(typeof val === 'string') {
                     const m = val.match(/^(\d+)/);
