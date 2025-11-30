@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Z-OS | AGENCY PROTOCOL (v6.10)</title>
+    <title>Z-OS | AGENCY PROTOCOL (v6.11)</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
@@ -301,7 +301,7 @@
     <div class="flex items-center gap-3">
         <div class="flex items-center gap-2">
             <i class="fa-solid fa-network-wired text-green-500 text-sm"></i>
-            <span class="text-green-500 font-bold tracking-widest text-sm">Z-OS <span class="text-white text-xs">v6.10</span></span>
+            <span class="text-green-500 font-bold tracking-widest text-sm">Z-OS <span class="text-white text-xs">v6.11</span></span>
         </div>
         <div class="relative mr-2">
             <input type="text" id="tree-search" class="search-input" placeholder="FILTER" onkeyup="app.updateSearch(this.value)">
@@ -443,8 +443,8 @@
         "_mood_history": []
     };
 
-    const STORAGE_KEY = 'zos_v6_10';
-    const LEGACY_KEY = 'zos_v6_09';
+    const STORAGE_KEY = 'zos_v6_11';
+    const LEGACY_KEY = 'zos_v6_10';
 
     class ZyqralOS {
         constructor() {
@@ -703,13 +703,20 @@
             this.moodCycleTimer = setTimeout(() => {
                 if (this.pendingMoodSnapshot) {
                     if (!this.state._mood_history) this.state._mood_history = [];
-                    this.state._mood_history.push(this.pendingMoodSnapshot);
-                    // Limit history in memory to reasonable amount, e.g. 500
-                    if (this.state._mood_history.length > 500) {
-                        this.state._mood_history.shift();
+                    
+                    // DEEP CHECK: Only push if different from last entry
+                    const lastEntry = this.state._mood_history[this.state._mood_history.length - 1];
+                    const isDifferent = !lastEntry || JSON.stringify(lastEntry.data) !== JSON.stringify(this.pendingMoodSnapshot.data);
+
+                    if (isDifferent) {
+                        this.state._mood_history.push(this.pendingMoodSnapshot);
+                        if (this.state._mood_history.length > 500) {
+                            this.state._mood_history.shift();
+                        }
+                        this.save();
                     }
+                    
                     this.pendingMoodSnapshot = null;
-                    this.save();
                     this.updateMoodIndicator(false);
                 }
                 this.moodCycleTimer = null;
