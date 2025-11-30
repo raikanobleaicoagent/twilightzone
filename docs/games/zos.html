@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Z-OS | AGENCY PROTOCOL (v6.12)</title>
+    <title>Z-OS | AGENCY PROTOCOL (v6.13)</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
@@ -301,7 +301,7 @@
     <div class="flex items-center gap-3">
         <div class="flex items-center gap-2">
             <i class="fa-solid fa-network-wired text-green-500 text-sm"></i>
-            <span class="text-green-500 font-bold tracking-widest text-sm">Z-OS <span class="text-white text-xs">v6.12</span></span>
+            <span class="text-green-500 font-bold tracking-widest text-sm">Z-OS <span class="text-white text-xs">v6.13</span></span>
         </div>
         <div class="relative mr-2">
             <input type="text" id="tree-search" class="search-input" placeholder="FILTER" onkeyup="app.updateSearch(this.value)">
@@ -320,6 +320,12 @@
                 <i class="fa-solid fa-bolt"></i> MACROS
             </button>
             <div id="macro-menu">
+                <button class="macro-item text-blue-500 hover:text-blue-400" onclick="app.executeMacro('QUICK_NOTE')">
+                    <i class="fa-solid fa-pen-to-square"></i> QUICK NOTE
+                </button>
+                <button class="macro-item text-green-500 hover:text-green-400" onclick="app.executeMacro('UPDATE_TIME')">
+                    <i class="fa-solid fa-clock"></i> UPDATE TIME
+                </button>
                 <button class="macro-item text-yellow-500 hover:text-yellow-400" onclick="app.executeMacro('RESET_TASKS')">
                     <i class="fa-solid fa-rotate-left"></i> RESET TASKS
                 </button>
@@ -443,8 +449,8 @@
         "_mood_history": []
     };
 
-    const STORAGE_KEY = 'zos_v6_12';
-    const LEGACY_KEY = 'zos_v6_11';
+    const STORAGE_KEY = 'zos_v6_13';
+    const LEGACY_KEY = 'zos_v6_12';
 
     class ZyqralOS {
         constructor() {
@@ -559,6 +565,19 @@
             const d = new Date();
             return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')} @ ${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`;
         }
+        
+        // --- HELPER FOR RECURSIVE FIND ---
+        findPathByKey(obj, keyToFind, currentPath = '') {
+            if (typeof obj !== 'object' || obj === null) return null;
+            if (obj.hasOwnProperty(keyToFind)) {
+                return currentPath ? `${currentPath}|${keyToFind}` : keyToFind;
+            }
+            for (let k in obj) {
+                const res = this.findPathByKey(obj[k], keyToFind, currentPath ? `${currentPath}|${k}` : k);
+                if (res) return res;
+            }
+            return null;
+        }
 
         // --- MACRO LOGIC ---
         toggleMacros() {
@@ -624,6 +643,34 @@
                     this.addLog(`MACRO EXECUTION <span class="log-hl">[CLEAR PRESENCE]</span><br> UPDATED ${count} NODES`);
                     this.save();
                     this.toggleMacros();
+                }
+            } else if (type === 'QUICK_NOTE') {
+                const path = this.findPathByKey(this.state, 'SCRATCHPAD');
+                
+                if (path) {
+                    // Update Value without full render if possible, but edit mode needs render
+                    this.updateValue(path, ""); 
+                    
+                    // Force Scroll
+                    const vp = document.getElementById('viewport');
+                    if (vp) vp.scrollTop = vp.scrollHeight;
+                    
+                    // Engage Edit Mode with slight delay to allow render/scroll
+                    setTimeout(() => {
+                        this.setEdit(path);
+                        this.toggleMacros();
+                    }, 50);
+                } else {
+                    alert("SYSTEM ERROR: 'SCRATCHPAD' KEY NOT FOUND.");
+                }
+            } else if (type === 'UPDATE_TIME') {
+                const path = this.findPathByKey(this.state, 'timestamp');
+                if (path) {
+                    this.injectTime(path);
+                    this.addLog(`MACRO EXECUTION <span class="log-hl">[UPDATE TIME]</span>`);
+                    this.toggleMacros();
+                } else {
+                     alert("SYSTEM ERROR: 'timestamp' KEY NOT FOUND.");
                 }
             }
         }
