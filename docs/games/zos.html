@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Z-OS | AGENCY PROTOCOL (v6.11)</title>
+    <title>Z-OS | AGENCY PROTOCOL (v6.12)</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
@@ -301,7 +301,7 @@
     <div class="flex items-center gap-3">
         <div class="flex items-center gap-2">
             <i class="fa-solid fa-network-wired text-green-500 text-sm"></i>
-            <span class="text-green-500 font-bold tracking-widest text-sm">Z-OS <span class="text-white text-xs">v6.11</span></span>
+            <span class="text-green-500 font-bold tracking-widest text-sm">Z-OS <span class="text-white text-xs">v6.12</span></span>
         </div>
         <div class="relative mr-2">
             <input type="text" id="tree-search" class="search-input" placeholder="FILTER" onkeyup="app.updateSearch(this.value)">
@@ -443,8 +443,8 @@
         "_mood_history": []
     };
 
-    const STORAGE_KEY = 'zos_v6_11';
-    const LEGACY_KEY = 'zos_v6_10';
+    const STORAGE_KEY = 'zos_v6_12';
+    const LEGACY_KEY = 'zos_v6_11';
 
     class ZyqralOS {
         constructor() {
@@ -555,6 +555,11 @@
             }
         }
 
+        getTimestamp() {
+            const d = new Date();
+            return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')} @ ${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`;
+        }
+
         // --- MACRO LOGIC ---
         toggleMacros() {
             const menu = document.getElementById('macro-menu');
@@ -639,11 +644,10 @@
 
         trackMoodUpdate(pathStr) {
             if (pathStr.toUpperCase().includes('MOOD')) {
-                const now = new Date().toISOString();
                 const currentMoodObj = this.findMoodRecursive(this.state);
                 if (currentMoodObj) {
                     const snapshot = {
-                        ts: now,
+                        ts: this.getTimestamp(),
                         data: JSON.parse(JSON.stringify(currentMoodObj))
                     };
                     if (this.moodCycleTimer) {
@@ -662,9 +666,8 @@
         forceSnapshot() {
             const currentMoodObj = this.findMoodRecursive(this.state);
             if (currentMoodObj) {
-                const now = new Date().toISOString();
                 const snapshot = {
-                    ts: now,
+                    ts: this.getTimestamp(),
                     data: JSON.parse(JSON.stringify(currentMoodObj))
                 };
                 
@@ -948,8 +951,7 @@
             this.save();
         }
         injectTime(pathStr) {
-            const now = new Date();
-            const iso = now.toISOString().split('T')[0] + ' @ ' + now.toTimeString().split(' ')[0].substring(0,5);
+            const iso = this.getTimestamp();
             this.updateValue(pathStr, iso); 
         }
         deleteItem(pathStr) {
