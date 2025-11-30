@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Z-OS | AGENCY PROTOCOL (v6.09)</title>
+    <title>Z-OS | AGENCY PROTOCOL (v6.10)</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
@@ -301,7 +301,7 @@
     <div class="flex items-center gap-3">
         <div class="flex items-center gap-2">
             <i class="fa-solid fa-network-wired text-green-500 text-sm"></i>
-            <span class="text-green-500 font-bold tracking-widest text-sm">Z-OS <span class="text-white text-xs">v6.09</span></span>
+            <span class="text-green-500 font-bold tracking-widest text-sm">Z-OS <span class="text-white text-xs">v6.10</span></span>
         </div>
         <div class="relative mr-2">
             <input type="text" id="tree-search" class="search-input" placeholder="FILTER" onkeyup="app.updateSearch(this.value)">
@@ -393,10 +393,14 @@
 <div id="chart-modal" class="fixed inset-0 z-[60] hidden flex flex-col">
     <div class="p-4 border-b border-gray-800 flex justify-between items-center bg-black">
         <h2 class="text-blue-400 font-bold text-xs tracking-[0.2em]">MOOD DELTA VISUALIZATION</h2>
-        <button onclick="app.toggleChart()" class="text-gray-500 hover:text-white"><i class="fa-solid fa-xmark fa-lg"></i></button>
+        <div class="flex items-center gap-2">
+            <button onclick="app.forceSnapshot()" class="bg-blue-900/30 text-blue-400 border border-blue-800 px-2 py-0.5 rounded text-[9px] font-bold tracking-wider hover:bg-blue-900/50 mr-2"><i class="fa-solid fa-camera"></i> SNAPSHOT</button>
+            <button onclick="app.clearMoodHistory()" class="bg-red-900/30 text-red-400 border border-red-800 px-2 py-0.5 rounded text-[9px] font-bold tracking-wider hover:bg-red-900/50 mr-4"><i class="fa-solid fa-trash"></i> CLEAR</button>
+            <button onclick="app.toggleChart()" class="text-gray-500 hover:text-white"><i class="fa-solid fa-xmark fa-lg"></i></button>
+        </div>
     </div>
     
-    <div class="p-2 border-b border-gray-900 bg-[#050505] flex justify-between items-center text-[10px] font-mono">
+    <div class="p-2 border-b border-gray-900 bg-[#050505] flex flex-wrap gap-2 justify-between items-center text-[10px] font-mono">
         <div class="flex items-center gap-2">
             <span class="text-gray-500 uppercase">Track Last:</span>
             <input type="number" id="chart-limit-input" class="bg-[#111] border border-gray-700 text-blue-400 w-12 px-1 py-0.5 text-center focus:outline-none focus:border-blue-500 rounded-sm" min="2" onchange="app.updateChartLimit(this.value)">
@@ -439,8 +443,8 @@
         "_mood_history": []
     };
 
-    const STORAGE_KEY = 'zos_v6_09';
-    const LEGACY_KEY = 'zos_v6_08';
+    const STORAGE_KEY = 'zos_v6_10';
+    const LEGACY_KEY = 'zos_v6_09';
 
     class ZyqralOS {
         constructor() {
@@ -620,23 +624,23 @@
         }
 
         // --- MOOD LOGIC ---
+        findMoodRecursive(obj) {
+            for (const key in obj) {
+                if (key.toUpperCase() === 'MOOD' && typeof obj[key] === 'object') {
+                    return obj[key];
+                }
+                if (typeof obj[key] === 'object' && obj[key] !== null) {
+                    const found = this.findMoodRecursive(obj[key]);
+                    if (found) return found;
+                }
+            }
+            return null;
+        }
+
         trackMoodUpdate(pathStr) {
             if (pathStr.toUpperCase().includes('MOOD')) {
                 const now = new Date().toISOString();
-                let moodData = {};
-                const findMood = (obj) => {
-                    for (const key in obj) {
-                        if (key.toUpperCase() === 'MOOD' && typeof obj[key] === 'object') {
-                            return obj[key];
-                        }
-                        if (typeof obj[key] === 'object' && obj[key] !== null) {
-                            const found = findMood(obj[key]);
-                            if (found) return found;
-                        }
-                    }
-                    return null;
-                };
-                const currentMoodObj = findMood(this.state);
+                const currentMoodObj = this.findMoodRecursive(this.state);
                 if (currentMoodObj) {
                     const snapshot = {
                         ts: now,
@@ -652,6 +656,46 @@
                     }
                     this.updateMoodIndicator(true);
                 }
+            }
+        }
+        
+        forceSnapshot() {
+            const currentMoodObj = this.findMoodRecursive(this.state);
+            if (currentMoodObj) {
+                const now = new Date().toISOString();
+                const snapshot = {
+                    ts: now,
+                    data: JSON.parse(JSON.stringify(currentMoodObj))
+                };
+                
+                if (!this.state._mood_history) this.state._mood_history = [];
+                this.state._mood_history.push(snapshot);
+                
+                // Safety limit
+                if (this.state._mood_history.length > 500) {
+                    this.state._mood_history.shift();
+                }
+                
+                this.save();
+                this.renderChart();
+                
+                // Visual feedback
+                const btn = event.target.closest('button');
+                if(btn) {
+                    const originalText = btn.innerHTML;
+                    btn.innerHTML = '<i class="fa-solid fa-check"></i> SAVED';
+                    setTimeout(() => btn.innerHTML = originalText, 1000);
+                }
+            } else {
+                alert("SYSTEM ERROR: NO 'MOOD' OBJECT FOUND.");
+            }
+        }
+        
+        clearMoodHistory() {
+            if(confirm("PERMANENTLY DELETE ALL MOOD DELTA HISTORY?")) {
+                this.state._mood_history = [];
+                this.save();
+                this.renderChart();
             }
         }
 
