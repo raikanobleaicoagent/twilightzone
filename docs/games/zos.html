@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Z-OS | AGENCY PROTOCOL (v6.14)</title>
+    <title>Z-OS | AGENCY PROTOCOL (v6.15)</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
@@ -302,7 +302,7 @@
     <div class="flex items-center gap-3">
         <div class="flex items-center gap-2">
             <i class="fa-solid fa-network-wired text-green-500 text-sm"></i>
-            <span class="text-green-500 font-bold tracking-widest text-sm">Z-OS <span class="text-white text-xs">v6.14</span></span>
+            <span class="text-green-500 font-bold tracking-widest text-sm">Z-OS <span class="text-white text-xs">v6.15</span></span>
         </div>
         <div class="relative mr-2">
             <input type="text" id="tree-search" class="search-input" placeholder="FILTER" onkeyup="app.updateSearch(this.value)">
@@ -450,8 +450,8 @@
         "_mood_history": []
     };
 
-    const STORAGE_KEY = 'zos_v6_14';
-    const LEGACY_KEY = 'zos_v6_13';
+    const STORAGE_KEY = 'zos_v6_15';
+    const LEGACY_KEY = 'zos_v6_14';
 
     class ZyqralOS {
         constructor() {
@@ -551,8 +551,7 @@
 
         addLog(action) {
             if (!this.state.log_config.enabled) return;
-            const now = new Date();
-            const ts = now.toTimeString().split(' ')[0];
+            const ts = this.getTimestamp(true);
             const entry = { t: ts, a: action };
             if(!this.state._meta_log) this.state._meta_log = [];
             this.state._meta_log.unshift(entry);
@@ -562,9 +561,24 @@
             }
         }
 
-        getTimestamp() {
-            const d = new Date();
-            return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')} @ ${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`;
+        getTimestamp(timeOnly = false) {
+            const now = new Date();
+            const options = {
+                timeZone: 'America/Edmonton',
+                year: 'numeric',
+                month: '2-digit',
+                day: '2-digit',
+                hour: '2-digit',
+                minute: '2-digit',
+                second: '2-digit',
+                hour12: false
+            };
+            const formatter = new Intl.DateTimeFormat('en-CA', options);
+            const parts = formatter.formatToParts(now);
+            const get = (type) => parts.find(p => p.type === type).value;
+            
+            if (timeOnly) return `${get('hour')}:${get('minute')}:${get('second')}`;
+            return `${get('year')}-${get('month')}-${get('day')} @ ${get('hour')}:${get('minute')}`;
         }
         
         // --- HELPER FOR RECURSIVE FIND ---
@@ -792,8 +806,7 @@
         logGranular(type, pathStr, displayOld, displayNew) {
             this.trackMoodUpdate(pathStr); 
             if (!this.state.log_config.enabled) return;
-            const now = new Date();
-            const ts = now.toTimeString().split(' ')[0];
+            const ts = this.getTimestamp(true);
             const p = this.formatPath(pathStr);
             const logContent = `${type} <span class="log-hl">[${p}]</span><br> ${displayOld} \u81f3 <span class="text-white">${displayNew}</span>`;
             const pending = this.pendingEdits[pathStr];
