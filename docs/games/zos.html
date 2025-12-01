@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Z-OS | AGENCY PROTOCOL (v6.16)</title>
+    <title>Z-OS | AGENCY PROTOCOL (v6.17)</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
@@ -302,7 +302,7 @@
     <div class="flex items-center gap-3">
         <div class="flex items-center gap-2">
             <i class="fa-solid fa-network-wired text-green-500 text-sm"></i>
-            <span class="text-green-500 font-bold tracking-widest text-sm">Z-OS <span class="text-white text-xs">v6.16</span></span>
+            <span class="text-green-500 font-bold tracking-widest text-sm">Z-OS <span class="text-white text-xs">v6.17</span></span>
         </div>
         <div class="relative mr-2">
             <input type="text" id="tree-search" class="search-input" placeholder="FILTER" onkeyup="app.updateSearch(this.value)">
@@ -451,8 +451,8 @@
         "_mood_history": []
     };
 
-    const STORAGE_KEY = 'zos_v6_16';
-    const LEGACY_KEY = 'zos_v6_15';
+    const STORAGE_KEY = 'zos_v6_17';
+    const LEGACY_KEY = 'zos_v6_16';
 
     class ZyqralOS {
         constructor() {
@@ -1221,7 +1221,7 @@
         buildPrimitiveControls(safeP, isArray, key, arrayLength, val) {
             if (this.editingPath === safeP) return ''; 
             const vUpper = String(val).toUpperCase();
-            const isSwitch = ['PENDING', 'IN PROGRESS', 'COMPLETED', 'ACTIVE', 'INACTIVE', 'TRUE', 'FALSE', 'FAILED'].includes(vUpper) || typeof val === 'boolean';
+            const isSwitch = ['PENDING', 'IN PROGRESS', 'COMPLETED', 'ACTIVE', 'INACTIVE', 'TRUE', 'FALSE', 'FAILED', 'NOBODY', 'RICK', 'TRIBE MEMBER', 'TRIBE', 'BASELINE', 'RISING', 'PLATEAU', 'FALLING'].includes(vUpper) || typeof val === 'boolean';
             if (isSwitch) {
                     return `<div class="flex items-center gap-2 ml-2"><button onclick="app.deleteItem('${safeP}')" class="btn-action text-red-900 hover:text-red-500"><i class="fa-solid fa-xmark"></i></button></div>`;
             }
@@ -1245,6 +1245,12 @@
             }
             if (['ACTIVE', 'INACTIVE'].includes(vUpper)) {
                 return `<div class="state-switch"><div class="state-btn ${vUpper === 'ACTIVE' ? 'state-btn-active-on' : ''}" onclick="app.updateValue('${path}', 'ACTIVE')">ACTIVE</div><div class="state-btn ${vUpper === 'INACTIVE' ? 'state-btn-active-off' : ''}" onclick="app.updateValue('${path}', 'INACTIVE')">INACTIVE</div></div>`;
+            }
+            if (['NOBODY', 'RICK', 'TRIBE MEMBER', 'TRIBE'].includes(vUpper)) {
+                return `<div class="state-switch"><div class="state-btn ${vUpper === 'NOBODY' ? 'state-btn-active-off' : ''}" onclick="app.updateValue('${path}', 'NOBODY')">NOBODY</div><div class="state-btn ${vUpper === 'RICK' ? 'state-btn-active-on' : ''}" onclick="app.updateValue('${path}', 'RICK')">RICK</div><div class="state-btn ${vUpper.includes('TRIBE') ? 'state-btn-active-prog' : ''}" onclick="app.updateValue('${path}', 'TRIBE MEMBER')">TRIBE</div></div>`;
+            }
+            if (['BASELINE', 'RISING', 'PLATEAU', 'FALLING'].includes(vUpper)) {
+                 return `<div class="state-switch"><div class="state-btn ${vUpper === 'BASELINE' ? 'state-btn-active-off' : ''}" onclick="app.updateValue('${path}', 'BASELINE')">BASE</div><div class="state-btn ${vUpper === 'RISING' ? 'state-btn-active-on' : ''}" onclick="app.updateValue('${path}', 'RISING')">RISE</div><div class="state-btn ${vUpper === 'PLATEAU' ? 'state-btn-active-pend' : ''}" onclick="app.updateValue('${path}', 'PLATEAU')">FLAT</div><div class="state-btn ${vUpper === 'FALLING' ? 'state-btn-active-fail' : ''}" onclick="app.updateValue('${path}', 'FALLING')">FALL</div></div>`;
             }
             if (['TRUE', 'FALSE'].includes(vUpper) || typeof val === 'boolean') {
                 const isTrue = vUpper === 'TRUE' || val === true;
