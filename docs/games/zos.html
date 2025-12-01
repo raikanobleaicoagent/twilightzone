@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Z-OS | AGENCY PROTOCOL (v6.15)</title>
+    <title>Z-OS | AGENCY PROTOCOL (v6.16)</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
@@ -302,7 +302,7 @@
     <div class="flex items-center gap-3">
         <div class="flex items-center gap-2">
             <i class="fa-solid fa-network-wired text-green-500 text-sm"></i>
-            <span class="text-green-500 font-bold tracking-widest text-sm">Z-OS <span class="text-white text-xs">v6.15</span></span>
+            <span class="text-green-500 font-bold tracking-widest text-sm">Z-OS <span class="text-white text-xs">v6.16</span></span>
         </div>
         <div class="relative mr-2">
             <input type="text" id="tree-search" class="search-input" placeholder="FILTER" onkeyup="app.updateSearch(this.value)">
@@ -359,11 +359,11 @@
             <h2 id="modal-header" class="text-green-500 font-bold text-xs tracking-[0.2em]">DATA SYNCHRONIZATION</h2>
             <div id="export-option-container" class="hidden flex items-center gap-4">
                 <label class="flex items-center gap-2 cursor-pointer group">
-                    <input type="checkbox" id="export-visible-check" onchange="app.updateExportPreview()" class="accent-green-500 cursor-pointer w-3 h-3">
+                    <input type="checkbox" id="export-visible-check" onchange="app.updateExportConfig()" class="accent-green-500 cursor-pointer w-3 h-3">
                     <span class="text-[10px] text-gray-500 font-bold tracking-wider group-hover:text-green-400">VISIBLE ONLY</span>
                 </label>
                 <label class="flex items-center gap-2 cursor-pointer group">
-                    <input type="checkbox" id="export-logs-check" onchange="app.updateExportPreview()" class="accent-blue-500 cursor-pointer w-3 h-3">
+                    <input type="checkbox" id="export-logs-check" onchange="app.updateExportConfig()" class="accent-blue-500 cursor-pointer w-3 h-3">
                     <span class="text-[10px] text-gray-500 font-bold tracking-wider group-hover:text-blue-400">INCLUDE LOGS</span>
                 </label>
             </div>
@@ -446,12 +446,13 @@
             }
         },
         "log_config": { "limit": 10, "enabled": true, "chart_limit": 10 },
+        "export_config": { "visible_only": false, "include_logs": true },
         "_meta_log": [],
         "_mood_history": []
     };
 
-    const STORAGE_KEY = 'zos_v6_15';
-    const LEGACY_KEY = 'zos_v6_14';
+    const STORAGE_KEY = 'zos_v6_16';
+    const LEGACY_KEY = 'zos_v6_15';
 
     class ZyqralOS {
         constructor() {
@@ -461,6 +462,7 @@
             
             // Initialization checks
             if(!this.state.log_config) this.state.log_config = { "limit": 10, "enabled": true, "chart_limit": 10 };
+            if(!this.state.export_config) this.state.export_config = { "visible_only": false, "include_logs": true };
             if(!this.state.log_config.chart_limit) this.state.log_config.chart_limit = 10;
             if(!this.state._meta_log) this.state._meta_log = [];
             if(!this.state._mood_history) this.state._mood_history = [];
@@ -607,7 +609,7 @@
                     let count = 0;
                     const recursiveReset = (obj) => {
                         for (let k in obj) {
-                            if (k === '_meta_log' || k === 'log_config' || k === '_mood_history') continue;
+                            if (k === '_meta_log' || k === 'log_config' || k === '_mood_history' || k === 'export_config') continue;
                             if (typeof obj[k] === 'object' && obj[k] !== null) {
                                 recursiveReset(obj[k]);
                             } else if (typeof obj[k] === 'string') {
@@ -629,7 +631,7 @@
                     let count = 0;
                     const recursiveClear = (obj) => {
                         for (let k in obj) {
-                            if (k === '_meta_log' || k === 'log_config' || k === '_mood_history') continue;
+                            if (k === '_meta_log' || k === 'log_config' || k === '_mood_history' || k === 'export_config') continue;
                             
                             // Check for "ACTIVITY" key anywhere
                             if (k.toUpperCase() === 'ACTIVITY') {
@@ -1082,7 +1084,7 @@
             const isArray = Array.isArray(data);
             const result = isArray ? [] : {};
             Object.keys(data).forEach(key => {
-                if (key === '_meta_log' || key === 'log_config' || key === '_mood_history') return;
+                if (key === '_meta_log' || key === 'log_config' || key === '_mood_history' || key === 'export_config') return;
                 const value = data[key];
                 const currentPath = path ? `${path}|${key}` : key;
                 const isCollapsed = this.collapsed.has(currentPath);
@@ -1101,6 +1103,19 @@
             });
             return result;
         }
+        
+        updateExportConfig() {
+            const visibleCheck = document.getElementById('export-visible-check');
+            const logsCheck = document.getElementById('export-logs-check');
+            
+            if(!this.state.export_config) this.state.export_config = { visible_only: false, include_logs: true };
+            
+            this.state.export_config.visible_only = visibleCheck.checked;
+            this.state.export_config.include_logs = logsCheck.checked;
+            this.save();
+            this.updateExportPreview();
+        }
+
         updateExportPreview() {
             const ta = document.getElementById('raw-json');
             const visibleCheck = document.getElementById('export-visible-check');
@@ -1133,6 +1148,10 @@
                 // Ensure latest history is included if present
                 dataToExport._mood_history = this.state._mood_history || [];
             }
+            
+            // Remove internal configs from export to keep it clean, unless you want them restored on import
+            delete dataToExport.export_config; 
+            if(dataToExport.log_config) delete dataToExport.log_config.chart_limit;
 
             ta.value = JSON.stringify(dataToExport, null, 2);
         }
@@ -1158,7 +1177,7 @@
             const isArray = Array.isArray(data);
             let html = `<div class="w-full">`;
             Object.keys(data).forEach(key => {
-                if (key === '_meta_log' || key === 'log_config' || key === '_mood_history') return; 
+                if (key === '_meta_log' || key === 'log_config' || key === '_mood_history' || key === 'export_config') return; 
                 const value = data[key];
                 const keyMatches = this.searchTerm && key.toLowerCase().includes(this.searchTerm);
                 const childMatches = this.searchTerm && this.hasMatch(value, this.searchTerm);
@@ -1183,7 +1202,7 @@
                     html += `<div class="mt-2 mb-1"><div class="flex justify-between items-center bg-[#0a0a0a] px-2 py-1 border-b border-[#222] rounded-t"><div class="flex items-center"><button onclick="app.toggleCollapse('${safeP}')" class="mr-2 text-gray-500 hover:text-white w-4 text-center transition-transform"><i class="fa-solid fa-caret-${isCollapsed ? 'right' : 'down'}"></i></button>${this.buildReorderArrows(currentPath, key, data.length)}<div class="text-[10px] font-bold text-gray-400 uppercase tracking-widest transition cursor-pointer" onclick="app.toggleCollapse('${safeP}')">${this.buildKeyDisplay(key, safeP, isArray, true)}</div></div><div class="flex gap-2 items-center"><button onclick="app.addItem('${safeP}', ${Array.isArray(value)})" class="text-green-700 hover:text-green-400 text-[10px]"><i class="fa-solid fa-plus"></i></button><button onclick="app.deleteItem('${safeP}')" class="text-red-900 hover:text-red-500 text-[10px]"><i class="fa-solid fa-xmark"></i></button></div></div><div class="tree-line ${isCollapsed ? 'hidden' : ''}">${!isCollapsed ? this.buildTree(value, currentPath, nextForceShow) : ''}</div></div>`;
                 }
             });
-            const visibleKeys = Object.keys(data).filter(k => k !== '_meta_log' && k !== 'log_config' && k !== '_mood_history');
+            const visibleKeys = Object.keys(data).filter(k => k !== '_meta_log' && k !== 'log_config' && k !== '_mood_history' && k !== 'export_config');
             if (visibleKeys.length === 0 && !this.searchTerm) {
                 const safeP = this.safePath(path);
                 html += `<div class="text-[10px] text-gray-700 italic p-2 flex items-center">EMPTY <button onclick="app.addItem('${safeP}', ${isArray})" class="ml-2 text-green-700 hover:text-green-400"><i class="fa-solid fa-plus"></i></button></div>`;
@@ -1260,9 +1279,13 @@
             if (modal.classList.contains('hidden')) {
                 if (mode === 'export') { 
                     exportOption.classList.remove('hidden'); 
-                    exportCheck.checked = false; 
-                    logsCheck.checked = true; 
                     
+                    // LOAD SAVED CONFIG
+                    if(this.state.export_config) {
+                        exportCheck.checked = this.state.export_config.visible_only;
+                        logsCheck.checked = this.state.export_config.include_logs;
+                    }
+
                     this.updateExportPreview(); 
                     
                     ta.readOnly = true; 
@@ -1294,6 +1317,7 @@
                 let newState = JSON.parse(ta.value); 
                 newState._meta_log = []; 
                 if (!newState.log_config) newState.log_config = { "limit": 10, "enabled": true, "chart_limit": 10 };
+                if (!newState.export_config) newState.export_config = { "visible_only": false, "include_logs": true };
                 if (!newState._mood_history) newState._mood_history = [];
                 this.state = newState; 
                 this.save(); 
