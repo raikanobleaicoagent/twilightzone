@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Z-OS | AGENCY PROTOCOL (v6.23)</title>
+    <title>Z-OS | AGENCY PROTOCOL (v6.24)</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
@@ -18,7 +18,7 @@
             --danger-color: #ff0055;
             --warn-color: #ffbb00;
             --process-color: #00aaff;
-            --calc-color: #a855f7; /* Purple for calculated fields */
+            --calc-color: #a855f7;
         }
 
         body {
@@ -304,7 +304,7 @@
     <div class="flex items-center gap-3">
         <div class="flex items-center gap-2">
             <i class="fa-solid fa-network-wired text-green-500 text-sm"></i>
-            <span class="text-green-500 font-bold tracking-widest text-sm">Z-OS <span class="text-white text-xs">v6.23</span></span>
+            <span class="text-green-500 font-bold tracking-widest text-sm">Z-OS <span class="text-white text-xs">v6.24</span></span>
         </div>
         <div class="relative mr-2">
             <input type="text" id="tree-search" class="search-input" placeholder="FILTER" onkeyup="app.updateSearch(this.value)">
@@ -525,51 +525,11 @@
         }
 
         save() {
-            this.calculateFinancials();
+            // calculateFinancials() removed as per user instruction.
             localStorage.setItem(STORAGE_KEY, JSON.stringify(this.state));
             this.render();
         }
         
-        calculateFinancials() {
-            // Simplified for brevity/safety - Differential Scripting now handles most complex cases naturally,
-            // but we keep this for legacy structure integrity.
-            // Note: This function doesn't need to change for formula support as formulas resolve on read.
-            // However, to avoid double counting formulas that return numbers, we rely on the parser.
-            let assets = 0;
-            let liabilities = 0;
-
-            const traverse = (obj) => {
-                if (!obj || typeof obj !== 'object') return;
-                
-                Object.keys(obj).forEach(key => {
-                    if (['_meta_log', 'log_config', 'export_config', '_mood_history'].includes(key)) return;
-                    if (['TOTAL_ASSETS', 'TOTAL_LIABILITY', 'TOTAL_BALANCE'].includes(key.toUpperCase())) return;
-
-                    const val = obj[key];
-                    if (typeof val === 'object' && val !== null) {
-                        traverse(val);
-                    } else {
-                        // Check if value is a number (exclude formulas from this legacy auto-calc to avoid loops)
-                        if (typeof val === 'number') {
-                             const kUp = key.toUpperCase();
-                             if (kUp.includes('ASSET') || kUp.includes('SAVINGS') || kUp.includes('CASH')) assets += val;
-                             if (kUp.includes('LIABILITY') || kUp.includes('DEBT') || kUp.includes('DUE')) liabilities += val;
-                        }
-                    }
-                });
-            };
-
-            traverse(this.state);
-            // We update these only if they are not user-defined formulas
-            const updateIfStatic = (key, val) => {
-                if (typeof this.state[key] !== 'string' || !this.state[key].startsWith('=')) {
-                     // Only update if it exists or if we want to force it. 
-                     // For now, let's leave legacy logic mostly alone but respect formulas.
-                }
-            };
-            // Note: The original CalculateFinancials logic is kept passive here.
-        }
-
         saveUI() {
             localStorage.setItem(STORAGE_KEY + '_ui', JSON.stringify(Array.from(this.collapsed)));
         }
@@ -657,7 +617,23 @@
             let current = this.state;
             for (const part of parts) {
                 if (current === undefined || current === null) return 0;
-                current = current[part.trim()];
+                
+                const cleanPart = part.trim();
+                
+                // Case-Insensitive Logic
+                if (current.hasOwnProperty(cleanPart)) {
+                    // Exact match preference
+                    current = current[cleanPart];
+                } else {
+                    // Case-insensitive fallback
+                    const lowerPart = cleanPart.toLowerCase();
+                    const foundKey = Object.keys(current).find(k => k.toLowerCase() === lowerPart);
+                    if (foundKey) {
+                        current = current[foundKey];
+                    } else {
+                        return 0; // path not found
+                    }
+                }
             }
             
             if (typeof current === 'string' && current.startsWith('=')) {
@@ -674,7 +650,6 @@
             let expression = formula.startsWith('=') ? formula.substring(1) : formula;
             
             // Regex to find {{PATH|TO|KEY}}
-            // Supports alphanumeric, spaces, underscores, dashes in keys
             const regex = /{{([^{}]+)}}/g;
             
             try {
@@ -690,9 +665,7 @@
                 // Safe eval
                 const result = this.safeEvaluate(replaced);
                 
-                // If the original output was likely intended as a percent (heuristic: inputs had %)
-                // we could re-append %, but standard math usually wants raw numbers.
-                // We'll return the raw result. 
+                // Return result
                 return result;
             } catch (e) {
                 return "ERR:SYNTAX";
@@ -1576,4 +1549,3 @@
 </script>
 </body>
 </html>
-
