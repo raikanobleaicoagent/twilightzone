@@ -580,7 +580,6 @@
             const today = new Date().toISOString().split('T')[0];
             if (this.state.last_login_date !== today) {
                 if (this.state.last_login_date) {
-                    this.syncSkillXP();
                     Object.keys(this.state.SKILLS).forEach(skillKey => {
                         const skill = this.state.SKILLS[skillKey];
                         if (skill.DAILY_XP !== 0) { 
@@ -590,17 +589,6 @@
                         }
                         skill.DAILY_XP = 0;
                     });
-                    const wipeSessionKeys = (obj) => {
-                        for (let key in obj) {
-                            if (key === 'SESSION_XP_GAIN' || key === 'SESSION_XP_LOSS' || key === 'XP') {
-                                obj[key] = "=0";
-                            } else if (typeof obj[key] === 'object' && obj[key] !== null) {
-                                wipeSessionKeys(obj[key]);
-                            }
-                        }
-                    };
-                    wipeSessionKeys(this.state);
-                    this.syncSkillXP();
                     this.addLog(`SYSTEM <span class="log-hl">[DAILY RESET]</span><br>SKILL COUNTERS ARCHIVED`);
                 }
                 this.state.last_login_date = today;
@@ -672,17 +660,17 @@
             const formatter = new Intl.DateTimeFormat('en-CA', options);
             const parts = formatter.formatToParts(now);
             const get = (type) => parts.find(p => p.type === type).value;
-            if (timeOnly) return `\( {get('hour')}: \){get('minute')}:${get('second')}`;
-            return `\( {get('year')}- \){get('month')}-\( {get('day')} @ \){get('hour')}:${get('minute')}`;
+            if (timeOnly) return `${get('hour')}:${get('minute')}:${get('second')}`;
+            return `${get('year')}-${get('month')}-${get('day')} @ ${get('hour')}:${get('minute')}`;
         }
         
         findPathByKey(obj, keyToFind, currentPath = '') {
             if (typeof obj !== 'object' || obj === null) return null;
             const keys = Object.keys(obj);
             const foundKey = keys.find(k => k.toLowerCase() === keyToFind.toLowerCase());
-            if (foundKey) return currentPath ? `\( {currentPath}| \){foundKey}` : foundKey;
+            if (foundKey) return currentPath ? `${currentPath}|${foundKey}` : foundKey;
             for (let k of keys) {
-                const res = this.findPathByKey(obj[k], keyToFind, currentPath ? `\( {currentPath}| \){k}` : k);
+                const res = this.findPathByKey(obj[k], keyToFind, currentPath ? `${currentPath}|${k}` : k);
                 if (res) return res;
             }
             return null;
@@ -766,67 +754,54 @@
             return isNaN(num) ? 0 : num;
         }
 
-        // --- NEW: Get skill name from path ---
-        getSkillNameFromPath(pathStr) {
-            const parts = pathStr.split('|');
-            let skillName = "GENERAL";
-            for (let i = parts.length - 2; i >= 0; i--) {
-                if (parts[i].toUpperCase().includes('SESSION')) {
-                    skillName = parts[i].toUpperCase().replace('_SESSION', '').replace('SESSION_', '').replace('SESSION', '').trim();
-                    if (skillName === "") skillName = "GENERAL";
-                    break;
-                }
-            }
-            return skillName;
-        }
-
-        // --- NEW: Compute all daily XP contributions ---
-        computeAllDailyXP() {
-            const map = {};
-            const traverse = (obj, currentPath = '') => {
-                Object.keys(obj).forEach(key => {
-                    if (key === '_meta_log' || key === 'log_config' || key === '_mood_history' || key === 'export_config' || key === 'SKILLS') return;
-                    const pathStr = currentPath ? `\( {currentPath}| \){key}` : key;
-                    if (typeof obj[key] === 'object' && obj[key] !== null) {
-                        traverse(obj[key], pathStr);
-                    } else {
-                        const lastKey = key.toUpperCase();
-                        if (lastKey === 'SESSION_XP_GAIN' || lastKey === 'SESSION_XP_LOSS' || lastKey === 'XP') {
-                            const skillName = this.getSkillNameFromPath(pathStr);
-                            if (!map[skillName]) map[skillName] = 0;
-                            const val = this.getValueFromPath(pathStr);
-                            if (lastKey === 'SESSION_XP_LOSS') {
-                                map[skillName] -= val;
-                            } else {
-                                map[skillName] += val;
-                            }
+        // --- UPDATED SKILL LOGIC v7.4 ---
+        monitorSkillUpdate(pathStr, oldVal, newVal) {
+            if (pathStr.toUpperCase().includes('SESSION')) {
+                const parts = pathStr.split('|');
+                const lastKey = parts[parts.length-1].toUpperCase();
+                
+                if (lastKey === 'SESSION_XP_GAIN' || lastKey === 'SESSION_XP_LOSS' || lastKey === 'XP') {
+                    let skillName = "GENERAL";
+                    for(let i=parts.length-2; i>=0; i--) {
+                        if(parts[i].toUpperCase().includes('SESSION')) {
+                            skillName = parts[i].toUpperCase().replace('_SESSION', '').replace('SESSION_', '').replace('SESSION', '').trim();
+                            if(skillName === "") skillName = "GENERAL";
+                            break;
                         }
                     }
-                });
-            };
-            traverse(this.state);
-            return map;
-        }
-
-        // --- NEW: Sync stored XP with computed values using differential logic ---
-        syncSkillXP() {
-            const computedMap = this.computeAllDailyXP();
-            Object.keys(computedMap).forEach(sk => {
-                if (!this.state.SKILLS[sk]) {
-                    this.state.SKILLS[sk] = { LEVEL: 1, CURRENT_XP: 0, DAILY_XP: 0, HISTORY: [] };
+                    
+                    // UPDATED: Use parseNumberFromValue to handle "= number" formulas
+                    const v1 = this.parseNumberFromValue(oldVal);
+                    const v2 = this.parseNumberFromValue(newVal);
+                    const delta = v2 - v1;
+                    
+                    if (delta !== 0) {
+                        if (!this.state.SKILLS[skillName]) {
+                            this.state.SKILLS[skillName] = { LEVEL: 1, CURRENT_XP: 0, DAILY_XP: 0, HISTORY: [] };
+                        }
+                        const skill = this.state.SKILLS[skillName];
+                        
+                        if (lastKey === 'SESSION_XP_LOSS') {
+                            skill.DAILY_XP -= delta;
+                            skill.CURRENT_XP -= delta;
+                        } else {
+                            skill.DAILY_XP += delta;
+                            skill.CURRENT_XP += delta;
+                        }
+                        
+                        skill.LEVEL = Math.floor(Math.sqrt(Math.max(0, skill.CURRENT_XP) / 100)) + 1;
+                        
+                        // NEW: Auto-update charts if skill modal is open
+                        if (this.skillModalOpen && !this.skillChartUpdatePending) {
+                            this.skillChartUpdatePending = true;
+                            setTimeout(() => {
+                                this.renderSkillCharts();
+                                this.skillChartUpdatePending = false;
+                            }, 100);
+                        }
+                    }
                 }
-                const skill = this.state.SKILLS[sk];
-                const computed = computedMap[sk];
-                const delta = computed - skill.DAILY_XP;
-                skill.DAILY_XP += delta;
-                skill.CURRENT_XP += delta;
-                skill.LEVEL = Math.floor(Math.sqrt(Math.max(0, skill.CURRENT_XP) / 100)) + 1;
-            });
-        }
-
-        // --- UPDATED SKILL LOGIC: Removed incremental, use sync instead ---
-        monitorSkillUpdate(pathStr, oldVal, newVal) {
-            // Empty: Handled by syncSkillXP now
+            }
         }
 
         // NEW: Manual refresh function
@@ -874,7 +849,7 @@
                 // 2. Recursive Session Wipe
                 const wipeSessionKeys = (obj) => {
                     for (let key in obj) {
-                        if (key === 'SESSION_XP_GAIN' || key === 'SESSION_XP_LOSS' || key === 'XP') {
+                        if (key === 'SESSION_XP_GAIN' || key === 'SESSION_XP_LOSS' || key === 'SESSION_XP') {
                             obj[key] = "=0"; // Reset to zero string
                         } else if (typeof obj[key] === 'object' && obj[key] !== null) {
                             wipeSessionKeys(obj[key]);
@@ -882,7 +857,6 @@
                     }
                 };
                 wipeSessionKeys(this.state);
-                this.syncSkillXP();
 
                 this.save();
                 this.renderSkillCharts();
@@ -891,7 +865,6 @@
         }
 
         renderSkillCharts() {
-            this.syncSkillXP();
             const listContainer = document.getElementById('skill-list-container');
             const pieContainer = document.getElementById('skill-pie-container');
             const graphContainer = document.getElementById('skill-graph-container');
@@ -917,11 +890,11 @@
                 htmlList += `
                     <div class="w-full">
                         <div class="flex justify-between items-end mb-1">
-                            <span class="text-[10px] font-bold" style="color:\( {color}"> \){key} <span class="text-gray-600 text-[9px]">LVL ${skill.LEVEL}</span></span>
+                            <span class="text-[10px] font-bold" style="color:${color}">${key} <span class="text-gray-600 text-[9px]">LVL ${skill.LEVEL}</span></span>
                             <span class="text-[9px] text-gray-400">${daily} XP</span>
                         </div>
                         <div class="skill-bar-container">
-                            <div class="skill-bar" style="width: \( {Math.min(100, (Math.max(0, daily) / 1000)*100)}%; background-color: \){color}"></div>
+                            <div class="skill-bar" style="width: ${Math.min(100, (Math.max(0, daily) / 1000)*100)}%; background-color: ${color}"></div>
                         </div>
                         <div class="text-[8px] text-gray-600 text-right mt-0.5">TOTAL: ${skill.CURRENT_XP}</div>
                     </div>
@@ -940,7 +913,7 @@
                 let gradients = [];
                 pieSegments.forEach(seg => {
                     const deg = (seg.value / totalDailyXP) * 360;
-                    gradients.push(`\( {seg.color} \){accumulatedDeg}deg ${accumulatedDeg + deg}deg`);
+                    gradients.push(`${seg.color} ${accumulatedDeg}deg ${accumulatedDeg + deg}deg`);
                     accumulatedDeg += deg;
                 });
                 pieContainer.style.background = `conic-gradient(${gradients.join(', ')})`;
@@ -1008,21 +981,21 @@
                     const safeVal = Math.max(0, val);
                     const y = (h - p) - (safeVal / maxVal) * (h - 2*p);
                     
-                    if (i===0) pathD += `M \( {x} \){y}`;
-                    else pathD += ` L \( {x} \){y}`;
+                    if (i===0) pathD += `M ${x} ${y}`;
+                    else pathD += ` L ${x} ${y}`;
                     
-                    dots += `<circle cx="\( {x}" cy=" \){y}" r="2" fill="\( {series.color}" stroke="#000" stroke-width="1"><title> \){series.name} (\( {dates[i]}): \){val} XP</title></circle>`;
+                    dots += `<circle cx="${x}" cy="${y}" r="2" fill="${series.color}" stroke="#000" stroke-width="1"><title>${series.name} (${dates[i]}): ${val} XP</title></circle>`;
                 });
                 
-                svgContent += `<path d="\( {pathD}" stroke=" \){series.color}" stroke-width="2" fill="none" opacity="0.8" />${dots}`;
+                svgContent += `<path d="${pathD}" stroke="${series.color}" stroke-width="2" fill="none" opacity="0.8" />${dots}`;
             });
 
             graphContainer.innerHTML = `
-                <svg width="100%" height="100%" viewBox="0 0 \( {w} \){h}">
-                    <line x1="\( {p}" y1=" \){p}" x2="\( {p}" y2=" \){h-p}" class="chart-axis" />
-                    <line x1="\( {p}" y1=" \){h-p}" x2="\( {w-p}" y2=" \){h-p}" class="chart-axis" />
+                <svg width="100%" height="100%" viewBox="0 0 ${w} ${h}">
+                    <line x1="${p}" y1="${p}" x2="${p}" y2="${h-p}" class="chart-axis" />
+                    <line x1="${p}" y1="${h-p}" x2="${w-p}" y2="${h-p}" class="chart-axis" />
                     ${svgContent}
-                    <text x="\( {p+5}" y=" \){p+10}" class="chart-label" fill="#444">MAX: ${maxVal}</text>
+                    <text x="${p+5}" y="${p+10}" class="chart-label" fill="#444">MAX: ${maxVal}</text>
                 </svg>
             `;
         }
@@ -1083,6 +1056,23 @@
                     const { parent: tParent, key: tKey } = this.getParent(targetPath);
                     const existingData = tParent[tKey] || {};
                     
+                    // UPDATED: Use parseNumberFromValue for formula handling
+                    const oldGain = this.parseNumberFromValue(existingData["SESSION_XP_GAIN"]);
+                    const oldLoss = this.parseNumberFromValue(existingData["SESSION_XP_LOSS"]);
+
+                    const deltaGain = gainXP - oldGain;
+                    const deltaLoss = lossXP - oldLoss;
+
+                    if (!this.state.SKILLS.HANZI) this.state.SKILLS.HANZI = { LEVEL: 1, CURRENT_XP: 0, DAILY_XP: 0, HISTORY: [] };
+                    
+                    this.state.SKILLS.HANZI.CURRENT_XP += deltaGain;
+                    this.state.SKILLS.HANZI.CURRENT_XP -= deltaLoss;
+                    
+                    this.state.SKILLS.HANZI.DAILY_XP += deltaGain;
+                    this.state.SKILLS.HANZI.DAILY_XP -= deltaLoss;
+                    
+                    this.state.SKILLS.HANZI.LEVEL = Math.floor(Math.sqrt(Math.max(0, this.state.SKILLS.HANZI.CURRENT_XP) / 100)) + 1;
+
                     const sessionData = {
                         "TOTAL_CARDS": `=${totalCards}`,
                         "TIME_MINUTES": `=${timeMin.toFixed(2)}`,
@@ -1099,11 +1089,9 @@
 
                     tParent[tKey] = sessionData;
 
-                    this.syncSkillXP();
-
-                    const netDelta = gainXP - lossXP;
+                    const netDelta = deltaGain - deltaLoss;
                     const sign = netDelta >= 0 ? "+" : "";
-                    this.addLog(`MACRO EXECUTION <span class="log-hl">[HANZI PARSE]</span><br>DELTA: \( {sign} \){netDelta} XP`);
+                    this.addLog(`MACRO EXECUTION <span class="log-hl">[HANZI PARSE]</span><br>DELTA: ${sign}${netDelta} XP`);
                     
                     // --- v7.6 AUTO FLUSH SCRATCHPAD ---
                     this.updateValue(scratchpadPath, ""); 
@@ -1119,6 +1107,7 @@
                     alert("PARSE ERROR. Missing: " + missing.join(", "));
                 }
             }
+            // ... (Other macros preserved)
             else if (type === 'RESET_TASKS') {
                 if(confirm('MACRO EXECUTION: Reset "IN PROGRESS", "COMPLETED", and "FAILED" tasks to "PENDING"?')) {
                     let count = 0;
@@ -1291,11 +1280,11 @@
             if (!this.state.log_config.enabled) return;
             const ts = this.getTimestamp(true);
             const p = this.formatPath(pathStr);
-            const logContent = `\( {type} <span class="log-hl">[ \){p}]</span><br> \( {displayOld} \u81f3 <span class="text-white"> \){displayNew}</span>`;
+            const logContent = `${type} <span class="log-hl">[${p}]</span><br> ${displayOld} \u81f3 <span class="text-white">${displayNew}</span>`;
             const pending = this.pendingEdits[pathStr];
             const nowTime = Date.now();
             if (pending && (nowTime - pending.startTime < 30000)) {
-                const combinedContent = `\( {type} <span class="log-hl">[ \){p}]</span><br> \( {pending.initialVal} \u81f3 <span class="text-white"> \){displayNew}</span>`;
+                const combinedContent = `${type} <span class="log-hl">[${p}]</span><br> ${pending.initialVal} \u81f3 <span class="text-white">${displayNew}</span>`;
                 pending.entry.t = ts; 
                 pending.entry.a = combinedContent;
             } else {
@@ -1368,7 +1357,7 @@
             let html = '';
             if(this.state._meta_log && this.state._meta_log.length > 0) {
                 this.state._meta_log.forEach(log => {
-                    html += `<div class="log-entry"><span class="log-ts">\( {log.t}</span><span class="log-act"> \){log.a}</span></div>`;
+                    html += `<div class="log-entry"><span class="log-ts">${log.t}</span><span class="log-act">${log.a}</span></div>`;
                 });
             } else {
                 html = '<div class="text-gray-600 italic text-xs mt-4 text-center">NO LOGS RECORDED</div>';
@@ -1450,8 +1439,9 @@
                 return;
             }
             
+            this.monitorSkillUpdate(pathStr, oldValue, val);
+
             parent[key] = val;
-            this.syncSkillXP();
             this.editingPath = null;
             if(this.pendingEdits[pathStr]) delete this.pendingEdits[pathStr];
             const p = this.formatPath(pathStr);
@@ -1465,7 +1455,7 @@
             if (typeof parent[key] === 'number') {
                 const oldValue = parent[key];
                 parent[key] += amount;
-                this.syncSkillXP();
+                this.monitorSkillUpdate(pathStr, oldValue, parent[key]);
                 this.logGranular('MATH', pathStr, oldValue, parent[key]);
                 this.save();
             }
@@ -1481,7 +1471,6 @@
                 if (val < 0) val = 0;
                 if (val > 100) val = 100;
                 parent[key] = `${val}%`;
-                this.syncSkillXP();
                 this.logGranular('MATH', pathStr, oldValue, parent[key]);
                 this.save();
             }
@@ -1498,8 +1487,7 @@
             if (totalMin < 0) totalMin = 0;
             let newH = Math.floor(totalMin / 60);
             let newM = totalMin % 60;
-            parent[key] = `\( {String(newH).padStart(2, '0')}: \){String(newM).padStart(2, '0')}`;
-            this.syncSkillXP();
+            parent[key] = `${String(newH).padStart(2, '0')}:${String(newM).padStart(2, '0')}`;
             this.logGranular('TIME', pathStr, oldValue, parent[key]);
             this.save();
         }
@@ -1515,11 +1503,10 @@
             let valLog = typeof valToDelete === 'object' ? '{OBJECT}' : valToDelete;
             if (Array.isArray(parent)) parent.splice(Number(key), 1);
             else delete parent[key];
-            this.syncSkillXP();
             this.editingPath = null;
             if(this.pendingEdits[pathStr]) delete this.pendingEdits[pathStr];
             const p = this.formatPath(pathStr);
-            this.addLog(`DELETE <span class="log-hl">[\( {p}]</span><br> VALUE: \){valLog}`);
+            this.addLog(`DELETE <span class="log-hl">[${p}]</span><br> VALUE: ${valLog}`);
             this.save();
         }
         addItem(pathStr, isArray) {
@@ -1532,7 +1519,7 @@
                 if (newVal === null) return;
                 target.push(this.parseInput(newVal));
                 const p = this.formatPath(pathStr);
-                this.addLog(`ADD <span class="log-hl">[\( {p} > INDEX \){target.length-1}]</span><br> VALUE: ${newVal}`);
+                this.addLog(`ADD <span class="log-hl">[${p} > INDEX ${target.length-1}]</span><br> VALUE: ${newVal}`);
             } else {
                 const newKey = prompt("FIELD NAME:");
                 if (!newKey) return;
@@ -1551,9 +1538,8 @@
                 target[newKey] = newVal;
                 const p = this.formatPath(pathStr);
                 const separator = p ? ' > ' : '';
-                this.addLog(`CREATE <span class="log-hl">[\( {p} \){separator}\( {newKey}]</span><br> INITIAL: \){typeLog}`);
+                this.addLog(`CREATE <span class="log-hl">[${p}${separator}${newKey}]</span><br> INITIAL: ${typeLog}`);
             }
-            this.syncSkillXP();
             this.save();
         }
         
@@ -1598,7 +1584,7 @@
             Object.keys(data).forEach(key => {
                 if (key === '_meta_log' || key === 'log_config' || key === '_mood_history' || key === 'export_config' || key === 'SKILLS') return;
                 const value = data[key];
-                const currentPath = path ? `\( {path}| \){key}` : key;
+                const currentPath = path ? `${path}|${key}` : key;
                 const isCollapsed = this.collapsed.has(currentPath);
                 const isSearchActive = this.searchTerm.length > 0;
                 if (isCollapsed && !isSearchActive) {
@@ -1677,7 +1663,7 @@
             if (index === -1) return ''; 
             const upDisabled = index === 0;
             const downDisabled = index === length - 1;
-            return `<div class="reorder-arrows"><button onclick="app.moveUp('\( {this.safePath(path)}')" \){upDisabled ? 'disabled' : ''}><i class="fa-solid fa-angle-up"></i></button><button onclick="app.moveDown('\( {this.safePath(path)}')" \){downDisabled ? 'disabled' : ''}><i class="fa-solid fa-angle-down"></i></button></div>`;
+            return `<div class="reorder-arrows"><button onclick="app.moveUp('${this.safePath(path)}')" ${upDisabled ? 'disabled' : ''}><i class="fa-solid fa-angle-up"></i></button><button onclick="app.moveDown('${this.safePath(path)}')" ${downDisabled ? 'disabled' : ''}><i class="fa-solid fa-angle-down"></i></button></div>`;
         }
         buildTree(data, path, forceShow = false) {
             if (data === null) return `<span class="text-gray-600 italic">null</span>`;
@@ -1692,7 +1678,7 @@
                 const isVisible = !this.searchTerm || forceShow || keyMatches || childMatches;
                 if (!isVisible) return;
                 const nextForceShow = forceShow || keyMatches;
-                const currentPath = path ? `\( {path}| \){key}` : key;
+                const currentPath = path ? `${path}|${key}` : key;
                 const safeP = this.safePath(currentPath);
                 const isPrimitive = typeof value !== 'object' || value === null;
                 let rowStyle = '';
@@ -1700,20 +1686,20 @@
                     const match = value.match(/^(\d{1,3})%$/);
                     if (match) {
                         const pct = parseInt(match[1]);
-                        rowStyle = `style="background: linear-gradient(to right, rgba(128,128,128,0.15) \( {pct}%, transparent \){pct}%)"`;
+                        rowStyle = `style="background: linear-gradient(to right, rgba(128,128,128,0.15) ${pct}%, transparent ${pct}%)"`;
                     }
                 }
                 if (isPrimitive) {
-                    html += `<div class="node-row group hover:bg-[#0a0a0a]" \( {rowStyle}><div class="flex-grow flex items-center mr-2"> \){this.buildReorderArrows(currentPath, key, data.length)}\( {this.buildKeyDisplay(key, safeP, isArray)} \){this.buildPrimitive(value, safeP, key)}</div>${this.buildPrimitiveControls(safeP, isArray, key, data.length, value)}</div>`;
+                    html += `<div class="node-row group hover:bg-[#0a0a0a]" ${rowStyle}><div class="flex-grow flex items-center mr-2"> ${this.buildReorderArrows(currentPath, key, data.length)}${this.buildKeyDisplay(key, safeP, isArray)}${this.buildPrimitive(value, safeP, key)}</div>${this.buildPrimitiveControls(safeP, isArray, key, data.length, value)}</div>`;
                 } else {
                     const isCollapsed = this.searchTerm ? false : this.collapsed.has(currentPath);
-                    html += `<div class="mt-2 mb-1"><div class="flex justify-between items-center bg-[#0a0a0a] px-2 py-1 border-b border-[#222] rounded-t"><div class="flex items-center"><button onclick="app.toggleCollapse('\( {safeP}')" class="mr-2 text-gray-500 hover:text-white w-4 text-center transition-transform"><i class="fa-solid fa-caret- \){isCollapsed ? 'right' : 'down'}"></i></button>\( {this.buildReorderArrows(currentPath, key, data.length)}<div class="text-[10px] font-bold text-gray-400 uppercase tracking-widest transition cursor-pointer" onclick="app.toggleCollapse(' \){safeP}')">\( {this.buildKeyDisplay(key, safeP, isArray, true)}</div></div><div class="flex gap-2 items-center"><button onclick="app.addItem(' \){safeP}', \( {Array.isArray(value)})" class="text-green-700 hover:text-green-400 text-[10px]"><i class="fa-solid fa-plus"></i></button><button onclick="app.deleteItem(' \){safeP}')" class="text-red-900 hover:text-red-500 text-[10px]"><i class="fa-solid fa-xmark"></i></button></div></div><div class="tree-line \( {isCollapsed ? 'hidden' : ''}"> \){!isCollapsed ? this.buildTree(value, currentPath, nextForceShow) : ''}</div></div>`;
+                    html += `<div class="mt-2 mb-1"><div class="flex justify-between items-center bg-[#0a0a0a] px-2 py-1 border-b border-[#222] rounded-t"><div class="flex items-center"><button onclick="app.toggleCollapse('${safeP}')" class="mr-2 text-gray-500 hover:text-white w-4 text-center transition-transform"><i class="fa-solid fa-caret-${isCollapsed ? 'right' : 'down'}"></i></button>${this.buildReorderArrows(currentPath, key, data.length)}<div class="text-[10px] font-bold text-gray-400 uppercase tracking-widest transition cursor-pointer" onclick="app.toggleCollapse('${safeP}')">${this.buildKeyDisplay(key, safeP, isArray, true)}</div></div><div class="flex gap-2 items-center"><button onclick="app.addItem('${safeP}', ${Array.isArray(value)})" class="text-green-700 hover:text-green-400 text-[10px]"><i class="fa-solid fa-plus"></i></button><button onclick="app.deleteItem('${safeP}')" class="text-red-900 hover:text-red-500 text-[10px]"><i class="fa-solid fa-xmark"></i></button></div></div><div class="tree-line ${isCollapsed ? 'hidden' : ''}">${!isCollapsed ? this.buildTree(value, currentPath, nextForceShow) : ''}</div></div>`;
                 }
             });
             const visibleKeys = Object.keys(data).filter(k => k !== '_meta_log' && k !== 'log_config' && k !== '_mood_history' && k !== 'export_config' && k !== 'SKILLS');
             if (visibleKeys.length === 0 && !this.searchTerm) {
                 const safeP = this.safePath(path);
-                html += `<div class="text-[10px] text-gray-700 italic p-2 flex items-center">EMPTY <button onclick="app.addItem('\( {safeP}', \){isArray})" class="ml-2 text-green-700 hover:text-green-400"><i class="fa-solid fa-plus"></i></button></div>`;
+                html += `<div class="text-[10px] text-gray-700 italic p-2 flex items-center">EMPTY <button onclick="app.addItem('${safeP}', ${isArray})" class="ml-2 text-green-700 hover:text-green-400"><i class="fa-solid fa-plus"></i></button></div>`;
             }
             html += `</div>`;
             return html;
@@ -1722,9 +1708,9 @@
             if (isArray) return `<span class="text-green-800 font-bold mr-2 text-[10px]">[${key}]</span>`;
             const displayClass = isHeader ? 'text-gray-400 uppercase tracking-widest' : 'key-display uppercase';
             if (this.searchTerm && key.toLowerCase().includes(this.searchTerm)) {
-                return `<span class="\( {displayClass} text-green-400 border-b border-green-500"> \){key}</span>`;
+                return `<span class="${displayClass} text-green-400 border-b border-green-500">${key}</span>`;
             }
-            return `<span class="\( {displayClass}"> \){key}</span>`;
+            return `<span class="${displayClass}">${key}</span>`;
         }
         buildPrimitiveControls(safeP, isArray, key, arrayLength, val) {
             if (this.editingPath === safeP) return ''; 
@@ -1741,50 +1727,50 @@
                 const lineCount = String(initialValue).split('\n').length;
                 const rows = Math.max(3, lineCount + 1); 
                 const showClock = /timestamp/i.test(keyName);
-                return `<div class="flex items-start w-full gap-1"><textarea id="input-\( {path}" class="edit-input" rows=" \){rows}" onkeydown="if(event.key==='Enter' && event.shiftKey) {event.preventDefault(); app.updateValue('\( {path}', this.value)}" > \){initialValue}</textarea><div class="flex flex-col gap-1 mt-1"><div class="flex items-center gap-1"><button onclick="app.updateValue('\( {path}', document.getElementById('input- \){path}').value)" class="text-green-500 hover:bg-green-900/50 large-control-btn"><i class="fa-solid fa-check"></i></button><button onclick="app.cancelEdit()" class="text-gray-500 hover:bg-gray-800 large-control-btn"><i class="fa-solid fa-ban"></i></button>\( {showClock ? `<button onclick="app.injectTime(' \){path}')" class="text-blue-400 hover:bg-blue-900/30 large-control-btn" title="Inject Timestamp"><i class="fa-solid fa-clock"></i></button>` : ''}</div><button onclick="app.deleteItem('${path}')" class="text-red-900 hover:text-red-500 text-[10px] p-1 mt-1 text-right"><i class="fa-solid fa-xmark"></i></button></div></div>`; 
+                return `<div class="flex items-start w-full gap-1"><textarea id="input-${path}" class="edit-input" rows="${rows}" onkeydown="if(event.key==='Enter' && event.shiftKey) {event.preventDefault(); app.updateValue('${path}', this.value)}" >${initialValue}</textarea><div class="flex flex-col gap-1 mt-1"><div class="flex items-center gap-1"><button onclick="app.updateValue('${path}', document.getElementById('input-${path}').value)" class="text-green-500 hover:bg-green-900/50 large-control-btn"><i class="fa-solid fa-check"></i></button><button onclick="app.cancelEdit()" class="text-gray-500 hover:bg-gray-800 large-control-btn"><i class="fa-solid fa-ban"></i></button>${showClock ? `<button onclick="app.injectTime('${path}')" class="text-blue-400 hover:bg-blue-900/30 large-control-btn" title="Inject Timestamp"><i class="fa-solid fa-clock"></i></button>` : ''}</div><button onclick="app.deleteItem('${path}')" class="text-red-900 hover:text-red-500 text-[10px] p-1 mt-1 text-right"><i class="fa-solid fa-xmark"></i></button></div></div>`; 
             }
             if (typeof val === 'string' && val.startsWith('=')) {
                 const processedVal = this.processFormula(val, 0, path); 
-                return `<span class="val-display mono val-calc hover:underline" onclick="app.setEdit('\( {path}')" title=" \){val.replace(/"/g, '&quot;')}">${processedVal}</span>`;
+                return `<span class="val-display mono val-calc hover:underline" onclick="app.setEdit('${path}')" title="${val.replace(/"/g, '&quot;')}">${processedVal}</span>`;
             }
             const percentMatch = String(val).match(/^(\d{1,3})%$/);
             if (percentMatch) {
-                return `<div class="flex items-center"><button class="stepper-btn" onclick="app.incrementPercent('\( {path}', -25)"><i class="fa-solid fa-angles-left"></i></button><button class="stepper-btn" onclick="app.incrementPercent(' \){path}', -5)"><i class="fa-solid fa-minus"></i></button><span class="val-display mono text-[#00ff9d] hover:underline mx-0 whitespace-nowrap min-w-[3rem] text-center flex-shrink-0" onclick="app.setEdit('\( {path}')"> \){val}</span><button class="stepper-btn" onclick="app.incrementPercent('\( {path}', 5)"><i class="fa-solid fa-plus"></i></button><button class="stepper-btn" onclick="app.incrementPercent(' \){path}', 25)"><i class="fa-solid fa-angles-right"></i></button></div>`;
+                return `<div class="flex items-center"><button class="stepper-btn" onclick="app.incrementPercent('${path}', -25)"><i class="fa-solid fa-angles-left"></i></button><button class="stepper-btn" onclick="app.incrementPercent('${path}', -5)"><i class="fa-solid fa-minus"></i></button><span class="val-display mono text-[#00ff9d] hover:underline mx-0 whitespace-nowrap min-w-[3rem] text-center flex-shrink-0" onclick="app.setEdit('${path}')">${val}</span><button class="stepper-btn" onclick="app.incrementPercent('${path}', 5)"><i class="fa-solid fa-plus"></i></button><button class="stepper-btn" onclick="app.incrementPercent('${path}', 25)"><i class="fa-solid fa-angles-right"></i></button></div>`;
             }
             const vUpper = String(val).toUpperCase();
             if (['PENDING', 'IN PROGRESS', 'COMPLETED', 'FAILED'].includes(vUpper)) {
-                return `<div class="state-switch"><div class="state-btn \( {vUpper === 'PENDING' ? 'state-btn-active-pend' : ''}" onclick="app.updateValue(' \){path}', 'PENDING')">PEND</div><div class="state-btn \( {vUpper === 'IN PROGRESS' ? 'state-btn-active-prog' : ''}" onclick="app.updateValue(' \){path}', 'IN PROGRESS')">PROG</div><div class="state-btn \( {vUpper === 'COMPLETED' ? 'state-btn-active-comp' : ''}" onclick="app.updateValue(' \){path}', 'COMPLETED')">DONE</div><div class="state-btn \( {vUpper === 'FAILED' ? 'state-btn-active-fail' : ''}" onclick="app.updateValue(' \){path}', 'FAILED')">FAIL</div></div>`;
+                return `<div class="state-switch"><div class="state-btn ${vUpper === 'PENDING' ? 'state-btn-active-pend' : ''}" onclick="app.updateValue('${path}', 'PENDING')">PEND</div><div class="state-btn ${vUpper === 'IN PROGRESS' ? 'state-btn-active-prog' : ''}" onclick="app.updateValue('${path}', 'IN PROGRESS')">PROG</div><div class="state-btn ${vUpper === 'COMPLETED' ? 'state-btn-active-comp' : ''}" onclick="app.updateValue('${path}', 'COMPLETED')">DONE</div><div class="state-btn ${vUpper === 'FAILED' ? 'state-btn-active-fail' : ''}" onclick="app.updateValue('${path}', 'FAILED')">FAIL</div></div>`;
             }
             if (['ACTIVE', 'INACTIVE'].includes(vUpper)) {
-                return `<div class="state-switch"><div class="state-btn \( {vUpper === 'ACTIVE' ? 'state-btn-active-on' : ''}" onclick="app.updateValue(' \){path}', 'ACTIVE')">ACTIVE</div><div class="state-btn \( {vUpper === 'INACTIVE' ? 'state-btn-active-off' : ''}" onclick="app.updateValue(' \){path}', 'INACTIVE')">INACTIVE</div></div>`;
+                return `<div class="state-switch"><div class="state-btn ${vUpper === 'ACTIVE' ? 'state-btn-active-on' : ''}" onclick="app.updateValue('${path}', 'ACTIVE')">ACTIVE</div><div class="state-btn ${vUpper === 'INACTIVE' ? 'state-btn-active-off' : ''}" onclick="app.updateValue('${path}', 'INACTIVE')">INACTIVE</div></div>`;
             }
             if (['NOBODY', 'RICK', 'TRIBE MEMBER', 'TRIBE'].includes(vUpper)) {
-                return `<div class="state-switch"><div class="state-btn \( {vUpper === 'NOBODY' ? 'state-btn-active-off' : ''}" onclick="app.updateValue(' \){path}', 'NOBODY')">NOBODY</div><div class="state-btn \( {vUpper === 'RICK' ? 'state-btn-active-on' : ''}" onclick="app.updateValue(' \){path}', 'RICK')">RICK</div><div class="state-btn \( {vUpper.includes('TRIBE') ? 'state-btn-active-prog' : ''}" onclick="app.updateValue(' \){path}', 'TRIBE MEMBER')">TRIBE</div></div>`;
+                return `<div class="state-switch"><div class="state-btn ${vUpper === 'NOBODY' ? 'state-btn-active-off' : ''}" onclick="app.updateValue('${path}', 'NOBODY')">NOBODY</div><div class="state-btn ${vUpper === 'RICK' ? 'state-btn-active-on' : ''}" onclick="app.updateValue('${path}', 'RICK')">RICK</div><div class="state-btn ${vUpper.includes('TRIBE') ? 'state-btn-active-prog' : ''}" onclick="app.updateValue('${path}', 'TRIBE MEMBER')">TRIBE</div></div>`;
             }
             // UPDATED: Changed from 'baseline/rising/plateau/falling' to 'baseline come up plateau come down'
             if (['BASELINE', 'COME UP', 'PLATEAU', 'COME DOWN'].includes(vUpper)) {
-                return `<div class="state-switch"><div class="state-btn \( {vUpper === 'BASELINE' ? 'state-btn-active-off' : ''}" onclick="app.updateValue(' \){path}', 'BASELINE')">BASE</div><div class="state-btn \( {vUpper === 'COME UP' ? 'state-btn-active-on' : ''}" onclick="app.updateValue(' \){path}', 'COME UP')">RISE</div><div class="state-btn \( {vUpper === 'PLATEAU' ? 'state-btn-active-pend' : ''}" onclick="app.updateValue(' \){path}', 'PLATEAU')">FLAT</div><div class="state-btn \( {vUpper === 'COME DOWN' ? 'state-btn-active-fail' : ''}" onclick="app.updateValue(' \){path}', 'COME DOWN')">FALL</div></div>`;
+                return `<div class="state-switch"><div class="state-btn ${vUpper === 'BASELINE' ? 'state-btn-active-off' : ''}" onclick="app.updateValue('${path}', 'BASELINE')">BASE</div><div class="state-btn ${vUpper === 'COME UP' ? 'state-btn-active-on' : ''}" onclick="app.updateValue('${path}', 'COME UP')">RISE</div><div class="state-btn ${vUpper === 'PLATEAU' ? 'state-btn-active-pend' : ''}" onclick="app.updateValue('${path}', 'PLATEAU')">FLAT</div><div class="state-btn ${vUpper === 'COME DOWN' ? 'state-btn-active-fail' : ''}" onclick="app.updateValue('${path}', 'COME DOWN')">FALL</div></div>`;
             }
             // ADDED: Glycemic index toggles
             if (['FASTING', 'RISING', 'STABLE', 'FALLING'].includes(vUpper)) {
-                return `<div class="state-switch"><div class="state-btn \( {vUpper === 'FASTING' ? 'state-btn-active-off' : ''}" onclick="app.updateValue(' \){path}', 'FASTING')">FAST</div><div class="state-btn \( {vUpper === 'RISING' ? 'state-btn-active-on' : ''}" onclick="app.updateValue(' \){path}', 'RISING')">RISE</div><div class="state-btn \( {vUpper === 'STABLE' ? 'state-btn-active-pend' : ''}" onclick="app.updateValue(' \){path}', 'STABLE')">STABLE</div><div class="state-btn \( {vUpper === 'FALLING' ? 'state-btn-active-fail' : ''}" onclick="app.updateValue(' \){path}', 'FALLING')">FALL</div></div>`;
+                return `<div class="state-switch"><div class="state-btn ${vUpper === 'FASTING' ? 'state-btn-active-off' : ''}" onclick="app.updateValue('${path}', 'FASTING')">FAST</div><div class="state-btn ${vUpper === 'RISING' ? 'state-btn-active-on' : ''}" onclick="app.updateValue('${path}', 'RISING')">RISE</div><div class="state-btn ${vUpper === 'STABLE' ? 'state-btn-active-pend' : ''}" onclick="app.updateValue('${path}', 'STABLE')">STABLE</div><div class="state-btn ${vUpper === 'FALLING' ? 'state-btn-active-fail' : ''}" onclick="app.updateValue('${path}', 'FALLING')">FALL</div></div>`;
             }
             if (['TRUE', 'FALSE'].includes(vUpper) || typeof val === 'boolean') {
                 const isTrue = vUpper === 'TRUE' || val === true;
-                return `<div class="state-switch"><div class="state-btn \( {isTrue ? 'state-btn-active-on' : ''}" onclick="app.updateValue(' \){path}', 'TRUE')">TRUE</div><div class="state-btn \( {!isTrue ? 'state-btn-active-off' : ''}" onclick="app.updateValue(' \){path}', 'FALSE')">FALSE</div></div>`;
+                return `<div class="state-switch"><div class="state-btn ${isTrue ? 'state-btn-active-on' : ''}" onclick="app.updateValue('${path}', 'TRUE')">TRUE</div><div class="state-btn ${!isTrue ? 'state-btn-active-off' : ''}" onclick="app.updateValue('${path}', 'FALSE')">FALSE</div></div>`;
             }
             if (typeof val === 'number') {
-                    return `<div class="flex items-center"><button class="stepper-btn" onclick="app.incrementValue('\( {path}', -10)"><i class="fa-solid fa-angles-left"></i></button><button class="stepper-btn" onclick="app.incrementValue(' \){path}', -1)"><i class="fa-solid fa-minus"></i></button><span class="val-display mono text-green-400 hover:underline mx-0 whitespace-nowrap min-w-[3rem] text-center flex-shrink-0" onclick="app.setEdit('\( {path}')"> \){val}</span><button class="stepper-btn" onclick="app.incrementValue('\( {path}', 1)"><i class="fa-solid fa-plus"></i></button><button class="stepper-btn" onclick="app.incrementValue(' \){path}', 10)"><i class="fa-solid fa-angles-right"></i></button></div>`;
+                    return `<div class="flex items-center"><button class="stepper-btn" onclick="app.incrementValue('${path}', -10)"><i class="fa-solid fa-angles-left"></i></button><button class="stepper-btn" onclick="app.incrementValue('${path}', -1)"><i class="fa-solid fa-minus"></i></button><span class="val-display mono text-green-400 hover:underline mx-0 whitespace-nowrap min-w-[3rem] text-center flex-shrink-0" onclick="app.setEdit('${path}')">${val}</span><button class="stepper-btn" onclick="app.incrementValue('${path}', 1)"><i class="fa-solid fa-plus"></i></button><button class="stepper-btn" onclick="app.incrementValue('${path}', 10)"><i class="fa-solid fa-angles-right"></i></button></div>`;
             }
             const timeMatch = String(val).match(/^\d{1,2}:\d{2}$/);
             if (timeMatch) {
-                return `<div class="flex items-center"><button class="stepper-btn" onclick="app.incrementTime('\( {path}', -10)"><i class="fa-solid fa-angles-left"></i></button><button class="stepper-btn" onclick="app.incrementTime(' \){path}', -1)"><i class="fa-solid fa-minus"></i></button><span class="val-display mono text-blue-400 hover:underline mx-0 whitespace-nowrap min-w-[3rem] text-center flex-shrink-0" onclick="app.setEdit('\( {path}')"> \){val}</span><button class="stepper-btn" onclick="app.incrementTime('\( {path}', 1)"><i class="fa-solid fa-plus"></i></button><button class="stepper-btn" onclick="app.incrementTime(' \){path}', 10)"><i class="fa-solid fa-angles-right"></i></button></div>`;
+                return `<div class="flex items-center"><button class="stepper-btn" onclick="app.incrementTime('${path}', -10)"><i class="fa-solid fa-angles-left"></i></button><button class="stepper-btn" onclick="app.incrementTime('${path}', -1)"><i class="fa-solid fa-minus"></i></button><span class="val-display mono text-blue-400 hover:underline mx-0 whitespace-nowrap min-w-[3rem] text-center flex-shrink-0" onclick="app.setEdit('${path}')">${val}</span><button class="stepper-btn" onclick="app.incrementTime('${path}', 1)"><i class="fa-solid fa-plus"></i></button><button class="stepper-btn" onclick="app.incrementTime('${path}', 10)"><i class="fa-solid fa-angles-right"></i></button></div>`;
             }
             if (vUpper === 'CRITICAL') return `<span class="badge badge-critical cursor-pointer" onclick="app.setEdit('${path}')">CRITICAL</span>`;
             if (vUpper === 'HIGH') return `<span class="badge badge-high cursor-pointer" onclick="app.setEdit('${path}')">HIGH</span>`;
             if (vUpper === 'MEDIUM') return `<span class="badge badge-medium cursor-pointer" onclick="app.setEdit('${path}')">MEDIUM</span>`;
             if (vUpper === 'LOW') return `<span class="badge badge-low cursor-pointer" onclick="app.setEdit('${path}')">LOW</span>`;
-            return `<span class="val-display mono text-green-400 hover:underline" onclick="app.setEdit('\( {path}')"> \){val}</span>`;
+            return `<span class="val-display mono text-green-400 hover:underline" onclick="app.setEdit('${path}')">${val}</span>`;
         }
         setEdit(path) { this.editingPath = path; this.render(); setTimeout(() => { const el = document.getElementById(`input-${path}`); if(el) { el.focus(); el.select(); } }, 50); }
         cancelEdit() { this.editingPath = null; this.render(); }
@@ -1937,19 +1923,19 @@
             });
 
             const makePath = (key, color) => {
-                let d = `M \( {processedPoints[0].x} \){height - padding - (processedPoints[0][key]/100 * contentH)}`;
+                let d = `M ${processedPoints[0].x} ${height - padding - (processedPoints[0][key]/100 * contentH)}`;
                 processedPoints.forEach((p, i) => {
                     if (i === 0) return;
                     const val = p[key] !== undefined ? p[key] : 0;
-                    d += ` L \( {p.x} \){height - padding - (val/100 * contentH)}`;
+                    d += ` L ${p.x} ${height - padding - (val/100 * contentH)}`;
                 });
-                return `<path d="\( {d}" stroke=" \){color}" class="chart-line" />`;
+                return `<path d="${d}" stroke="${color}" class="chart-line" />`;
             };
 
             const makeDots = (key, color) => {
                 return processedPoints.map(p => {
                     const val = p[key] !== undefined ? p[key] : 0;
-                    return `<circle cx="\( {p.x}" cy=" \){height - padding - (val/100 * contentH)}" r="3" fill="\( {color}" stroke="#000" class="chart-dot"><title> \){key.toUpperCase()}: \( {val}%\n \){p.ts}</title></circle>`;
+                    return `<circle cx="${p.x}" cy="${height - padding - (val/100 * contentH)}" r="3" fill="${color}" stroke="#000" class="chart-dot"><title>${key.toUpperCase()}: ${val}%\n${p.ts}</title></circle>`;
                 }).join('');
             };
 
@@ -1959,7 +1945,7 @@
             
             keys.forEach(k => {
                 const color = this.stringToColor(k);
-                legendHTML += `<div class="legend-item"><span class="legend-color" style="background:\( {color}"></span> \){k.toUpperCase()}</div>`;
+                legendHTML += `<div class="legend-item"><span class="legend-color" style="background:${color}"></span>${k.toUpperCase()}</div>`;
                 chartElementsHTML += makePath(k, color);
                 chartElementsHTML += makeDots(k, color);
             });
@@ -1967,17 +1953,17 @@
             legendContainer.innerHTML = legendHTML;
 
             const svg = `
-                <svg width="100%" height="100%" viewBox="0 0 \( {width} \){height}" xmlns="http://www.w3.org/2000/svg">
-                    <line x1="\( {padding}" y1=" \){padding}" x2="\( {padding}" y2=" \){height-padding}" class="chart-axis" />
-                    <line x1="\( {padding}" y1=" \){height-padding}" x2="\( {width-padding}" y2=" \){height-padding}" class="chart-axis" />
+                <svg width="100%" height="100%" viewBox="0 0 ${width} ${height}" xmlns="http://www.w3.org/2000/svg">
+                    <line x1="${padding}" y1="${padding}" x2="${padding}" y2="${height-padding}" class="chart-axis" />
+                    <line x1="${padding}" y1="${height-padding}" x2="${width-padding}" y2="${height-padding}" class="chart-axis" />
                     
-                    <line x1="\( {padding}" y1=" \){padding + contentH*0.25}" x2="\( {width-padding}" y2=" \){padding + contentH*0.25}" class="chart-grid" />
-                    <line x1="\( {padding}" y1=" \){padding + contentH*0.50}" x2="\( {width-padding}" y2=" \){padding + contentH*0.50}" class="chart-grid" />
-                    <line x1="\( {padding}" y1=" \){padding + contentH*0.75}" x2="\( {width-padding}" y2=" \){padding + contentH*0.75}" class="chart-grid" />
+                    <line x1="${padding}" y1="${padding + contentH*0.25}" x2="${width-padding}" y2="${padding + contentH*0.25}" class="chart-grid" />
+                    <line x1="${padding}" y1="${padding + contentH*0.50}" x2="${width-padding}" y2="${padding + contentH*0.50}" class="chart-grid" />
+                    <line x1="${padding}" y1="${padding + contentH*0.75}" x2="${width-padding}" y2="${padding + contentH*0.75}" class="chart-grid" />
 
-                    <text x="\( {padding-5}" y=" \){padding + contentH*0.25 + 3}" text-anchor="end" class="chart-label">75%</text>
-                    <text x="\( {padding-5}" y=" \){padding + contentH*0.50 + 3}" text-anchor="end" class="chart-label">50%</text>
-                    <text x="\( {padding-5}" y=" \){padding + contentH*0.75 + 3}" text-anchor="end" class="chart-label">25%</text>
+                    <text x="${padding-5}" y="${padding + contentH*0.25 + 3}" text-anchor="end" class="chart-label">75%</text>
+                    <text x="${padding-5}" y="${padding + contentH*0.50 + 3}" text-anchor="end" class="chart-label">50%</text>
+                    <text x="${padding-5}" y="${padding + contentH*0.75 + 3}" text-anchor="end" class="chart-label">25%</text>
 
                     ${chartElementsHTML}
                 </svg>
