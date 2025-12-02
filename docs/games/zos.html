@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Z-OS | AGENCY PROTOCOL (v7.0)</title>
+    <title>Z-OS | AGENCY PROTOCOL (v7.1)</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
@@ -19,7 +19,7 @@
             --warn-color: #ffbb00;
             --process-color: #00aaff;
             --calc-color: #a855f7;
-            --skill-hanzi: #eab308; /* Yellow for Hanzi */
+            --skill-hanzi: #eab308;
             --skill-default: #6366f1;
         }
 
@@ -271,8 +271,7 @@
         /* Skill Panel */
         .skill-bar-container { background: #111; height: 6px; width: 100%; border-radius: 3px; overflow: hidden; margin-top: 4px; }
         .skill-bar { height: 100%; transition: width 0.3s ease; }
-        .skill-row { border-bottom: 1px solid #1a1a1a; padding: 8px 0; }
-
+        
         /* Macro Menu */
         #macro-menu {
             position: absolute;
@@ -311,7 +310,7 @@
     <div class="flex items-center gap-3">
         <div class="flex items-center gap-2">
             <i class="fa-solid fa-network-wired text-green-500 text-sm"></i>
-            <span class="text-green-500 font-bold tracking-widest text-sm">Z-OS <span class="text-white text-xs">v7.0</span></span>
+            <span class="text-green-500 font-bold tracking-widest text-sm">Z-OS <span class="text-white text-xs">v7.1</span></span>
         </div>
         <div class="relative mr-2">
             <input type="text" id="tree-search" class="search-input" placeholder="FILTER" onkeyup="app.updateSearch(this.value)">
@@ -457,29 +456,24 @@
                 <input type="checkbox" id="skill-export-toggle" onchange="app.toggleSkillExport()" class="accent-yellow-500 cursor-pointer w-3 h-3">
                 <span class="text-[9px] text-gray-500 font-bold tracking-wider group-hover:text-yellow-400">INCLUDE IN EXPORT</span>
             </label>
+            <button onclick="app.clearSkillHistory()" class="bg-red-900/30 text-red-400 border border-red-800 px-2 py-0.5 rounded text-[9px] font-bold tracking-wider hover:bg-red-900/50 mr-4">CLEAR HISTORY</button>
             <button onclick="app.toggleSkills()" class="text-gray-500 hover:text-white"><i class="fa-solid fa-xmark fa-lg"></i></button>
         </div>
     </div>
     
     <div class="p-2 border-b border-gray-900 bg-[#050505] flex justify-between items-center text-[10px] font-mono">
-        <span class="text-gray-500 uppercase">HISTORY TIMEFRAME:</span>
-        <select id="skill-graph-range" class="bg-[#111] border border-gray-700 text-yellow-400 text-[10px] px-2 py-0.5 rounded focus:outline-none" onchange="app.renderSkillCharts()">
-            <option value="7">LAST 7 DAYS</option>
-            <option value="30">LAST 30 DAYS</option>
-            <option value="90">LAST 90 DAYS</option>
-        </select>
+        <span class="text-gray-500 uppercase">HISTORY TIMEFRAME (DAYS):</span>
+        <input type="number" id="skill-graph-range" class="bg-[#111] border border-gray-700 text-yellow-400 w-16 px-2 py-0.5 text-center focus:outline-none focus:border-yellow-500 rounded-sm" min="3" value="7" onchange="app.renderSkillCharts()">
     </div>
 
     <div class="flex-grow flex flex-col md:flex-row overflow-hidden">
-        <!-- Stats & Pie -->
         <div class="w-full md:w-1/3 border-r border-gray-800 p-4 overflow-y-auto bg-[#030303]">
             <div id="skill-list-container" class="space-y-4"></div>
             <div class="mt-6 border-t border-gray-800 pt-4">
                 <h3 class="text-[10px] font-bold text-gray-500 mb-2 uppercase tracking-wider text-center">DAILY FOCUS BREAKDOWN</h3>
-                <div id="skill-pie-container" class="w-40 h-40 mx-auto relative"></div>
+                <div id="skill-pie-container" class="w-40 h-40 mx-auto relative rounded-full"></div>
             </div>
         </div>
-        <!-- Graph -->
         <div class="w-full md:w-2/3 p-4 bg-black flex flex-col">
             <h3 class="text-[10px] font-bold text-gray-500 mb-2 uppercase tracking-wider">TOTAL DAILY XP OUTPUT</h3>
             <div id="skill-graph-container" class="chart-container border border-gray-800 rounded bg-[#050505] flex-grow"></div>
@@ -495,30 +489,18 @@
         "battery_level": "75%",
         "elapsed_time": "00:45",
         "active_variables": {
-            "MOOD": {
-                "MOTIVATION": "50%",
-                "FOCUS": "50%",
-                "WAKEFULNESS": "50%",
-                "EXHAUSTION": "50%"
-            },
+            "MOOD": { "MOTIVATION": "50%", "FOCUS": "50%", "WAKEFULNESS": "50%", "EXHAUSTION": "50%" },
             "HANZI_SESSION": {}
         },
-        "SKILLS": {
-            "HANZI": {
-                "LEVEL": 1,
-                "CURRENT_XP": 0,
-                "DAILY_XP": 0,
-                "HISTORY": []
-            }
-        },
+        "SKILLS": { "HANZI": { "LEVEL": 1, "CURRENT_XP": 0, "DAILY_XP": 0, "HISTORY": [] } },
         "log_config": { "limit": 10, "enabled": true, "chart_limit": 10, "log_scratchpad": false },
         "export_config": { "visible_only": false, "include_logs": true, "include_skills": true },
         "_meta_log": [],
         "_mood_history": []
     };
 
-    const STORAGE_KEY = 'zos_v7_0';
-    const LEGACY_KEY = 'zos_v6_20';
+    const STORAGE_KEY = 'zos_v7_1';
+    const LEGACY_KEY = 'zos_v7_0';
 
     class ZyqralOS {
         constructor() {
@@ -534,8 +516,6 @@
             if(this.state.log_config.log_scratchpad === undefined) this.state.log_config.log_scratchpad = false;
             if(!this.state._meta_log) this.state._meta_log = [];
             if(!this.state._mood_history) this.state._mood_history = [];
-            
-            // Skill Init
             if(!this.state.SKILLS) this.state.SKILLS = { "HANZI": { "LEVEL": 1, "CURRENT_XP": 0, "DAILY_XP": 0, "HISTORY": [] } };
             
             this.checkDailyReset();
@@ -575,14 +555,12 @@
         checkDailyReset() {
             const today = new Date().toISOString().split('T')[0];
             if (this.state.last_login_date !== today) {
-                // Perform Reset
-                if (this.state.last_login_date) { // Don't archive on very first run
+                if (this.state.last_login_date) {
                     Object.keys(this.state.SKILLS).forEach(skillKey => {
                         const skill = this.state.SKILLS[skillKey];
                         if (skill.DAILY_XP > 0) {
                             if (!skill.HISTORY) skill.HISTORY = [];
                             skill.HISTORY.push({ date: this.state.last_login_date, xp: skill.DAILY_XP });
-                            // Keep history trim? Let's say 365 days
                             if (skill.HISTORY.length > 365) skill.HISTORY.shift();
                         }
                         skill.DAILY_XP = 0;
@@ -613,7 +591,6 @@
             localStorage.setItem(STORAGE_KEY + '_ui', JSON.stringify(Array.from(this.collapsed)));
         }
 
-        // ... (Reset, Search, Log functions same as before) ...
         reset() {
             if(confirm('FACTORY RESET: Purge all local data?')) {
                 this.state = JSON.parse(JSON.stringify(NULL_STATE));
@@ -675,7 +652,7 @@
             return null;
         }
 
-        // --- FORMULA LOGIC (v6.25) ---
+        // --- FORMULA LOGIC ---
         getValueFromPath(pathStr, depth = 0) {
             if (depth > 5) return 0;
             const normalizedPath = pathStr.replace(/ > /g, '|').replace(/>/g, '|');
@@ -716,7 +693,43 @@
             } catch (e) { return "ERR:SYNTAX"; }
         }
 
-        // --- SKILL LOGIC (v7.0) ---
+        // --- SKILL LOGIC (v7.1) ---
+        monitorSkillUpdate(pathStr, oldVal, newVal) {
+            // Logic: If path contains "SESSION", and key is "SESSION_XP" or "XP"
+            if (pathStr.toUpperCase().includes('SESSION')) {
+                const parts = pathStr.split('|');
+                const lastKey = parts[parts.length-1].toUpperCase();
+                
+                if (lastKey === 'SESSION_XP' || lastKey === 'XP') {
+                    // Try to find Skill Name from parent path
+                    // e.g. TREADMILL_SESSION -> TREADMILL
+                    let skillName = "GENERAL";
+                    for(let i=parts.length-2; i>=0; i--) {
+                        if(parts[i].toUpperCase().includes('SESSION')) {
+                            skillName = parts[i].toUpperCase().replace('_SESSION', '').replace('SESSION_', '').replace('SESSION', '').trim();
+                            if(skillName === "") skillName = "GENERAL";
+                            break;
+                        }
+                    }
+                    
+                    const v1 = parseFloat(oldVal) || 0;
+                    const v2 = parseFloat(newVal) || 0;
+                    const delta = v2 - v1;
+                    
+                    if (delta !== 0) {
+                        if (!this.state.SKILLS[skillName]) {
+                            this.state.SKILLS[skillName] = { LEVEL: 1, CURRENT_XP: 0, DAILY_XP: 0, HISTORY: [] };
+                        }
+                        const skill = this.state.SKILLS[skillName];
+                        skill.DAILY_XP += delta;
+                        skill.CURRENT_XP += delta;
+                        skill.LEVEL = Math.floor(Math.sqrt(skill.CURRENT_XP / 100)) + 1;
+                        // Not saving here to avoid loop, updateValue calls save
+                    }
+                }
+            }
+        }
+
         toggleSkills() {
             const modal = document.getElementById('skill-modal');
             const toggle = document.getElementById('skill-export-toggle');
@@ -735,6 +748,14 @@
             this.state.export_config.include_skills = el.checked;
             this.save();
         }
+        
+        clearSkillHistory() {
+            if(confirm("WIPE ALL SKILL HISTORY LOGS? (Levels preserved)")) {
+                Object.values(this.state.SKILLS).forEach(s => s.HISTORY = []);
+                this.save();
+                this.renderSkillCharts();
+            }
+        }
 
         renderSkillCharts() {
             const listContainer = document.getElementById('skill-list-container');
@@ -743,11 +764,10 @@
             const rangeInput = document.getElementById('skill-graph-range');
             const days = parseInt(rangeInput.value) || 7;
 
-            // 1. Skill List & Pie Data
             let htmlList = '';
             let totalDailyXP = 0;
             const skills = this.state.SKILLS || {};
-            const colors = ['#eab308', '#3b82f6', '#ef4444', '#10b981', '#a855f7'];
+            const colors = ['#eab308', '#3b82f6', '#ef4444', '#10b981', '#a855f7', '#ec4899', '#f97316'];
             let colorIdx = 0;
             const pieSegments = [];
 
@@ -768,18 +788,16 @@
                         <div class="text-[8px] text-gray-600 text-right mt-0.5">TOTAL: ${skill.CURRENT_XP}</div>
                     </div>
                 `;
-                
-                if (skill.DAILY_XP > 0) {
-                    pieSegments.push({ value: skill.DAILY_XP, color: color });
-                }
+                if (skill.DAILY_XP > 0) pieSegments.push({ value: skill.DAILY_XP, color: color });
                 colorIdx++;
             });
             listContainer.innerHTML = htmlList || '<div class="text-gray-600 text-[10px] italic">NO ACTIVE SKILLS</div>';
 
-            // 2. Render Pie
             if (totalDailyXP === 0) {
                 pieContainer.innerHTML = '<div class="flex items-center justify-center h-full text-[9px] text-gray-700">NO DATA</div>';
+                pieContainer.style.background = 'transparent';
             } else {
+                pieContainer.innerHTML = '';
                 let accumulatedDeg = 0;
                 let gradients = [];
                 pieSegments.forEach(seg => {
@@ -788,14 +806,10 @@
                     accumulatedDeg += deg;
                 });
                 pieContainer.style.background = `conic-gradient(${gradients.join(', ')})`;
-                pieContainer.style.borderRadius = '50%';
             }
 
-            // 3. Render Graph
-            // Aggregate history across ALL skills for the "Total Daily XP" graph
-            const graphData = {}; // date -> total xp
-            
-            // Initialize last N days with 0
+            // Graph Logic
+            const graphData = {}; 
             for (let i = days - 1; i >= 0; i--) {
                 const d = new Date();
                 d.setDate(d.getDate() - i);
@@ -811,7 +825,6 @@
                         }
                     });
                 }
-                // Add today
                 const today = new Date().toISOString().split('T')[0];
                 if (graphData[today] !== undefined) {
                     graphData[today] += (skill.DAILY_XP || 0);
@@ -819,7 +832,7 @@
             });
 
             const points = Object.entries(graphData).sort((a,b) => a[0].localeCompare(b[0]));
-            const maxVal = Math.max(...points.map(p => p[1]), 100); // Scale min 100
+            const maxVal = Math.max(...points.map(p => p[1]), 100); 
             
             const w = graphContainer.clientWidth;
             const h = 300;
@@ -862,11 +875,9 @@
                 const rawData = parent[key];
                 if(!rawData || typeof rawData !== 'string' || rawData.length < 10) { alert("ERROR: PASTE ANKI STATS IN SCRATCHPAD."); return; }
 
-                // UPDATED REGEX: Handle seconds/minutes and unicode
+                // REGEX v7.1: Robust against unicode and detects unit
                 const totalCardsMatch = rawData.match(/Studied[^\d]*(\d+)/i);
-                // Capture time AND unit (seconds/minutes)
                 const timeMatch = rawData.match(/in[^\d]*([\d.]+)[^\d]*(minutes|seconds)/i);
-                // Capture speed (s/card usually)
                 const speedMatch = rawData.match(/\([^\d]*([\d.]+)[^\d]*s\/card/i);
                 const againMatch = rawData.match(/Again count:[^\d]*(\d+)/i);
                 const breakdownMatch = rawData.match(/Learn:[^\d]*(\d+)[^\d]*Review:[^\d]*(\d+)[^\d]*Relearn:[^\d]*(\d+)/i);
@@ -876,7 +887,6 @@
                     
                     let timeVal = parseFloat(timeMatch[1]);
                     const timeUnit = timeMatch[2].toLowerCase();
-                    // Normalize to minutes
                     const timeMin = timeUnit.includes('second') ? timeVal / 60 : timeVal;
 
                     const speed = speedMatch ? parseFloat(speedMatch[1]) : 0;
@@ -888,7 +898,6 @@
                     const repInput = prompt("INPUT: Number of Hanzi characters written (10x Reps)?", "0");
                     const writingReps = parseInt(repInput) || 0;
 
-                    // XP CALC
                     const baseXP = totalCards * 5;
                     const qualityXP = (reviewCount * 10) + (learnCount * 8) + (relearnCount * 5) - (againCount * 10);
                     let timeBonus = 0;
@@ -899,14 +908,14 @@
                     const writingXP = writingReps * 50;
                     const totalXP = Math.floor(baseXP + qualityXP + timeBonus + writingXP);
 
-                    // UPDATE SKILL TREE
+                    // Note: updateValue logic handles skill update if we write to SESSION_XP, but this macro writes multiple fields.
+                    // To ensure skill tree update, we manually trigger it here or structure the write to trigger monitor.
+                    // Simpler to manually update for this specific complex macro to ensure reliability.
                     if (!this.state.SKILLS.HANZI) this.state.SKILLS.HANZI = { LEVEL: 1, CURRENT_XP: 0, DAILY_XP: 0, HISTORY: [] };
                     this.state.SKILLS.HANZI.CURRENT_XP += totalXP;
                     this.state.SKILLS.HANZI.DAILY_XP += totalXP;
-                    // Simple Level Curve: XP = Level^2 * 100
                     this.state.SKILLS.HANZI.LEVEL = Math.floor(Math.sqrt(this.state.SKILLS.HANZI.CURRENT_XP / 100)) + 1;
 
-                    // INJECTION - Use "=" to denote system/calc fields
                     const targetKey = 'HANZI_SESSION';
                     let targetPath = this.findPathByKey(this.state, targetKey);
                     if(!targetPath) { this.state[targetKey] = {}; targetPath = targetKey; }
@@ -939,7 +948,7 @@
                     alert("PARSE ERROR. Missing: " + missing.join(", "));
                 }
             }
-            // ... (Other macros remain identical)
+            // ... (Other macros preserved)
             else if (type === 'RESET_TASKS') {
                 if(confirm('MACRO EXECUTION: Reset "IN PROGRESS", "COMPLETED", and "FAILED" tasks to "PENDING"?')) {
                     let count = 0;
@@ -999,7 +1008,7 @@
             }
         }
 
-        // ... (Remaining Helper functions, logGranular, render, etc. kept from v6.26/v6.25 but updated to ignore SKILLS root in tree render if desired, though showing it is fine)
+        // ... (Helper functions, logGranular, render etc. remain the same)
         
         findMoodRecursive(obj) {
             for (const key in obj) {
@@ -1269,6 +1278,10 @@
                 this.render();
                 return;
             }
+            
+            // Skill Monitor Check BEFORE update
+            this.monitorSkillUpdate(pathStr, oldValue, val);
+
             parent[key] = val;
             this.editingPath = null;
             if(this.pendingEdits[pathStr]) delete this.pendingEdits[pathStr];
@@ -1283,6 +1296,7 @@
             if (typeof parent[key] === 'number') {
                 const oldValue = parent[key];
                 parent[key] += amount;
+                this.monitorSkillUpdate(pathStr, oldValue, parent[key]);
                 this.logGranular('MATH', pathStr, oldValue, parent[key]);
                 this.save();
             }
@@ -1610,11 +1624,15 @@
             if (modal.classList.contains('hidden')) {
                 if (mode === 'export') { 
                     exportOption.classList.remove('hidden'); 
+                    
+                    // LOAD SAVED CONFIG
                     if(this.state.export_config) {
                         exportCheck.checked = this.state.export_config.visible_only;
                         logsCheck.checked = this.state.export_config.include_logs;
                     }
+
                     this.updateExportPreview(); 
+                    
                     ta.readOnly = true; 
                     header.textContent = 'DATA EXTRACTION'; 
                     ta.placeholder = '// COPY DATA STREAM BELOW //'; 
@@ -1623,6 +1641,7 @@
                 }
                 else if (mode === 'import') { 
                     exportOption.classList.add('hidden'); 
+                    
                     ta.value = ''; 
                     ta.readOnly = false; 
                     header.textContent = 'DATA INJECTION'; 
@@ -1729,6 +1748,7 @@
                 return typeof v === 'number' || (typeof v === 'string' && v.match(/^\d+%?/));
             });
 
+            // Flatten data for easier processing
             const processedPoints = data.map((entry, idx) => {
                 const x = padding + (idx / (data.length - 1)) * contentW;
                 const point = { x, ts: entry.ts };
@@ -1755,6 +1775,7 @@
                 }).join('');
             };
 
+            // Generate Legend and Chart Elements
             let legendHTML = '';
             let chartElementsHTML = '';
             
@@ -1771,12 +1792,15 @@
                 <svg width="100%" height="100%" viewBox="0 0 ${width} ${height}" xmlns="http://www.w3.org/2000/svg">
                     <line x1="${padding}" y1="${padding}" x2="${padding}" y2="${height-padding}" class="chart-axis" />
                     <line x1="${padding}" y1="${height-padding}" x2="${width-padding}" y2="${height-padding}" class="chart-axis" />
+                    
                     <line x1="${padding}" y1="${padding + contentH*0.25}" x2="${width-padding}" y2="${padding + contentH*0.25}" class="chart-grid" />
                     <line x1="${padding}" y1="${padding + contentH*0.50}" x2="${width-padding}" y2="${padding + contentH*0.50}" class="chart-grid" />
                     <line x1="${padding}" y1="${padding + contentH*0.75}" x2="${width-padding}" y2="${padding + contentH*0.75}" class="chart-grid" />
+
                     <text x="${padding-5}" y="${padding + contentH*0.25 + 3}" text-anchor="end" class="chart-label">75%</text>
                     <text x="${padding-5}" y="${padding + contentH*0.50 + 3}" text-anchor="end" class="chart-label">50%</text>
                     <text x="${padding-5}" y="${padding + contentH*0.75 + 3}" text-anchor="end" class="chart-label">25%</text>
+
                     ${chartElementsHTML}
                 </svg>
             `;
