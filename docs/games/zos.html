@@ -734,7 +734,27 @@
             } catch (e) { return "ERR:SYNTAX"; }
         }
 
-        // --- SKILL LOGIC v7.4 ---
+        // --- UPDATED: Parse number from value (handles "= number" formulas) ---
+        parseNumberFromValue(val) {
+            if (typeof val === 'string' && val.startsWith('=')) {
+                // Use the existing formula processing logic
+                const result = this.processFormula(val, 0, '');
+                // Convert result to number
+                if (typeof result === 'number') {
+                    return result;
+                } else if (typeof result === 'string') {
+                    // Handle percentage strings like "50%"
+                    const match = result.match(/^(\d+(?:\.\d+)?)%?$/);
+                    return match ? parseFloat(match[1]) : 0;
+                }
+                return 0;
+            }
+            // For non-string or non-formula values
+            const num = parseFloat(val);
+            return isNaN(num) ? 0 : num;
+        }
+
+        // --- UPDATED SKILL LOGIC v7.4 ---
         monitorSkillUpdate(pathStr, oldVal, newVal) {
             if (pathStr.toUpperCase().includes('SESSION')) {
                 const parts = pathStr.split('|');
@@ -750,8 +770,9 @@
                         }
                     }
                     
-                    const v1 = parseFloat(oldVal) || 0;
-                    const v2 = parseFloat(newVal) || 0;
+                    // UPDATED: Use parseNumberFromValue to handle "= number" formulas
+                    const v1 = this.parseNumberFromValue(oldVal);
+                    const v2 = this.parseNumberFromValue(newVal);
                     const delta = v2 - v1;
                     
                     if (delta !== 0) {
@@ -1035,13 +1056,9 @@
                     const { parent: tParent, key: tKey } = this.getParent(targetPath);
                     const existingData = tParent[tKey] || {};
                     
-                    const parseVal = (v) => {
-                        if(typeof v === 'string' && v.startsWith('=')) return parseFloat(v.substring(1)) || 0;
-                        return parseFloat(v) || 0;
-                    };
-
-                    const oldGain = parseVal(existingData["SESSION_XP_GAIN"]);
-                    const oldLoss = parseVal(existingData["SESSION_XP_LOSS"]);
+                    // UPDATED: Use parseNumberFromValue for formula handling
+                    const oldGain = this.parseNumberFromValue(existingData["SESSION_XP_GAIN"]);
+                    const oldLoss = this.parseNumberFromValue(existingData["SESSION_XP_LOSS"]);
 
                     const deltaGain = gainXP - oldGain;
                     const deltaLoss = lossXP - oldLoss;
