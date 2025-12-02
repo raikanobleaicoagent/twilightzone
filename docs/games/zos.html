@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Z-OS | AGENCY PROTOCOL (v6.26)</title>
+    <title>Z-OS | AGENCY PROTOCOL (v6.25)</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
@@ -304,7 +304,7 @@
     <div class="flex items-center gap-3">
         <div class="flex items-center gap-2">
             <i class="fa-solid fa-network-wired text-green-500 text-sm"></i>
-            <span class="text-green-500 font-bold tracking-widest text-sm">Z-OS <span class="text-white text-xs">v6.26</span></span>
+            <span class="text-green-500 font-bold tracking-widest text-sm">Z-OS <span class="text-white text-xs">v6.25</span></span>
         </div>
         <div class="relative mr-2">
             <input type="text" id="tree-search" class="search-input" placeholder="FILTER" onkeyup="app.updateSearch(this.value)">
@@ -323,9 +323,6 @@
                 <i class="fa-solid fa-bolt"></i> MACROS
             </button>
             <div id="macro-menu">
-                <button class="macro-item text-orange-500 hover:text-orange-400" onclick="app.executeMacro('HANZI_SESSION')">
-                    <i class="fa-solid fa-language"></i> HANZI PARSE
-                </button>
                 <button class="macro-item text-blue-500 hover:text-blue-400" onclick="app.executeMacro('QUICK_NOTE')">
                     <i class="fa-solid fa-pen-to-square"></i> QUICK NOTE
                 </button>
@@ -454,8 +451,7 @@
                 "FOCUS": "50%",
                 "WAKEFULNESS": "50%",
                 "EXHAUSTION": "50%"
-            },
-            "HANZI_SESSION": {}
+            }
         },
         "log_config": { "limit": 10, "enabled": true, "chart_limit": 10, "log_scratchpad": false },
         "export_config": { "visible_only": false, "include_logs": true },
@@ -599,17 +595,10 @@
         
         findPathByKey(obj, keyToFind, currentPath = '') {
             if (typeof obj !== 'object' || obj === null) return null;
-            
-            // Check current object for the key (Case Insensitive)
-            const keys = Object.keys(obj);
-            const foundKey = keys.find(k => k.toLowerCase() === keyToFind.toLowerCase());
-            
-            if (foundKey) {
-                return currentPath ? `${currentPath}|${foundKey}` : foundKey;
+            if (obj.hasOwnProperty(keyToFind)) {
+                return currentPath ? `${currentPath}|${keyToFind}` : keyToFind;
             }
-            
-            // Recursive Search
-            for (let k of keys) {
+            for (let k in obj) {
                 const res = this.findPathByKey(obj[k], keyToFind, currentPath ? `${currentPath}|${k}` : k);
                 if (res) return res;
             }
@@ -707,90 +696,8 @@
         }
 
         executeMacro(type) {
-            if (type === 'HANZI_SESSION') {
-                const scratchpadPath = this.findPathByKey(this.state, 'SCRATCHPAD');
-                if (!scratchpadPath) { alert("SYSTEM ERROR: 'SCRATCHPAD' KEY NOT FOUND. CREATE ONE."); return; }
-                
-                const { parent, key } = this.getParent(scratchpadPath);
-                const rawData = parent[key];
-                
-                if(!rawData || typeof rawData !== 'string' || rawData.length < 10) {
-                    alert("ERROR: SCRATCHPAD EMPTY OR INVALID. PASTE ANKI STATS FIRST.");
-                    return;
-                }
-
-                // PARSE LOGIC
-                // Regex for extraction, robust against unicode formatting chars like U+2068/U+2069
-                const totalCardsMatch = rawData.match(/Studied[^\d]*(\d+)[^\d]*cards/);
-                const timeMatch = rawData.match(/in[^\d]*([\d.]+)[^\d]*minutes/);
-                const speedMatch = rawData.match(/\([^\d]*([\d.]+)[^\d]*s\/card/);
-                const againMatch = rawData.match(/Again count:\s*(\d+)/);
-                const breakdownMatch = rawData.match(/Learn:\s*(\d+)[^\d]*Review:\s*(\d+)[^\d]*Relearn:\s*(\d+)/);
-
-                if(totalCardsMatch && timeMatch && againMatch && breakdownMatch) {
-                    const totalCards = parseInt(totalCardsMatch[1]);
-                    const timeMin = parseFloat(timeMatch[1]);
-                    const speed = speedMatch ? parseFloat(speedMatch[1]) : 0;
-                    const againCount = parseInt(againMatch[1]);
-                    const learnCount = parseInt(breakdownMatch[1]);
-                    const reviewCount = parseInt(breakdownMatch[2]);
-                    const relearnCount = parseInt(breakdownMatch[3]);
-
-                    // PROMPT FOR WRITING REPS
-                    const repInput = prompt("INPUT: Number of Hanzi characters written (10x Reps)?", "0");
-                    const writingReps = parseInt(repInput) || 0;
-
-                    // XP CALCULATION
-                    // Base: 5 XP per card
-                    const baseXP = totalCards * 5;
-                    // Quality: Review(10) + Learn(8) + Relearn(5) - Again(10)
-                    const qualityXP = (reviewCount * 10) + (learnCount * 8) + (relearnCount * 5) - (againCount * 10);
-                    // Time Bonus: 1% per sec under 20s
-                    let timeBonus = 0;
-                    if(speed > 0 && speed < 20) {
-                        const savedSec = 20 - speed;
-                        timeBonus = (baseXP + Math.max(0, qualityXP)) * (savedSec * 0.01);
-                    }
-                    // Writing: 50 XP per set
-                    const writingXP = writingReps * 50;
-
-                    const totalXP = Math.floor(baseXP + qualityXP + timeBonus + writingXP);
-
-                    // INJECTION
-                    const targetKey = 'HANZI_SESSION';
-                    let targetPath = this.findPathByKey(this.state, targetKey);
-                    
-                    if(!targetPath) {
-                        alert("CREATING 'HANZI_SESSION' ROOT NODE...");
-                        this.state[targetKey] = {};
-                        targetPath = targetKey;
-                    }
-
-                    const sessionData = {
-                        "TOTAL_CARDS": totalCards,
-                        "TIME_MINUTES": timeMin,
-                        "SPEED_S_PER_CARD": speed,
-                        "AGAIN_COUNT": againCount,
-                        "LEARN_COUNT": learnCount,
-                        "REVIEW_COUNT": reviewCount,
-                        "RELEARN_COUNT": relearnCount,
-                        "WRITTEN_REPS_10X": writingReps,
-                        "SESSION_XP": totalXP,
-                        "LAST_UPDATE": this.getTimestamp()
-                    };
-
-                    const { parent: tParent, key: tKey } = this.getParent(targetPath);
-                    tParent[tKey] = sessionData;
-
-                    this.addLog(`MACRO EXECUTION <span class="log-hl">[HANZI PARSE]</span><br>+${totalXP} XP | ${totalCards} CARDS`);
-                    this.save();
-                    this.toggleMacros();
-                } else {
-                    alert("PARSE ERROR: TEXT FORMAT NOT RECOGNIZED.");
-                }
-            }
-            // ... (Rest of existing macros)
-            else if (type === 'RESET_TASKS') {
+            // ... (Macro logic remains the same)
+            if (type === 'RESET_TASKS') {
                 if(confirm('MACRO EXECUTION: Reset "IN PROGRESS", "COMPLETED", and "FAILED" tasks to "PENDING"?')) {
                     let count = 0;
                     const recursiveReset = (obj) => {
