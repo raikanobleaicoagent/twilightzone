@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Z-OS | AGENCY PROTOCOL (v6.24)</title>
+    <title>Z-OS | AGENCY PROTOCOL (v6.25)</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
@@ -304,7 +304,7 @@
     <div class="flex items-center gap-3">
         <div class="flex items-center gap-2">
             <i class="fa-solid fa-network-wired text-green-500 text-sm"></i>
-            <span class="text-green-500 font-bold tracking-widest text-sm">Z-OS <span class="text-white text-xs">v6.24</span></span>
+            <span class="text-green-500 font-bold tracking-widest text-sm">Z-OS <span class="text-white text-xs">v6.25</span></span>
         </div>
         <div class="relative mr-2">
             <input type="text" id="tree-search" class="search-input" placeholder="FILTER" onkeyup="app.updateSearch(this.value)">
@@ -637,13 +637,14 @@
             }
             
             if (typeof current === 'string' && current.startsWith('=')) {
-                return this.processFormula(current, depth + 1);
+                // Pass pathStr as context for recursive relative path resolution
+                return this.processFormula(current, depth + 1, pathStr); 
             }
             
-            return this.parseInput(current); // Reuse parseInput to handle percentages/numbers
+            return this.parseInput(current); 
         }
 
-        processFormula(formula, depth = 0) {
+        processFormula(formula, depth = 0, contextPath = '') {
             if (depth > 10) return "ERR:LOOP";
             
             // Remove '=' if present at start
@@ -654,7 +655,21 @@
             
             try {
                 const replaced = expression.replace(regex, (match, path) => {
-                    const val = this.getValueFromPath(path, depth);
+                    let targetPath = path.trim();
+                    
+                    // Handle Relative Pathing (~)
+                    if (targetPath.includes('~')) {
+                        const parentPath = contextPath.includes('|') 
+                            ? contextPath.substring(0, contextPath.lastIndexOf('|')) 
+                            : ''; // Root parent is empty
+                        
+                        targetPath = targetPath.replace(/~/g, parentPath);
+                        
+                        // Clean up leading pipes if parent was empty (e.g. "~|item" -> "|item")
+                        if (targetPath.startsWith('|')) targetPath = targetPath.substring(1);
+                    }
+
+                    const val = this.getValueFromPath(targetPath, depth);
                     // Ensure we return a numeric string for calculation, strip % for math
                     if (typeof val === 'string' && val.includes('%')) {
                         return parseFloat(val);
@@ -1306,7 +1321,8 @@
             
             // FORMULA DISPLAY
             if (typeof val === 'string' && val.startsWith('=')) {
-                const processedVal = this.processFormula(val);
+                // Pass path as context for relative paths
+                const processedVal = this.processFormula(val, 0, path); 
                 return `<span class="val-display mono val-calc hover:underline" onclick="app.setEdit('${path}')" title="${val.replace(/"/g, '&quot;')}">${processedVal}</span>`;
             }
 
@@ -1549,3 +1565,4 @@
 </script>
 </body>
 </html>
+
