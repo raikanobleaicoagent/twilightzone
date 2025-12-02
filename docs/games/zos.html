@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Z-OS | AGENCY PROTOCOL (v6.20)</title>
+    <title>Z-OS | AGENCY PROTOCOL (v6.21)</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
@@ -302,7 +302,7 @@
     <div class="flex items-center gap-3">
         <div class="flex items-center gap-2">
             <i class="fa-solid fa-network-wired text-green-500 text-sm"></i>
-            <span class="text-green-500 font-bold tracking-widest text-sm">Z-OS <span class="text-white text-xs">v6.20</span></span>
+            <span class="text-green-500 font-bold tracking-widest text-sm">Z-OS <span class="text-white text-xs">v6.21</span></span>
         </div>
         <div class="relative mr-2">
             <input type="text" id="tree-search" class="search-input" placeholder="FILTER" onkeyup="app.updateSearch(this.value)">
@@ -886,6 +886,11 @@
 
         logGranular(type, pathStr, displayOld, displayNew) {
             this.trackMoodUpdate(pathStr); 
+            
+            // --- EDIT START: BLOCK MOOD LOGGING ---
+            if (pathStr.toUpperCase().includes('MOOD')) return;
+            // --- EDIT END ---
+            
             if (!this.state.log_config.enabled) return;
             const ts = this.getTimestamp(true);
             const p = this.formatPath(pathStr);
