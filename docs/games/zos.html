@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Z-OS | AGENCY PROTOCOL (v7.1)</title>
+    <title>Z-OS | AGENCY PROTOCOL (v7.2)</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
@@ -310,7 +310,7 @@
     <div class="flex items-center gap-3">
         <div class="flex items-center gap-2">
             <i class="fa-solid fa-network-wired text-green-500 text-sm"></i>
-            <span class="text-green-500 font-bold tracking-widest text-sm">Z-OS <span class="text-white text-xs">v7.1</span></span>
+            <span class="text-green-500 font-bold tracking-widest text-sm">Z-OS <span class="text-white text-xs">v7.2</span></span>
         </div>
         <div class="relative mr-2">
             <input type="text" id="tree-search" class="search-input" placeholder="FILTER" onkeyup="app.updateSearch(this.value)">
@@ -461,22 +461,37 @@
         </div>
     </div>
     
-    <div class="p-2 border-b border-gray-900 bg-[#050505] flex justify-between items-center text-[10px] font-mono">
-        <span class="text-gray-500 uppercase">HISTORY TIMEFRAME (DAYS):</span>
-        <input type="number" id="skill-graph-range" class="bg-[#111] border border-gray-700 text-yellow-400 w-16 px-2 py-0.5 text-center focus:outline-none focus:border-yellow-500 rounded-sm" min="3" value="7" onchange="app.renderSkillCharts()">
-    </div>
-
     <div class="flex-grow flex flex-col md:flex-row overflow-hidden">
-        <div class="w-full md:w-1/3 border-r border-gray-800 p-4 overflow-y-auto bg-[#030303]">
+        <!-- Left: Skill List -->
+        <div class="w-full md:w-1/4 border-r border-gray-800 p-4 overflow-y-auto bg-[#030303]">
+            <h3 class="text-[10px] font-bold text-gray-500 mb-4 uppercase tracking-wider">ACTIVE SKILLS</h3>
             <div id="skill-list-container" class="space-y-4"></div>
-            <div class="mt-6 border-t border-gray-800 pt-4">
-                <h3 class="text-[10px] font-bold text-gray-500 mb-2 uppercase tracking-wider text-center">DAILY FOCUS BREAKDOWN</h3>
-                <div id="skill-pie-container" class="w-40 h-40 mx-auto relative rounded-full"></div>
-            </div>
         </div>
-        <div class="w-full md:w-2/3 p-4 bg-black flex flex-col">
-            <h3 class="text-[10px] font-bold text-gray-500 mb-2 uppercase tracking-wider">TOTAL DAILY XP OUTPUT</h3>
-            <div id="skill-graph-container" class="chart-container border border-gray-800 rounded bg-[#050505] flex-grow"></div>
+
+        <!-- Right: Charts -->
+        <div class="w-full md:w-3/4 p-4 bg-black flex flex-col">
+            <!-- Controls Row -->
+            <div class="flex justify-between items-center mb-4 border-b border-gray-900 pb-2">
+                <h3 class="text-[10px] font-bold text-gray-500 uppercase tracking-wider">PERFORMANCE ANALYTICS</h3>
+                <div class="flex items-center gap-2">
+                    <span class="text-gray-500 uppercase text-[10px]">RANGE (DAYS):</span>
+                    <input type="number" id="skill-graph-range" class="bg-[#111] border border-gray-700 text-yellow-400 w-16 px-2 py-0.5 text-center focus:outline-none focus:border-yellow-500 rounded-sm" min="3" value="7" onchange="app.renderSkillCharts()">
+                </div>
+            </div>
+            
+            <!-- Charts Row (Inline) -->
+            <div class="flex-grow flex flex-col md:flex-row gap-4 h-full">
+                <!-- Pie -->
+                <div class="w-full md:w-1/3 flex flex-col items-center justify-center border-b md:border-b-0 md:border-r border-gray-900 pb-4 md:pb-0 md:pr-4">
+                    <h4 class="text-[9px] text-gray-600 mb-2 font-mono">FOCUS DISTRIBUTION</h4>
+                    <div id="skill-pie-container" class="w-32 h-32 relative rounded-full"></div>
+                </div>
+                <!-- Graph -->
+                <div class="w-full md:w-2/3 flex flex-col">
+                    <h4 class="text-[9px] text-gray-600 mb-2 font-mono">XP VELOCITY</h4>
+                    <div id="skill-graph-container" class="chart-container border border-gray-800 rounded bg-[#050505] flex-grow h-48 md:h-auto"></div>
+                </div>
+            </div>
         </div>
     </div>
 </div>
@@ -695,14 +710,11 @@
 
         // --- SKILL LOGIC (v7.1) ---
         monitorSkillUpdate(pathStr, oldVal, newVal) {
-            // Logic: If path contains "SESSION", and key is "SESSION_XP" or "XP"
             if (pathStr.toUpperCase().includes('SESSION')) {
                 const parts = pathStr.split('|');
                 const lastKey = parts[parts.length-1].toUpperCase();
                 
                 if (lastKey === 'SESSION_XP' || lastKey === 'XP') {
-                    // Try to find Skill Name from parent path
-                    // e.g. TREADMILL_SESSION -> TREADMILL
                     let skillName = "GENERAL";
                     for(let i=parts.length-2; i>=0; i--) {
                         if(parts[i].toUpperCase().includes('SESSION')) {
@@ -724,7 +736,6 @@
                         skill.DAILY_XP += delta;
                         skill.CURRENT_XP += delta;
                         skill.LEVEL = Math.floor(Math.sqrt(skill.CURRENT_XP / 100)) + 1;
-                        // Not saving here to avoid loop, updateValue calls save
                     }
                 }
             }
@@ -735,8 +746,9 @@
             const toggle = document.getElementById('skill-export-toggle');
             if(modal.classList.contains('hidden')) {
                 toggle.checked = this.state.export_config ? this.state.export_config.include_skills : true;
-                this.renderSkillCharts();
                 modal.classList.remove('hidden');
+                // BUGFIX: Render charts after modal is visible to correct dimensions
+                setTimeout(() => this.renderSkillCharts(), 10);
             } else {
                 modal.classList.add('hidden');
             }
@@ -834,8 +846,8 @@
             const points = Object.entries(graphData).sort((a,b) => a[0].localeCompare(b[0]));
             const maxVal = Math.max(...points.map(p => p[1]), 100); 
             
-            const w = graphContainer.clientWidth;
-            const h = 300;
+            const w = graphContainer.clientWidth || 600; // Fallback width
+            const h = graphContainer.clientHeight || 300;
             const p = 20;
             
             let pathD = "";
@@ -908,9 +920,7 @@
                     const writingXP = writingReps * 50;
                     const totalXP = Math.floor(baseXP + qualityXP + timeBonus + writingXP);
 
-                    // Note: updateValue logic handles skill update if we write to SESSION_XP, but this macro writes multiple fields.
-                    // To ensure skill tree update, we manually trigger it here or structure the write to trigger monitor.
-                    // Simpler to manually update for this specific complex macro to ensure reliability.
+                    // UPDATE SKILL TREE
                     if (!this.state.SKILLS.HANZI) this.state.SKILLS.HANZI = { LEVEL: 1, CURRENT_XP: 0, DAILY_XP: 0, HISTORY: [] };
                     this.state.SKILLS.HANZI.CURRENT_XP += totalXP;
                     this.state.SKILLS.HANZI.DAILY_XP += totalXP;
