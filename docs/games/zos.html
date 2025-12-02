@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Z-OS | AGENCY PROTOCOL (v6.19)</title>
+    <title>Z-OS | AGENCY PROTOCOL (v6.20)</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
@@ -302,7 +302,7 @@
     <div class="flex items-center gap-3">
         <div class="flex items-center gap-2">
             <i class="fa-solid fa-network-wired text-green-500 text-sm"></i>
-            <span class="text-green-500 font-bold tracking-widest text-sm">Z-OS <span class="text-white text-xs">v6.19</span></span>
+            <span class="text-green-500 font-bold tracking-widest text-sm">Z-OS <span class="text-white text-xs">v6.20</span></span>
         </div>
         <div class="relative mr-2">
             <input type="text" id="tree-search" class="search-input" placeholder="FILTER" onkeyup="app.updateSearch(this.value)">
@@ -451,8 +451,8 @@
         "_mood_history": []
     };
 
-    const STORAGE_KEY = 'zos_v6_19';
-    const LEGACY_KEY = 'zos_v6_18';
+    const STORAGE_KEY = 'zos_v6_20';
+    const LEGACY_KEY = 'zos_v6_19';
 
     class ZyqralOS {
         constructor() {
@@ -539,10 +539,23 @@
                     
                     if (typeof val === 'object' && val !== null) {
                         traverse(val);
-                    } else if (typeof val === 'number') {
-                        const kUp = key.toUpperCase();
-                        if (kUp.includes('ASSET')) assets += val;
-                        if (kUp.includes('LIABILITY')) liabilities += val;
+                    } else {
+                        // Check for numbers or numeric strings
+                        let numVal = null;
+                        if (typeof val === 'number') numVal = val;
+                        else if (typeof val === 'string' && !isNaN(parseFloat(val)) && isFinite(val)) numVal = parseFloat(val);
+
+                        if (numVal !== null) {
+                            const kUp = key.toUpperCase();
+                            // Asset Keywords: ASSET, SAVINGS, CASH
+                            if (kUp.includes('ASSET') || kUp.includes('SAVINGS') || kUp.includes('CASH')) {
+                                assets += numVal;
+                            }
+                            // Liability Keywords: LIABILITY, DEBT, DUE
+                            if (kUp.includes('LIABILITY') || kUp.includes('DEBT') || kUp.includes('DUE')) {
+                                liabilities += numVal;
+                            }
+                        }
                     }
                 });
             };
