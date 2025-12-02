@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Z-OS | AGENCY PROTOCOL (v7.4)</title>
+    <title>Z-OS | AGENCY PROTOCOL (v7.5)</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
@@ -308,7 +308,7 @@
     <div class="flex items-center gap-3">
         <div class="flex items-center gap-2">
             <i class="fa-solid fa-network-wired text-green-500 text-sm"></i>
-            <span class="text-green-500 font-bold tracking-widest text-sm">Z-OS <span class="text-white text-xs">v7.4</span></span>
+            <span class="text-green-500 font-bold tracking-widest text-sm">Z-OS <span class="text-white text-xs">v7.5</span></span>
         </div>
         <div class="relative mr-2">
             <input type="text" id="tree-search" class="search-input" placeholder="FILTER" onkeyup="app.updateSearch(this.value)">
@@ -518,8 +518,8 @@
         "_mood_history": []
     };
 
-    const STORAGE_KEY = 'zos_v7_4';
-    const LEGACY_KEY = 'zos_v7_3';
+    const STORAGE_KEY = 'zos_v7_5';
+    const LEGACY_KEY = 'zos_v7_4';
 
     class ZyqralOS {
         constructor() {
@@ -577,7 +577,7 @@
                 if (this.state.last_login_date) {
                     Object.keys(this.state.SKILLS).forEach(skillKey => {
                         const skill = this.state.SKILLS[skillKey];
-                        if (skill.DAILY_XP !== 0) { // Archive even if negative? Usually just 0 reset.
+                        if (skill.DAILY_XP !== 0) { 
                             if (!skill.HISTORY) skill.HISTORY = [];
                             skill.HISTORY.push({ date: this.state.last_login_date, xp: skill.DAILY_XP });
                             if (skill.HISTORY.length > 365) skill.HISTORY.shift();
@@ -702,7 +702,6 @@
                     // v7.4: Magic Variables [SKILL_PROPERTY]
                     if (targetPath.startsWith('[') && targetPath.endsWith(']')) {
                         const content = targetPath.slice(1, -1).toUpperCase(); 
-                        // e.g. HANZI_SKILL_TOTAL_XP
                         let foundVal = 0;
                         const skillKeys = Object.keys(this.state.SKILLS);
                         for (let sKey of skillKeys) {
@@ -762,7 +761,6 @@
                             skill.DAILY_XP -= delta;
                             skill.CURRENT_XP -= delta;
                         } else {
-                            // GAIN or Legacy XP
                             skill.DAILY_XP += delta;
                             skill.CURRENT_XP += delta;
                         }
@@ -913,7 +911,7 @@
                 
                 series.points.forEach((val, i) => {
                     const x = p + (i / (series.points.length - 1)) * (w - 2*p);
-                    const safeVal = Math.max(0, val); // Don't graph negatives for simplicity
+                    const safeVal = Math.max(0, val);
                     const y = (h - p) - (safeVal / maxVal) * (h - 2*p);
                     
                     if (i===0) pathD += `M ${x} ${y}`;
@@ -974,7 +972,7 @@
 
                     const baseXP = totalCards * 5;
                     const qualityXP = (reviewCount * 10) + (learnCount * 8) + (relearnCount * 5);
-                    const penaltyXP = (againCount * 10); // Loss
+                    const penaltyXP = (againCount * 10);
                     let timeBonus = 0;
                     if(speed > 0 && speed < 20) {
                         const savedSec = 20 - speed;
@@ -985,18 +983,37 @@
                     const gainXP = Math.floor(baseXP + qualityXP + timeBonus + writingXP);
                     const lossXP = penaltyXP;
                     
-                    const netXP = gainXP - lossXP;
-
-                    // Manual Skill Update for this specific macro
-                    if (!this.state.SKILLS.HANZI) this.state.SKILLS.HANZI = { LEVEL: 1, CURRENT_XP: 0, DAILY_XP: 0, HISTORY: [] };
-                    this.state.SKILLS.HANZI.CURRENT_XP += netXP;
-                    this.state.SKILLS.HANZI.DAILY_XP += netXP;
-                    this.state.SKILLS.HANZI.LEVEL = Math.floor(Math.sqrt(Math.max(0, this.state.SKILLS.HANZI.CURRENT_XP) / 100)) + 1;
-
+                    // --- V7.5 LOGIC: CALCULATE DELTA VS EXISTING SESSION ---
                     const targetKey = 'HANZI_SESSION';
                     let targetPath = this.findPathByKey(this.state, targetKey);
                     if(!targetPath) { this.state[targetKey] = {}; targetPath = targetKey; }
+                    const { parent: tParent, key: tKey } = this.getParent(targetPath);
+                    const existingData = tParent[tKey] || {};
+                    
+                    // Helper to parse "=123" or "123"
+                    const parseVal = (v) => {
+                        if(typeof v === 'string' && v.startsWith('=')) return parseFloat(v.substring(1)) || 0;
+                        return parseFloat(v) || 0;
+                    };
 
+                    const oldGain = parseVal(existingData["SESSION_XP_GAIN"]);
+                    const oldLoss = parseVal(existingData["SESSION_XP_LOSS"]);
+
+                    const deltaGain = gainXP - oldGain;
+                    const deltaLoss = lossXP - oldLoss;
+
+                    // Manual Skill Delta Application
+                    if (!this.state.SKILLS.HANZI) this.state.SKILLS.HANZI = { LEVEL: 1, CURRENT_XP: 0, DAILY_XP: 0, HISTORY: [] };
+                    
+                    this.state.SKILLS.HANZI.CURRENT_XP += deltaGain;
+                    this.state.SKILLS.HANZI.CURRENT_XP -= deltaLoss;
+                    
+                    this.state.SKILLS.HANZI.DAILY_XP += deltaGain;
+                    this.state.SKILLS.HANZI.DAILY_XP -= deltaLoss;
+                    
+                    this.state.SKILLS.HANZI.LEVEL = Math.floor(Math.sqrt(Math.max(0, this.state.SKILLS.HANZI.CURRENT_XP) / 100)) + 1;
+
+                    // Overwrite Session Data
                     const sessionData = {
                         "TOTAL_CARDS": `=${totalCards}`,
                         "TIME_MINUTES": `=${timeMin.toFixed(2)}`,
@@ -1011,10 +1028,11 @@
                         "LAST_UPDATE": `=${this.getTimestamp()}`
                     };
 
-                    const { parent: tParent, key: tKey } = this.getParent(targetPath);
                     tParent[tKey] = sessionData;
 
-                    this.addLog(`MACRO EXECUTION <span class="log-hl">[HANZI PARSE]</span><br>+${gainXP} / -${lossXP} XP`);
+                    const netDelta = deltaGain - deltaLoss;
+                    const sign = netDelta >= 0 ? "+" : "";
+                    this.addLog(`MACRO EXECUTION <span class="log-hl">[HANZI PARSE]</span><br>DELTA: ${sign}${netDelta} XP`);
                     this.save();
                     this.toggleMacros();
                 } else {
