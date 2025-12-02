@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Z-OS | AGENCY PROTOCOL (v7.3)</title>
+    <title>Z-OS | AGENCY PROTOCOL (v7.4)</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
@@ -308,7 +308,7 @@
     <div class="flex items-center gap-3">
         <div class="flex items-center gap-2">
             <i class="fa-solid fa-network-wired text-green-500 text-sm"></i>
-            <span class="text-green-500 font-bold tracking-widest text-sm">Z-OS <span class="text-white text-xs">v7.3</span></span>
+            <span class="text-green-500 font-bold tracking-widest text-sm">Z-OS <span class="text-white text-xs">v7.4</span></span>
         </div>
         <div class="relative mr-2">
             <input type="text" id="tree-search" class="search-input" placeholder="FILTER" onkeyup="app.updateSearch(this.value)">
@@ -518,8 +518,8 @@
         "_mood_history": []
     };
 
-    const STORAGE_KEY = 'zos_v7_3';
-    const LEGACY_KEY = 'zos_v7_1';
+    const STORAGE_KEY = 'zos_v7_4';
+    const LEGACY_KEY = 'zos_v7_3';
 
     class ZyqralOS {
         constructor() {
@@ -528,6 +528,7 @@
             this.skillExport = true;
             this.state = this.load();
             
+            // Initialization checks
             if(!this.state.log_config) this.state.log_config = { "limit": 10, "enabled": true, "chart_limit": 10, "log_scratchpad": false };
             if(!this.state.export_config) this.state.export_config = { "visible_only": false, "include_logs": true, "include_skills": true };
             if(!this.state.log_config.chart_limit) this.state.log_config.chart_limit = 10;
@@ -576,7 +577,7 @@
                 if (this.state.last_login_date) {
                     Object.keys(this.state.SKILLS).forEach(skillKey => {
                         const skill = this.state.SKILLS[skillKey];
-                        if (skill.DAILY_XP > 0) {
+                        if (skill.DAILY_XP !== 0) { // Archive even if negative? Usually just 0 reset.
                             if (!skill.HISTORY) skill.HISTORY = [];
                             skill.HISTORY.push({ date: this.state.last_login_date, xp: skill.DAILY_XP });
                             if (skill.HISTORY.length > 365) skill.HISTORY.shift();
@@ -670,7 +671,7 @@
             return null;
         }
 
-        // --- FORMULA LOGIC ---
+        // --- FORMULA LOGIC v7.4 ---
         getValueFromPath(pathStr, depth = 0) {
             if (depth > 5) return 0;
             const normalizedPath = pathStr.replace(/ > /g, '|').replace(/>/g, '|');
@@ -697,6 +698,25 @@
             try {
                 const replaced = expression.replace(regex, (match, path) => {
                     let targetPath = path.trim();
+                    
+                    // v7.4: Magic Variables [SKILL_PROPERTY]
+                    if (targetPath.startsWith('[') && targetPath.endsWith(']')) {
+                        const content = targetPath.slice(1, -1).toUpperCase(); 
+                        // e.g. HANZI_SKILL_TOTAL_XP
+                        let foundVal = 0;
+                        const skillKeys = Object.keys(this.state.SKILLS);
+                        for (let sKey of skillKeys) {
+                            if (content.startsWith(sKey + '_SKILL_')) {
+                                const prop = content.replace(sKey + '_SKILL_', ''); 
+                                if (prop === 'TOTAL_XP') foundVal = this.state.SKILLS[sKey].CURRENT_XP;
+                                if (prop === 'LEVEL') foundVal = this.state.SKILLS[sKey].LEVEL;
+                                if (prop === 'DAILY_XP') foundVal = this.state.SKILLS[sKey].DAILY_XP;
+                                break;
+                            }
+                        }
+                        return foundVal;
+                    }
+
                     if (targetPath.includes('~')) {
                         const parentPath = contextPath.includes('|') ? contextPath.substring(0, contextPath.lastIndexOf('|')) : '';
                         targetPath = targetPath.replace(/~/g, parentPath);
@@ -711,13 +731,14 @@
             } catch (e) { return "ERR:SYNTAX"; }
         }
 
-        // --- SKILL LOGIC ---
+        // --- SKILL LOGIC v7.4 ---
         monitorSkillUpdate(pathStr, oldVal, newVal) {
             if (pathStr.toUpperCase().includes('SESSION')) {
                 const parts = pathStr.split('|');
                 const lastKey = parts[parts.length-1].toUpperCase();
                 
-                if (lastKey === 'SESSION_XP' || lastKey === 'XP') {
+                // Track GAIN or LOSS
+                if (lastKey === 'SESSION_XP_GAIN' || lastKey === 'SESSION_XP_LOSS' || lastKey === 'XP') {
                     let skillName = "GENERAL";
                     for(let i=parts.length-2; i>=0; i--) {
                         if(parts[i].toUpperCase().includes('SESSION')) {
@@ -736,9 +757,17 @@
                             this.state.SKILLS[skillName] = { LEVEL: 1, CURRENT_XP: 0, DAILY_XP: 0, HISTORY: [] };
                         }
                         const skill = this.state.SKILLS[skillName];
-                        skill.DAILY_XP += delta;
-                        skill.CURRENT_XP += delta;
-                        skill.LEVEL = Math.floor(Math.sqrt(skill.CURRENT_XP / 100)) + 1;
+                        
+                        if (lastKey === 'SESSION_XP_LOSS') {
+                            skill.DAILY_XP -= delta;
+                            skill.CURRENT_XP -= delta;
+                        } else {
+                            // GAIN or Legacy XP
+                            skill.DAILY_XP += delta;
+                            skill.CURRENT_XP += delta;
+                        }
+                        
+                        skill.LEVEL = Math.floor(Math.sqrt(Math.max(0, skill.CURRENT_XP) / 100)) + 1;
                     }
                 }
             }
@@ -750,7 +779,6 @@
             if(modal.classList.contains('hidden')) {
                 toggle.checked = this.state.export_config ? this.state.export_config.include_skills : true;
                 modal.classList.remove('hidden');
-                // IMPORTANT: Render AFTER modal is visible
                 setTimeout(() => this.renderSkillCharts(), 10);
             } else {
                 modal.classList.add('hidden');
@@ -798,7 +826,7 @@
                     <div class="w-full">
                         <div class="flex justify-between items-end mb-1">
                             <span class="text-[10px] font-bold" style="color:${color}">${key} <span class="text-gray-600 text-[9px]">LVL ${skill.LEVEL}</span></span>
-                            <span class="text-[9px] text-gray-400">${skill.DAILY_XP} XP today</span>
+                            <span class="text-[9px] text-gray-400">${skill.DAILY_XP} XP</span>
                         </div>
                         <div class="skill-bar-container">
                             <div class="skill-bar" style="width: ${Math.min(100, (skill.DAILY_XP / 1000)*100)}%; background-color: ${color}"></div>
@@ -811,8 +839,8 @@
             });
             listContainer.innerHTML = htmlList || '<div class="text-gray-600 text-[10px] italic">NO ACTIVE SKILLS</div>';
 
-            if (totalDailyXP === 0) {
-                pieContainer.innerHTML = '<div class="flex items-center justify-center h-full text-[9px] text-gray-700">NO DATA</div>';
+            if (totalDailyXP <= 0) {
+                pieContainer.innerHTML = '<div class="flex items-center justify-center h-full text-[9px] text-gray-700">NO POSITIVE DATA</div>';
                 pieContainer.style.background = 'transparent';
             } else {
                 pieContainer.innerHTML = '';
@@ -826,7 +854,7 @@
                 pieContainer.style.background = `conic-gradient(${gradients.join(', ')})`;
             }
 
-            // --- GRAPH LOGIC v7.3 ---
+            // Graph Logic
             const dates = [];
             for (let i = days - 1; i >= 0; i--) {
                 const d = new Date();
@@ -838,7 +866,6 @@
             let maxVal = 100;
 
             if (isSplit) {
-                // Per Skill Logic
                 let cIdx = 0;
                 Object.keys(skills).forEach(key => {
                     const skill = skills[key];
@@ -858,7 +885,6 @@
                     cIdx++;
                 });
             } else {
-                // Total Logic (Aggregate)
                 const totalPoints = dates.map(date => 0);
                 Object.values(skills).forEach(skill => {
                     dates.forEach((date, idx) => {
@@ -875,7 +901,6 @@
                 if (localMax > maxVal) maxVal = localMax;
             }
 
-            // Draw
             const w = graphContainer.clientWidth || 600; 
             const h = graphContainer.clientHeight || 200;
             const p = 20;
@@ -888,7 +913,8 @@
                 
                 series.points.forEach((val, i) => {
                     const x = p + (i / (series.points.length - 1)) * (w - 2*p);
-                    const y = (h - p) - (val / maxVal) * (h - 2*p);
+                    const safeVal = Math.max(0, val); // Don't graph negatives for simplicity
+                    const y = (h - p) - (safeVal / maxVal) * (h - 2*p);
                     
                     if (i===0) pathD += `M ${x} ${y}`;
                     else pathD += ` L ${x} ${y}`;
@@ -924,7 +950,6 @@
                 const rawData = parent[key];
                 if(!rawData || typeof rawData !== 'string' || rawData.length < 10) { alert("ERROR: PASTE ANKI STATS IN SCRATCHPAD."); return; }
 
-                // REGEX v7.1: Robust against unicode and detects unit
                 const totalCardsMatch = rawData.match(/Studied[^\d]*(\d+)/i);
                 const timeMatch = rawData.match(/in[^\d]*([\d.]+)[^\d]*(minutes|seconds)/i);
                 const speedMatch = rawData.match(/\([^\d]*([\d.]+)[^\d]*s\/card/i);
@@ -948,20 +973,25 @@
                     const writingReps = parseInt(repInput) || 0;
 
                     const baseXP = totalCards * 5;
-                    const qualityXP = (reviewCount * 10) + (learnCount * 8) + (relearnCount * 5) - (againCount * 10);
+                    const qualityXP = (reviewCount * 10) + (learnCount * 8) + (relearnCount * 5);
+                    const penaltyXP = (againCount * 10); // Loss
                     let timeBonus = 0;
                     if(speed > 0 && speed < 20) {
                         const savedSec = 20 - speed;
-                        timeBonus = (baseXP + Math.max(0, qualityXP)) * (savedSec * 0.01);
+                        timeBonus = (baseXP + Math.max(0, qualityXP - penaltyXP)) * (savedSec * 0.01);
                     }
                     const writingXP = writingReps * 50;
-                    const totalXP = Math.floor(baseXP + qualityXP + timeBonus + writingXP);
+                    
+                    const gainXP = Math.floor(baseXP + qualityXP + timeBonus + writingXP);
+                    const lossXP = penaltyXP;
+                    
+                    const netXP = gainXP - lossXP;
 
-                    // UPDATE SKILL TREE
+                    // Manual Skill Update for this specific macro
                     if (!this.state.SKILLS.HANZI) this.state.SKILLS.HANZI = { LEVEL: 1, CURRENT_XP: 0, DAILY_XP: 0, HISTORY: [] };
-                    this.state.SKILLS.HANZI.CURRENT_XP += totalXP;
-                    this.state.SKILLS.HANZI.DAILY_XP += totalXP;
-                    this.state.SKILLS.HANZI.LEVEL = Math.floor(Math.sqrt(this.state.SKILLS.HANZI.CURRENT_XP / 100)) + 1;
+                    this.state.SKILLS.HANZI.CURRENT_XP += netXP;
+                    this.state.SKILLS.HANZI.DAILY_XP += netXP;
+                    this.state.SKILLS.HANZI.LEVEL = Math.floor(Math.sqrt(Math.max(0, this.state.SKILLS.HANZI.CURRENT_XP) / 100)) + 1;
 
                     const targetKey = 'HANZI_SESSION';
                     let targetPath = this.findPathByKey(this.state, targetKey);
@@ -976,14 +1006,15 @@
                         "REVIEW_COUNT": `=${reviewCount}`,
                         "RELEARN_COUNT": `=${relearnCount}`,
                         "WRITTEN_REPS_10X": `=${writingReps}`,
-                        "SESSION_XP": `=${totalXP}`,
+                        "SESSION_XP_GAIN": `=${gainXP}`,
+                        "SESSION_XP_LOSS": `=${lossXP}`,
                         "LAST_UPDATE": `=${this.getTimestamp()}`
                     };
 
                     const { parent: tParent, key: tKey } = this.getParent(targetPath);
                     tParent[tKey] = sessionData;
 
-                    this.addLog(`MACRO EXECUTION <span class="log-hl">[HANZI PARSE]</span><br>+${totalXP} XP | ${totalCards} CARDS`);
+                    this.addLog(`MACRO EXECUTION <span class="log-hl">[HANZI PARSE]</span><br>+${gainXP} / -${lossXP} XP`);
                     this.save();
                     this.toggleMacros();
                 } else {
@@ -1056,7 +1087,7 @@
         }
 
         // ... (Remaining Logic preserved)
-        // ... (findMoodRecursive, trackMoodUpdate, forceSnapshot, clearMoodHistory, activateMoodTimer, updateMoodIndicator, logGranular, updateLogControlUI, updateLogLimit, toggleLogState, toggleLogScratchpad, clearLogs, renderLogs, toggleLog, formatPath, safePath, getParent, reorderInObject, moveItem, moveUp, moveDown, updateValue, incrementValue, incrementPercent, incrementTime, injectTime, deleteItem, addItem, safeEvaluate, parseInput, toggleCollapse, filterVisible, updateExportConfig, updateExportPreview, render, buildReorderArrows, buildTree, buildKeyDisplay, buildPrimitiveControls, buildPrimitive, setEdit, cancelEdit, toggleIO, saveRaw, copyRaw, toggleChart, updateChartLimit, toggleDVExport, stringToColor, renderChart)
+        // ... (All other helper functions from previous version)
         
         findMoodRecursive(obj) {
             for (const key in obj) {
@@ -1327,7 +1358,6 @@
                 return;
             }
             
-            // Skill Monitor Check BEFORE update
             this.monitorSkillUpdate(pathStr, oldValue, val);
 
             parent[key] = val;
