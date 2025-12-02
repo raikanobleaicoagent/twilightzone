@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Z-OS | AGENCY PROTOCOL (v7.5)</title>
+    <title>Z-OS | AGENCY PROTOCOL (v7.6)</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
@@ -308,7 +308,7 @@
     <div class="flex items-center gap-3">
         <div class="flex items-center gap-2">
             <i class="fa-solid fa-network-wired text-green-500 text-sm"></i>
-            <span class="text-green-500 font-bold tracking-widest text-sm">Z-OS <span class="text-white text-xs">v7.5</span></span>
+            <span class="text-green-500 font-bold tracking-widest text-sm">Z-OS <span class="text-white text-xs">v7.6</span></span>
         </div>
         <div class="relative mr-2">
             <input type="text" id="tree-search" class="search-input" placeholder="FILTER" onkeyup="app.updateSearch(this.value)">
@@ -518,8 +518,8 @@
         "_mood_history": []
     };
 
-    const STORAGE_KEY = 'zos_v7_5';
-    const LEGACY_KEY = 'zos_v7_4';
+    const STORAGE_KEY = 'zos_v7_6';
+    const LEGACY_KEY = 'zos_v7_5';
 
     class ZyqralOS {
         constructor() {
@@ -699,7 +699,6 @@
                 const replaced = expression.replace(regex, (match, path) => {
                     let targetPath = path.trim();
                     
-                    // v7.4: Magic Variables [SKILL_PROPERTY]
                     if (targetPath.startsWith('[') && targetPath.endsWith(']')) {
                         const content = targetPath.slice(1, -1).toUpperCase(); 
                         let foundVal = 0;
@@ -736,7 +735,6 @@
                 const parts = pathStr.split('|');
                 const lastKey = parts[parts.length-1].toUpperCase();
                 
-                // Track GAIN or LOSS
                 if (lastKey === 'SESSION_XP_GAIN' || lastKey === 'SESSION_XP_LOSS' || lastKey === 'XP') {
                     let skillName = "GENERAL";
                     for(let i=parts.length-2; i>=0; i--) {
@@ -791,10 +789,30 @@
         }
         
         clearSkillHistory() {
-            if(confirm("WIPE ALL SKILL HISTORY LOGS? (Levels preserved)")) {
-                Object.values(this.state.SKILLS).forEach(s => s.HISTORY = []);
+            if(confirm("FULL RESET: WIPE ALL SKILL PROGRESSION AND SESSION DATA?")) {
+                // 1. Reset Skill Registry
+                Object.values(this.state.SKILLS).forEach(s => {
+                    s.HISTORY = [];
+                    s.CURRENT_XP = 0;
+                    s.DAILY_XP = 0;
+                    s.LEVEL = 1;
+                });
+
+                // 2. Recursive Session Wipe
+                const wipeSessionKeys = (obj) => {
+                    for (let key in obj) {
+                        if (key === 'SESSION_XP_GAIN' || key === 'SESSION_XP_LOSS' || key === 'SESSION_XP') {
+                            obj[key] = "=0"; // Reset to zero string
+                        } else if (typeof obj[key] === 'object' && obj[key] !== null) {
+                            wipeSessionKeys(obj[key]);
+                        }
+                    }
+                };
+                wipeSessionKeys(this.state);
+
                 this.save();
                 this.renderSkillCharts();
+                this.addLog("SYSTEM <span class='log-hl'>[SKILL WIPE]</span> COMPLETED");
             }
         }
 
@@ -818,21 +836,22 @@
             Object.keys(skills).forEach(key => {
                 const skill = skills[key];
                 const color = colors[colorIdx % colors.length];
-                totalDailyXP += skill.DAILY_XP || 0;
+                const daily = skill.DAILY_XP || 0;
+                totalDailyXP += daily;
                 
                 htmlList += `
                     <div class="w-full">
                         <div class="flex justify-between items-end mb-1">
                             <span class="text-[10px] font-bold" style="color:${color}">${key} <span class="text-gray-600 text-[9px]">LVL ${skill.LEVEL}</span></span>
-                            <span class="text-[9px] text-gray-400">${skill.DAILY_XP} XP</span>
+                            <span class="text-[9px] text-gray-400">${daily} XP</span>
                         </div>
                         <div class="skill-bar-container">
-                            <div class="skill-bar" style="width: ${Math.min(100, (skill.DAILY_XP / 1000)*100)}%; background-color: ${color}"></div>
+                            <div class="skill-bar" style="width: ${Math.min(100, (Math.max(0, daily) / 1000)*100)}%; background-color: ${color}"></div>
                         </div>
                         <div class="text-[8px] text-gray-600 text-right mt-0.5">TOTAL: ${skill.CURRENT_XP}</div>
                     </div>
                 `;
-                if (skill.DAILY_XP > 0) pieSegments.push({ value: skill.DAILY_XP, color: color });
+                if (daily > 0) pieSegments.push({ value: daily, color: color });
                 colorIdx++;
             });
             listContainer.innerHTML = htmlList || '<div class="text-gray-600 text-[10px] italic">NO ACTIVE SKILLS</div>';
@@ -983,14 +1002,12 @@
                     const gainXP = Math.floor(baseXP + qualityXP + timeBonus + writingXP);
                     const lossXP = penaltyXP;
                     
-                    // --- V7.5 LOGIC: CALCULATE DELTA VS EXISTING SESSION ---
                     const targetKey = 'HANZI_SESSION';
                     let targetPath = this.findPathByKey(this.state, targetKey);
                     if(!targetPath) { this.state[targetKey] = {}; targetPath = targetKey; }
                     const { parent: tParent, key: tKey } = this.getParent(targetPath);
                     const existingData = tParent[tKey] || {};
                     
-                    // Helper to parse "=123" or "123"
                     const parseVal = (v) => {
                         if(typeof v === 'string' && v.startsWith('=')) return parseFloat(v.substring(1)) || 0;
                         return parseFloat(v) || 0;
@@ -1002,7 +1019,6 @@
                     const deltaGain = gainXP - oldGain;
                     const deltaLoss = lossXP - oldLoss;
 
-                    // Manual Skill Delta Application
                     if (!this.state.SKILLS.HANZI) this.state.SKILLS.HANZI = { LEVEL: 1, CURRENT_XP: 0, DAILY_XP: 0, HISTORY: [] };
                     
                     this.state.SKILLS.HANZI.CURRENT_XP += deltaGain;
@@ -1013,7 +1029,6 @@
                     
                     this.state.SKILLS.HANZI.LEVEL = Math.floor(Math.sqrt(Math.max(0, this.state.SKILLS.HANZI.CURRENT_XP) / 100)) + 1;
 
-                    // Overwrite Session Data
                     const sessionData = {
                         "TOTAL_CARDS": `=${totalCards}`,
                         "TIME_MINUTES": `=${timeMin.toFixed(2)}`,
@@ -1033,6 +1048,10 @@
                     const netDelta = deltaGain - deltaLoss;
                     const sign = netDelta >= 0 ? "+" : "";
                     this.addLog(`MACRO EXECUTION <span class="log-hl">[HANZI PARSE]</span><br>DELTA: ${sign}${netDelta} XP`);
+                    
+                    // --- v7.6 AUTO FLUSH SCRATCHPAD ---
+                    this.updateValue(scratchpadPath, ""); 
+                    
                     this.save();
                     this.toggleMacros();
                 } else {
