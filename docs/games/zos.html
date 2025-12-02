@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Z-OS | AGENCY PROTOCOL (v6.17)</title>
+    <title>Z-OS | AGENCY PROTOCOL (v6.19)</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
@@ -302,7 +302,7 @@
     <div class="flex items-center gap-3">
         <div class="flex items-center gap-2">
             <i class="fa-solid fa-network-wired text-green-500 text-sm"></i>
-            <span class="text-green-500 font-bold tracking-widest text-sm">Z-OS <span class="text-white text-xs">v6.17</span></span>
+            <span class="text-green-500 font-bold tracking-widest text-sm">Z-OS <span class="text-white text-xs">v6.19</span></span>
         </div>
         <div class="relative mr-2">
             <input type="text" id="tree-search" class="search-input" placeholder="FILTER" onkeyup="app.updateSearch(this.value)">
@@ -451,8 +451,8 @@
         "_mood_history": []
     };
 
-    const STORAGE_KEY = 'zos_v6_17';
-    const LEGACY_KEY = 'zos_v6_16';
+    const STORAGE_KEY = 'zos_v6_19';
+    const LEGACY_KEY = 'zos_v6_18';
 
     class ZyqralOS {
         constructor() {
@@ -516,8 +516,74 @@
         }
 
         save() {
+            this.calculateFinancials();
             localStorage.setItem(STORAGE_KEY, JSON.stringify(this.state));
             this.render();
+        }
+        
+        calculateFinancials() {
+            let assets = 0;
+            let liabilities = 0;
+
+            const traverse = (obj) => {
+                if (!obj || typeof obj !== 'object') return;
+                
+                Object.keys(obj).forEach(key => {
+                    // Skip recursive structures or configs
+                    if (['_meta_log', 'log_config', 'export_config', '_mood_history'].includes(key)) return;
+                    
+                    // Skip the target keys themselves to avoid double counting
+                    if (['TOTAL_ASSETS', 'TOTAL_LIABILITY', 'TOTAL_BALANCE'].includes(key.toUpperCase())) return;
+
+                    const val = obj[key];
+                    
+                    if (typeof val === 'object' && val !== null) {
+                        traverse(val);
+                    } else if (typeof val === 'number') {
+                        const kUp = key.toUpperCase();
+                        if (kUp.includes('ASSET')) assets += val;
+                        if (kUp.includes('LIABILITY')) liabilities += val;
+                    }
+                });
+            };
+
+            traverse(this.state);
+
+            // Update or Create logic
+            const targets = {
+                'TOTAL_ASSETS': assets,
+                'TOTAL_LIABILITY': liabilities,
+                'TOTAL_BALANCE': assets - liabilities
+            };
+
+            Object.entries(targets).forEach(([tKey, tVal]) => {
+                let placed = false;
+                
+                // 1. Update existing key
+                const updateExisting = (o) => {
+                    if (!o || typeof o !== 'object') return;
+                    if (o.hasOwnProperty(tKey)) {
+                        o[tKey] = tVal;
+                        placed = true;
+                        return;
+                    }
+                    Object.keys(o).forEach(k => {
+                        if (typeof o[k] === 'object' && k !== '_meta_log') updateExisting(o[k]);
+                    });
+                };
+                updateExisting(this.state);
+
+                // 2. Fallback: resource_matrix.financial
+                if (!placed && this.state.resource_matrix && this.state.resource_matrix.financial) {
+                    this.state.resource_matrix.financial[tKey] = tVal;
+                    placed = true;
+                }
+
+                // 3. Fallback: root
+                if (!placed) {
+                    this.state[tKey] = tVal;
+                }
+            });
         }
 
         saveUI() {
@@ -953,11 +1019,7 @@
             const { parent, key } = this.getParent(pathStr);
             if (!parent) return;
             const oldValue = parent[key];
-            let val = newValue;
-            const vUpper = String(newValue).toUpperCase();
-            if (!isNaN(Number(newValue)) && newValue.trim() !== '') val = Number(newValue);
-            else if (vUpper === 'TRUE') val = 'TRUE';
-            else if (vUpper === 'FALSE') val = 'FALSE';
+            let val = this.parseInput(newValue);
             
             if (oldValue === val) {
                 this.editingPath = null;
@@ -1064,14 +1126,49 @@
             }
             this.save();
         }
+        
+        safeEvaluate(input) {
+            if (typeof input !== 'string') return input;
+            
+            // Heuristic check for math intention
+            const mathChars = /[+\-*/]/;
+            if (!mathChars.test(input)) return input;
+
+            // Handle percentages explicitly
+            // Strategy: Remove '%' to treat as pure math, then re-append if input had '%'
+            const isPercent = input.includes('%');
+            const cleanExpr = input.replace(/%/g, '').replace(/,/g, '').trim();
+            
+            // Safety Check: only allow numbers, math ops, parentheses, decimals
+            if(/[^0-9+\-*/.() ]/.test(cleanExpr)) return input;
+
+            try {
+                // Use Function constructor for safe local eval of math string
+                const result = new Function('return ' + cleanExpr)();
+                if(!isFinite(result)) return input;
+                
+                // Format result
+                const rounded = Math.round(result * 100) / 100;
+                return isPercent ? `${rounded}%` : rounded;
+            } catch(e) {
+                return input;
+            }
+        }
+
         parseInput(input) {
-            let val = input;
-            const vUpper = String(input).toUpperCase();
-            if (!isNaN(Number(input)) && input.trim() !== '') val = Number(input);
-            else if (vUpper === 'TRUE') val = 'TRUE';
-            else if (vUpper === 'FALSE') val = 'FALSE';
+            // First pass: try math evaluation
+            let val = this.safeEvaluate(input);
+            
+            // Second pass: type conversion
+            if (typeof val === 'string') {
+                const vUpper = val.toUpperCase();
+                if (!isNaN(Number(val)) && val.trim() !== '') val = Number(val);
+                else if (vUpper === 'TRUE') val = 'TRUE';
+                else if (vUpper === 'FALSE') val = 'FALSE';
+            }
             return val;
         }
+        
         toggleCollapse(path) {
             if (this.collapsed.has(path)) this.collapsed.delete(path);
             else this.collapsed.add(path);
