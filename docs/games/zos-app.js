@@ -51,7 +51,6 @@ class ZyqralOS {
         // Initialize skill evaluations cache
         this._lastSkillEvaluations = {};
         // We run a silent recalculation on boot to establish the baseline values
-        // so we don't grant XP for existing values on page reload.
         this.recalculateAllSkillXP(true);
 
         document.addEventListener('click', (e) => {
@@ -187,11 +186,9 @@ class ZyqralOS {
         for (const part of parts) {
             if (current === undefined || current === null) return 0;
             const cleanPart = part.trim();
-            // Try direct match first
             if (current.hasOwnProperty(cleanPart)) { 
                 current = current[cleanPart]; 
             } else {
-                // Try case-insensitive match
                 const lowerPart = cleanPart.toLowerCase();
                 const foundKey = Object.keys(current).find(k => k.toLowerCase() === lowerPart);
                 if (foundKey) { current = current[foundKey]; } else { return 0; }
@@ -206,14 +203,12 @@ class ZyqralOS {
         if (depth > 10) return "ERR:LOOP";
         let expression = formula.startsWith('=') ? formula.substring(1) : formula;
         
-        // Regex to match {{ path }} or {{path}}
         const regex = /{{(.*?)}}/g;
         
         try {
             const replaced = expression.replace(regex, (match, path) => {
                 let targetPath = path.trim();
                 
-                // SKILL REF: {{[SKILL_NAME_PROPERTY]}}
                 if (targetPath.startsWith('[') && targetPath.endsWith(']')) {
                     const content = targetPath.slice(1, -1).toUpperCase(); 
                     let foundVal = 0;
@@ -230,12 +225,9 @@ class ZyqralOS {
                     return foundVal;
                 }
 
-                // RELATIVE PATH: {{ ~|key }}
                 if (targetPath.includes('~')) {
-                    // Remove trailing segment from contextPath to get parent
                     const parentPath = contextPath.includes('|') ? contextPath.substring(0, contextPath.lastIndexOf('|')) : '';
                     targetPath = targetPath.replace(/~/g, parentPath);
-                    // Cleanup pipe duplication if exists
                     if (targetPath.startsWith('|')) targetPath = targetPath.substring(1);
                 }
                 
@@ -248,7 +240,6 @@ class ZyqralOS {
         } catch (e) { return "ERR:SYNTAX"; }
     }
 
-    // Helper to evaluate a value, whether it's a raw number or a formula string
     parseNumberFromValue(val, contextPath = '') {
         if (typeof val === 'string' && val.startsWith('=')) {
             const result = this.processFormula(val, 0, contextPath);
@@ -265,56 +256,40 @@ class ZyqralOS {
     }
 
     // --- CENTRALIZED SKILL LOGIC ---
-    
-    // Scans the entire state tree, evaluates all SESSION_XP formulas, 
-    // compares to last known value, and updates skills accordingly.
     recalculateAllSkillXP(isBoot = false) {
         if (!this._lastSkillEvaluations) {
             this._lastSkillEvaluations = {};
         }
         
         const scanForSkillXP = (obj, path = '') => {
-            // Skip reserved keys to avoid recursion/overhead
             for (let key in obj) {
                 if (key === '_meta_log' || key === 'log_config' || key === '_mood_history' || key === 'export_config' || key === 'SKILLS') continue;
                 
                 const currentPath = path ? `${path}|${key}` : key;
                 const val = obj[key];
                 
-                // Recurse into objects
                 if (typeof val === 'object' && val !== null) {
                     scanForSkillXP(val, currentPath);
                 } 
-                // Process potential XP Keys
                 else {
                     const upperKey = key.toUpperCase();
                     const upperPath = currentPath.toUpperCase();
                     
-                    // Logic: Must be a key related to XP, inside a path containing "SESSION"
                     if ((upperKey === 'SESSION_XP_GAIN' || upperKey === 'SESSION_XP_LOSS' || upperKey === 'XP') && upperPath.includes('SESSION')) {
-                        
-                        // Evaluate the current value (resolving any formulas like ={{...}})
                         const evaluated = this.parseNumberFromValue(val, currentPath);
                         
-                        // If this is boot, just populate the cache so we don't double-count history
                         if (isBoot) {
                             this._lastSkillEvaluations[currentPath] = evaluated;
                             continue; 
                         }
 
-                        // Retrieve previous value, default to 0 if this is a new key
                         const lastVal = this._lastSkillEvaluations[currentPath] || 0;
                         
-                        // Detect change
                         if (evaluated !== lastVal) {
                             const delta = evaluated - lastVal;
-                            
-                            // Extract Skill Name from path
-                            // e.g. "CREATIVE_SESSION|SESSION_XP_GAIN" -> "CREATIVE"
                             const parts = currentPath.split('|');
                             let skillName = "GENERAL";
                             
-                            // Look backwards from the key to find the folder ending in _SESSION
                             for (let i = parts.length - 2; i >= 0; i--) {
                                 const partUpper = parts[i].toUpperCase();
                                 if (partUpper.includes('SESSION')) {
@@ -324,13 +299,11 @@ class ZyqralOS {
                                 }
                             }
                             
-                            // Initialize Skill if missing
                             if (!this.state.SKILLS[skillName]) {
                                 this.state.SKILLS[skillName] = { LEVEL: 1, CURRENT_XP: 0, DAILY_XP: 0, HISTORY: [] };
                             }
                             const skill = this.state.SKILLS[skillName];
                             
-                            // Apply Delta
                             if (upperKey === 'SESSION_XP_LOSS') {
                                 skill.DAILY_XP -= delta;
                                 skill.CURRENT_XP -= delta;
@@ -339,10 +312,7 @@ class ZyqralOS {
                                 skill.CURRENT_XP += delta;
                             }
                             
-                            // Update Level
                             skill.LEVEL = Math.floor(Math.sqrt(Math.max(0, skill.CURRENT_XP) / 100)) + 1;
-                            
-                            // Update Cache
                             this._lastSkillEvaluations[currentPath] = evaluated;
                         }
                     }
@@ -352,7 +322,6 @@ class ZyqralOS {
         
         scanForSkillXP(this.state);
         
-        // Auto-update charts if modal is open
         if (this.skillModalOpen && !this.skillChartUpdatePending && !isBoot) {
             this.skillChartUpdatePending = true;
             setTimeout(() => {
@@ -395,7 +364,6 @@ class ZyqralOS {
     
     clearSkillHistory() {
         if(confirm("FULL RESET: WIPE ALL SKILL PROGRESSION AND SESSION DATA?")) {
-            // Reset Skill Registry
             Object.values(this.state.SKILLS).forEach(s => {
                 s.HISTORY = [];
                 s.CURRENT_XP = 0;
@@ -403,7 +371,6 @@ class ZyqralOS {
                 s.LEVEL = 1;
             });
 
-            // Recursive Session Wipe
             const wipeSessionKeys = (obj) => {
                 for (let key in obj) {
                     const upperKey = key.toUpperCase();
@@ -416,9 +383,8 @@ class ZyqralOS {
             };
             wipeSessionKeys(this.state);
 
-            // Reset evaluation cache
             this._lastSkillEvaluations = {};
-            this.recalculateAllSkillXP(true); // Re-init cache
+            this.recalculateAllSkillXP(true);
 
             this.save();
             this.renderSkillCharts();
@@ -449,16 +415,27 @@ class ZyqralOS {
             const daily = skill.DAILY_XP || 0;
             totalDailyXP += daily;
             
+            // Calculate progress towards next level
+            const currentLevel = skill.LEVEL || 1;
+            const xpStart = 100 * Math.pow(currentLevel - 1, 2);
+            const xpNext = 100 * Math.pow(currentLevel, 2);
+            const xpRange = Math.max(1, xpNext - xpStart);
+            const currentProgressXP = Math.max(0, skill.CURRENT_XP - xpStart);
+            const pct = Math.min(100, Math.max(0, (currentProgressXP / xpRange) * 100));
+
             htmlList += `
                 <div class="w-full">
                     <div class="flex justify-between items-end mb-1">
                         <span class="text-[10px] font-bold" style="color:${color}">${key} <span class="text-gray-600 text-[9px]">LVL ${skill.LEVEL}</span></span>
-                        <span class="text-[9px] text-gray-400">${daily} XP</span>
+                        <span class="text-[9px] text-gray-400">Daily: ${daily} XP</span>
                     </div>
-                    <div class="skill-bar-container">
-                        <div class="skill-bar" style="width: ${Math.min(100, (Math.max(0, daily) / 1000)*100)}%; background-color: ${color}"></div>
+                    <div class="skill-bar-container bg-[#222]">
+                        <div class="skill-bar" style="width: ${pct}%; background-color: ${color}"></div>
                     </div>
-                    <div class="text-[8px] text-gray-600 text-right mt-0.5">TOTAL: ${skill.CURRENT_XP}</div>
+                    <div class="flex justify-between items-center mt-0.5">
+                         <span class="text-[8px] text-gray-600">NEXT LVL: ${Math.floor(xpNext - skill.CURRENT_XP)} XP</span>
+                         <span class="text-[8px] text-gray-600">TOTAL: ${skill.CURRENT_XP}</span>
+                    </div>
                 </div>
             `;
             if (daily > 0) pieSegments.push({ value: daily, color: color });
@@ -481,7 +458,6 @@ class ZyqralOS {
             pieContainer.style.background = `conic-gradient(${gradients.join(', ')})`;
         }
 
-        // Graph Logic
         const dates = [];
         for (let i = days - 1; i >= 0; i--) {
             const d = new Date();
@@ -617,7 +593,6 @@ class ZyqralOS {
                 if(!targetPath) { this.state[targetKey] = {}; targetPath = targetKey; }
                 const { parent: tParent, key: tKey } = this.getParent(targetPath);
                 
-                // Directly update the session data
                 tParent[tKey] = {
                     "TOTAL_CARDS": `=${totalCards}`,
                     "TIME_MINUTES": `=${timeMin.toFixed(2)}`,
@@ -632,10 +607,8 @@ class ZyqralOS {
                     "LAST_UPDATE": `=${this.getTimestamp()}`
                 };
 
-                // Auto flush scratchpad
                 this.updateValue(scratchpadPath, ""); 
                 
-                // The master recalculation will pick up the changes and update XP
                 this.recalculateAllSkillXP();
 
                 this.addLog(`MACRO EXECUTION <span class="log-hl">[HANZI PARSE]</span> COMPLETED`);
@@ -651,24 +624,45 @@ class ZyqralOS {
             }
         }
         else if (type === 'RESET_TASKS') {
-            if(confirm('MACRO EXECUTION: Reset "IN PROGRESS", "COMPLETED", and "FAILED" tasks to "PENDING"?')) {
+            if(confirm('MACRO EXECUTION: Reset Task Statuses and "OUTPUT_MINS" counters?')) {
                 let count = 0;
                 const recursiveReset = (obj) => {
                     for (let k in obj) {
                         if (k === '_meta_log' || k === 'log_config' || k === '_mood_history' || k === 'export_config' || k === 'SKILLS') continue;
+                        
+                        // Recursive step
                         if (typeof obj[k] === 'object' && obj[k] !== null) {
                             recursiveReset(obj[k]);
-                        } else if (typeof obj[k] === 'string') {
-                            const val = obj[k].toUpperCase();
-                            if (val === 'IN PROGRESS' || val === 'COMPLETED' || val === 'FAILED') {
-                                obj[k] = 'PENDING';
+                        } 
+                        else {
+                            // Reset Status Strings
+                            if (typeof obj[k] === 'string') {
+                                const val = obj[k].toUpperCase();
+                                if (['IN PROGRESS', 'COMPLETED', 'FAILED'].includes(val)) {
+                                    obj[k] = 'PENDING';
+                                    count++;
+                                }
+                            }
+                            
+                            // Reset "output_mins" Keys (Case-Insensitive)
+                            if (k.toLowerCase().includes('output_mins')) {
+                                // Preserve formula structure if it exists, otherwise set to 0
+                                if (typeof obj[k] === 'string' && obj[k].startsWith('=')) {
+                                    obj[k] = '=0';
+                                } else {
+                                    obj[k] = 0;
+                                }
                                 count++;
                             }
                         }
                     }
                 };
                 recursiveReset(this.state);
-                this.addLog(`MACRO EXECUTION <span class="log-hl">[RESET TASKS]</span><br> UPDATED ${count} NODES TO "PENDING"`);
+                
+                // Recalculate XP to reflect dropped minutes/counts
+                this.recalculateAllSkillXP();
+                
+                this.addLog(`MACRO EXECUTION <span class="log-hl">[RESET TASKS]</span><br> UPDATED ${count} NODES`);
                 this.save();
                 this.toggleMacros();
             }
@@ -996,7 +990,6 @@ class ZyqralOS {
         if(this.pendingEdits[pathStr]) delete this.pendingEdits[pathStr];
         this.logGranular('UPDATE', pathStr, oldValue, val);
         
-        // RECALCULATE XP GLOBALLY (Handles all dependencies/side-effects)
         this.recalculateAllSkillXP();
         
         this.save();
@@ -1065,7 +1058,6 @@ class ZyqralOS {
         this.editingPath = null;
         if(this.pendingEdits[pathStr]) delete this.pendingEdits[pathStr];
         
-        // Remove from evaluation cache
         if (this._lastSkillEvaluations[pathStr]) {
             delete this._lastSkillEvaluations[pathStr];
         }
