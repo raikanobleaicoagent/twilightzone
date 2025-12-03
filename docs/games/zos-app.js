@@ -33,10 +33,10 @@ class ZyqralOS {
         if(!this.state._mood_history) this.state._mood_history = [];
         if(!this.state.SKILLS) this.state.SKILLS = {};
         
-        // Remove legacy login date if present
+        // Cleanup legacy fields
         if(this.state.last_login_date) delete this.state.last_login_date;
 
-        // Check for stale session data immediately
+        // Check for stale session data immediately on boot
         this.checkSessionReset();
 
         // Interval to check for midnight roll-over while app is running (Every 60s)
@@ -83,16 +83,18 @@ class ZyqralOS {
         return s ? JSON.parse(s) : JSON.parse(JSON.stringify(NULL_STATE));
     }
 
-    // Returns YYYY-MM-DD in America/Edmonton (MST/MDT)
+    // ROBUST DATE FORMATTER: Guarantees YYYY-MM-DD regardless of browser locale
     getCurrentMSTDate() {
         const now = new Date();
-        const formatter = new Intl.DateTimeFormat('en-CA', {
-            timeZone: 'America/Edmonton',
-            year: 'numeric',
-            month: '2-digit',
-            day: '2-digit'
-        });
-        return formatter.format(now);
+        const options = { timeZone: 'America/Edmonton', year: 'numeric', month: '2-digit', day: '2-digit' };
+        const formatter = new Intl.DateTimeFormat('en-CA', options);
+        const parts = formatter.formatToParts(now);
+        
+        const year = parts.find(p => p.type === 'year').value;
+        const month = parts.find(p => p.type === 'month').value;
+        const day = parts.find(p => p.type === 'day').value;
+        
+        return `${year}-${month}-${day}`;
     }
 
     checkSessionReset() {
@@ -105,53 +107,59 @@ class ZyqralOS {
             const { parent, key } = this.getParent(sessionPath);
             const sessionData = parent[key];
             
-            // Check if there is data and a timestamp key
-            if (sessionData && typeof sessionData === 'object' && sessionData['LAST_UPDATE']) {
+            // Check if there is data and a timestamp key (Case Insensitive Search)
+            if (sessionData && typeof sessionData === 'object') {
+                const updateKey = Object.keys(sessionData).find(k => k.toUpperCase() === 'LAST_UPDATE');
                 
-                const lastUpdateRaw = String(sessionData['LAST_UPDATE']);
-                
-                // EXTRACT DATE: Matches YYYY-MM-DD pattern explicitly
-                // This handles "=2025-12-02 @..." or just "2025-12-02"
-                const dateMatch = lastUpdateRaw.match(/(\d{4}-\d{2}-\d{2})/);
-                
-                if (dateMatch) {
-                    const sessionDate = dateMatch[1];
+                if (updateKey && sessionData[updateKey]) {
+                    const lastUpdateRaw = String(sessionData[updateKey]);
                     
-                    // If the session date is NOT today, it is stale. Archive and Wipe.
-                    if (sessionDate !== today) {
+                    // EXTRACT DATE: Matches YYYY-MM-DD pattern explicitly
+                    // This handles "=2025-12-02 @..." or just "2025-12-02"
+                    const dateMatch = lastUpdateRaw.match(/(\d{4}-\d{2}-\d{2})/);
+                    
+                    if (dateMatch) {
+                        const sessionDate = dateMatch[1];
                         
-                        // 1. Archive Daily XP if it exists
-                        if (this.state.SKILLS.HANZI && this.state.SKILLS.HANZI.DAILY_XP > 0) {
-                            if (!this.state.SKILLS.HANZI.HISTORY) this.state.SKILLS.HANZI.HISTORY = [];
+                        // If the session date is NOT today, it is stale. Archive and Wipe.
+                        if (sessionDate !== today) {
                             
-                            // Prevent duplicate entries for the same date if multiple resets happen? 
-                            // Simple push for now as per logic.
-                            this.state.SKILLS.HANZI.HISTORY.push({ 
-                                date: sessionDate, 
-                                xp: this.state.SKILLS.HANZI.DAILY_XP 
-                            });
-                            
-                            // Keep history trim
-                            if (this.state.SKILLS.HANZI.HISTORY.length > 365) this.state.SKILLS.HANZI.HISTORY.shift();
-                            
-                            // Reset Counter
-                            this.state.SKILLS.HANZI.DAILY_XP = 0;
-                        }
+                            // 1. Archive Daily XP if it exists
+                            if (this.state.SKILLS.HANZI && this.state.SKILLS.HANZI.DAILY_XP > 0) {
+                                if (!this.state.SKILLS.HANZI.HISTORY) this.state.SKILLS.HANZI.HISTORY = [];
+                                
+                                // Push to history
+                                this.state.SKILLS.HANZI.HISTORY.push({ 
+                                    date: sessionDate, 
+                                    xp: this.state.SKILLS.HANZI.DAILY_XP 
+                                });
+                                
+                                // Keep history trim (Last 365 entries)
+                                if (this.state.SKILLS.HANZI.HISTORY.length > 365) this.state.SKILLS.HANZI.HISTORY.shift();
+                                
+                                // Reset Counter
+                                this.state.SKILLS.HANZI.DAILY_XP = 0;
+                            }
 
-                        // 2. Wipe the Session Object
-                        parent[key] = {}; 
-                        
-                        changesMade = true;
-                        this.addLog(`SYSTEM <span class="log-hl">[AUTO-ARCHIVE]</span><br>WIPED SESSION FROM ${sessionDate}`);
+                            // 2. Wipe the Session Object
+                            parent[key] = {}; 
+                            
+                            changesMade = true;
+                            this.addLog(`SYSTEM <span class="log-hl">[AUTO-ARCHIVE]</span><br>WIPED HANZI SESSION (${sessionDate})`);
+                        }
+                    } else {
+                        // Log parsing error if we found a key but couldn't read the date
+                        // This helps debug if the format is somehow wrong
+                        // console.log("Date Parse Failed for:", lastUpdateRaw);
                     }
                 }
             }
         }
 
         if (changesMade) {
-            // Reset Cache & Recalculate to ensure 0 Daily XP state
+            // Reset Cache & Recalculate to ensure 0 Daily XP state is recognized
             this._lastSkillEvaluations = {};
-            this.recalculateAllSkillXP(true); // true = silent/boot mode, prevents recalc errors
+            this.recalculateAllSkillXP(true); // true = silent/boot mode
             this.save();
         }
     }
@@ -1591,18 +1599,3 @@ class ZyqralOS {
                 
                 <line x1="${padding}" y1="${padding + contentH*0.25}" x2="${width-padding}" y2="${padding + contentH*0.25}" class="chart-grid" />
                 <line x1="${padding}" y1="${padding + contentH*0.50}" x2="${width-padding}" y2="${padding + contentH*0.50}" class="chart-grid" />
-                <line x1="${padding}" y1="${padding + contentH*0.75}" x2="${width-padding}" y2="${padding + contentH*0.75}" class="chart-grid" />
-
-                <text x="${padding-5}" y="${padding + contentH*0.25 + 3}" text-anchor="end" class="chart-label">75%</text>
-                <text x="${padding-5}" y="${padding + contentH*0.50 + 3}" text-anchor="end" class="chart-label">50%</text>
-                <text x="${padding-5}" y="${padding + contentH*0.75 + 3}" text-anchor="end" class="chart-label">25%</text>
-
-                ${chartElementsHTML}
-            </svg>
-        `;
-        
-        container.innerHTML = svg;
-    }
-}
-
-const app = new ZyqralOS();
