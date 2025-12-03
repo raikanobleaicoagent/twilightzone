@@ -95,10 +95,12 @@ class ZyqralOS {
 
     checkDailyReset() {
         const today = this.getCurrentMSTDate();
-        
+        let sessionWiped = false;
+
+        // 1. GLOBAL RESET: If the system login date hasn't rolled over yet
         if (this.state.last_login_date !== today) {
             if (this.state.last_login_date) {
-                // 1. Archive Skills
+                // Archive all skills
                 Object.keys(this.state.SKILLS).forEach(skillKey => {
                     const skill = this.state.SKILLS[skillKey];
                     if (skill.DAILY_XP !== 0) { 
@@ -108,24 +110,53 @@ class ZyqralOS {
                     }
                     skill.DAILY_XP = 0;
                 });
-
-                // 2. Wipe HANZI_SESSION
-                const sessionPath = this.findPathByKey(this.state, 'HANZI_SESSION');
-                if (sessionPath) {
-                    const { parent, key } = this.getParent(sessionPath);
-                    // Clear all keys/values by resetting the object
-                    parent[key] = {};
-                }
-
-                // 3. Reset Cache & Recalculate
-                // We clear the cache so the system doesn't try to subtract the 
-                // now-deleted session XP from the freshly reset (0) Daily XP.
-                this._lastSkillEvaluations = {};
-                this.recalculateAllSkillXP(true); // true = silent/boot mode
-
-                this.addLog(`SYSTEM <span class="log-hl">[DAILY RESET]</span><br>SKILLS ARCHIVED & SESSION WIPED`);
+                this.addLog(`SYSTEM <span class="log-hl">[DAILY RESET]</span><br>GLOBAL SKILL ARCHIVE`);
             }
             this.state.last_login_date = today;
+        }
+
+        // 2. STALE SESSION CHECK (HANZI SPECIFIC)
+        // This runs even if last_login_date was already today, ensuring we catch "holdover" sessions
+        // that have a LAST_UPDATE from yesterday.
+        const sessionPath = this.findPathByKey(this.state, 'HANZI_SESSION');
+        if (sessionPath) {
+            const { parent, key } = this.getParent(sessionPath);
+            const sessionData = parent[key];
+            
+            // Check if there is data and a timestamp
+            if (sessionData && Object.keys(sessionData).length > 0 && sessionData['LAST_UPDATE']) {
+                let lastUpdateStr = sessionData['LAST_UPDATE'];
+                // Clean formula syntax if present
+                if(String(lastUpdateStr).startsWith('=')) {
+                    lastUpdateStr = lastUpdateStr.substring(1).replace(/"/g, '');
+                }
+                
+                // Parse "YYYY-MM-DD @ HH:MM" -> "YYYY-MM-DD"
+                const sessionDate = lastUpdateStr.split('@')[0].trim();
+                
+                if (sessionDate && sessionDate !== today) {
+                    // This session is from a previous day.
+                    
+                    // Double check: If we have pending Daily XP for Hanzi, archive it now (if not done by global reset)
+                    if (this.state.SKILLS.HANZI && this.state.SKILLS.HANZI.DAILY_XP !== 0) {
+                        if (!this.state.SKILLS.HANZI.HISTORY) this.state.SKILLS.HANZI.HISTORY = [];
+                        this.state.SKILLS.HANZI.HISTORY.push({ date: sessionDate, xp: this.state.SKILLS.HANZI.DAILY_XP });
+                        if (this.state.SKILLS.HANZI.HISTORY.length > 365) this.state.SKILLS.HANZI.HISTORY.shift();
+                        this.state.SKILLS.HANZI.DAILY_XP = 0;
+                    }
+
+                    // Wipe the session
+                    parent[key] = {};
+                    sessionWiped = true;
+                    this.addLog(`SYSTEM <span class="log-hl">[SESSION CLEANUP]</span><br>WIPED STALE DATA FROM ${sessionDate}`);
+                }
+            }
+        }
+
+        if (sessionWiped || this.state.last_login_date !== today) {
+            // Reset Cache & Recalculate to ensure 0 Daily XP state
+            this._lastSkillEvaluations = {};
+            this.recalculateAllSkillXP(true); // true = silent/boot mode
             this.save();
         }
     }
