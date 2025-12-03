@@ -440,10 +440,7 @@
     <div class="p-2 md:p-4 border-b border-gray-800 flex justify-between items-center bg-black flex-wrap gap-2">
         <h2 class="text-yellow-500 font-bold text-xs tracking-[0.2em]">SKILL PROGRESSION</h2>
         <div class="flex items-center gap-1 md:gap-2 flex-wrap">
-            <label class="hidden md:flex items-center gap-2 cursor-pointer group mr-2">
-                <input type="checkbox" id="skill-export-toggle" onchange="app.toggleSkillExport()" class="accent-yellow-500 cursor-pointer w-3 h-3">
-                <span class="text-[9px] text-gray-500 font-bold tracking-wider group-hover:text-yellow-400">INCLUDE IN EXPORT</span>
-            </label>
+            <button onclick="app.exportSkillLogs()" class="bg-blue-900/30 text-blue-400 border border-blue-800 px-2 py-0.5 rounded text-[9px] font-bold tracking-wider hover:bg-blue-900/50"><i class="fa-solid fa-download mr-1"></i>EXPORT</button>
             <button onclick="app.clearSkillHistory()" class="bg-red-900/30 text-red-400 border border-red-800 px-2 py-0.5 rounded text-[9px] font-bold tracking-wider hover:bg-red-900/50"><i class="fa-solid fa-trash mr-1"></i>CLEAR</button>
             <button onclick="app.refreshSkillCharts()" class="bg-green-900/30 text-green-400 border border-green-800 px-2 py-0.5 rounded text-[9px] font-bold tracking-wider hover:bg-green-900/50"><i class="fa-solid fa-sync mr-1"></i>REFRESH</button>
             <button onclick="app.toggleSkills()" class="text-gray-500 hover:text-white"><i class="fa-solid fa-xmark fa-lg"></i></button>
@@ -451,13 +448,41 @@
     </div>
     
     <div class="flex-grow flex flex-col md:flex-row overflow-hidden">
-        <div class="w-full md:w-1/4 border-b md:border-b-0 md:border-r border-gray-800 p-3 md:p-4 overflow-y-auto bg-[#030303] max-h-[40vh] md:max-h-full">
+        <!-- Left Panel: Skills List -->
+        <div class="w-full md:w-1/4 border-b md:border-b-0 md:border-r border-gray-800 p-3 md:p-4 overflow-y-auto bg-[#030303] max-h-[35vh] md:max-h-full">
             <h3 class="text-[10px] font-bold text-gray-500 mb-3 md:mb-4 uppercase tracking-wider">ACTIVE SKILLS</h3>
             <div id="skill-list-container" class="space-y-3 md:space-y-4"></div>
+            
+            <!-- XP/Hour Stats -->
+            <div class="mt-4 pt-4 border-t border-gray-800">
+                <h3 class="text-[10px] font-bold text-gray-500 mb-2 uppercase tracking-wider">SESSION RATE</h3>
+                <div id="skill-rate-container" class="space-y-2"></div>
+            </div>
+            
+            <!-- Export Options -->
+            <div class="mt-4 pt-4 border-t border-gray-800">
+                <h3 class="text-[10px] font-bold text-gray-500 mb-2 uppercase tracking-wider">EXPORT OPTIONS</h3>
+                <div class="space-y-2">
+                    <label class="flex items-center gap-2 cursor-pointer group">
+                        <input type="checkbox" id="export-daily-check" checked class="accent-yellow-500 cursor-pointer w-3 h-3">
+                        <span class="text-[9px] text-gray-500 font-bold tracking-wider group-hover:text-yellow-400">DAILY HISTORY</span>
+                    </label>
+                    <label class="flex items-center gap-2 cursor-pointer group">
+                        <input type="checkbox" id="export-hourly-check" checked class="accent-cyan-500 cursor-pointer w-3 h-3">
+                        <span class="text-[9px] text-gray-500 font-bold tracking-wider group-hover:text-cyan-400">HOURLY DATA</span>
+                    </label>
+                    <label class="flex items-center gap-2 cursor-pointer group">
+                        <input type="checkbox" id="skill-export-toggle" onchange="app.toggleSkillExport()" class="accent-purple-500 cursor-pointer w-3 h-3">
+                        <span class="text-[9px] text-gray-500 font-bold tracking-wider group-hover:text-purple-400">INCLUDE IN MAIN EXPORT</span>
+                    </label>
+                </div>
+            </div>
         </div>
 
+        <!-- Right Panel: Analytics -->
         <div class="w-full md:w-3/4 p-3 md:p-4 bg-black flex flex-col min-h-0 overflow-y-auto">
-            <div class="flex flex-wrap justify-between items-center mb-3 md:mb-4 border-b border-gray-900 pb-2 gap-2 shrink-0">
+            <!-- Controls -->
+            <div class="flex flex-wrap justify-between items-center mb-3 border-b border-gray-900 pb-2 gap-2 shrink-0">
                 <h3 class="text-[10px] font-bold text-gray-500 uppercase tracking-wider">PERFORMANCE ANALYTICS</h3>
                 <div class="flex items-center gap-2 md:gap-4 flex-wrap">
                     <label class="flex items-center gap-1 md:gap-2 cursor-pointer group">
@@ -471,16 +496,27 @@
                 </div>
             </div>
             
-            <div class="flex-grow flex flex-col md:flex-row gap-3 md:gap-4 min-h-0">
-                <div class="w-full md:w-1/3 flex flex-col items-center justify-center border-b md:border-b-0 md:border-r border-gray-900 pb-3 md:pb-0 md:pr-4 shrink-0">
-                    <h4 class="text-[9px] text-gray-600 mb-2 font-mono">FOCUS DISTRIBUTION</h4>
-                    <div id="skill-pie-container" class="w-28 h-28 md:w-32 md:h-32 relative rounded-full"></div>
+            <!-- Top Row: Pie + Daily Graph -->
+            <div class="flex flex-col md:flex-row gap-3 md:gap-4 mb-4">
+                <div class="w-full md:w-1/4 flex flex-col items-center justify-center border-b md:border-b-0 md:border-r border-gray-900 pb-3 md:pb-0 md:pr-4 shrink-0">
+                    <h4 class="text-[9px] text-gray-600 mb-2 font-mono">FOCUS DIST.</h4>
+                    <div id="skill-pie-container" class="w-24 h-24 md:w-28 md:h-28 relative rounded-full"></div>
                 </div>
-                <div class="w-full md:w-2/3 flex flex-col min-h-[200px] md:min-h-0">
-                    <h4 class="text-[9px] text-gray-600 mb-2 font-mono shrink-0">XP VELOCITY</h4>
-                    <div id="skill-graph-legend" class="shrink-0 mb-2"></div>
-                    <div id="skill-graph-container" class="flex-grow border border-gray-800 rounded bg-[#050505] min-h-[180px]"></div>
+                <div class="w-full md:w-3/4 flex flex-col min-h-[160px]">
+                    <h4 class="text-[9px] text-gray-600 mb-1 font-mono shrink-0">XP VELOCITY (DAILY)</h4>
+                    <div id="skill-graph-legend" class="shrink-0 mb-1"></div>
+                    <div id="skill-graph-container" class="flex-grow border border-gray-800 rounded bg-[#050505] min-h-[120px]"></div>
                 </div>
+            </div>
+            
+            <!-- Bottom Row: Hourly Graph -->
+            <div class="flex flex-col">
+                <div class="flex justify-between items-center mb-1">
+                    <h4 class="text-[9px] text-gray-600 font-mono">XP VELOCITY (24H)</h4>
+                    <span id="hourly-reset-timer" class="text-[8px] text-gray-700 font-mono"></span>
+                </div>
+                <div id="hourly-graph-legend" class="shrink-0 mb-1"></div>
+                <div id="hourly-graph-container" class="border border-gray-800 rounded bg-[#050505] min-h-[120px]"></div>
             </div>
         </div>
     </div>
@@ -497,11 +533,12 @@ const NULL_STATE = {
         "MOOD": { "MOTIVATION": "50%", "FOCUS": "50%", "WAKEFULNESS": "50%", "EXHAUSTION": "50%" },
         "HANZI_SESSION": {}
     },
-    "SKILLS": { "HANZI": { "LEVEL": 1, "CURRENT_XP": 0, "DAILY_XP": 0, "HISTORY": [] } },
+    "SKILLS": { "HANZI": { "LEVEL": 1, "CURRENT_XP": 0, "DAILY_XP": 0, "HISTORY": [], "HOURLY": new Array(24).fill(0), "SESSION_START": null } },
     "log_config": { "limit": 10, "enabled": true, "chart_limit": 10, "log_scratchpad": false },
     "export_config": { "visible_only": false, "include_logs": true, "include_skills": true },
     "_meta_log": [],
-    "_mood_history": []
+    "_mood_history": [],
+    "_hourly_date": null
 };
 
 const STORAGE_KEY = 'zos_v7_8';
@@ -522,6 +559,14 @@ class ZyqralOS {
         if(!this.state._meta_log) this.state._meta_log = [];
         if(!this.state._mood_history) this.state._mood_history = [];
         if(!this.state.SKILLS) this.state.SKILLS = {};
+        
+        // Initialize hourly tracking for all skills
+        Object.keys(this.state.SKILLS).forEach(skillName => {
+            const skill = this.state.SKILLS[skillName];
+            if (!skill.HOURLY) skill.HOURLY = new Array(24).fill(0);
+            if (!skill.SESSION_START) skill.SESSION_START = null;
+        });
+        if (!this.state._hourly_date) this.state._hourly_date = this.getCurrentMSTDate();
         
         // Cleanup legacy fields
         if(this.state.last_login_date) delete this.state.last_login_date;
@@ -689,6 +734,19 @@ class ZyqralOS {
                     }
                 }
             }
+        }
+
+        // Check if hourly data needs reset (new day)
+        if (this.state._hourly_date !== today) {
+            // Reset hourly data for all skills
+            Object.keys(this.state.SKILLS).forEach(skillName => {
+                const skill = this.state.SKILLS[skillName];
+                skill.HOURLY = new Array(24).fill(0);
+                skill.SESSION_START = null;
+            });
+            this.state._hourly_date = today;
+            changesMade = true;
+            this.addLog(`SYSTEM <span class="log-hl">[HOURLY RESET]</span><br>24H DATA CLEARED FOR NEW DAY`);
         }
 
         if (changesMade) {
@@ -863,9 +921,19 @@ class ZyqralOS {
             this._lastSkillEvaluations = {};
         }
         
+        // Get current hour in MST
+        const getCurrentMSTHour = () => {
+            const now = new Date();
+            const options = { timeZone: 'America/Edmonton', hour: '2-digit', hour12: false };
+            const formatter = new Intl.DateTimeFormat('en-CA', options);
+            return parseInt(formatter.format(now));
+        };
+        
+        const currentHour = getCurrentMSTHour();
+        
         const scanForSkillXP = (obj, path = '') => {
             for (let key in obj) {
-                if (key === '_meta_log' || key === 'log_config' || key === '_mood_history' || key === 'export_config' || key === 'SKILLS') continue;
+                if (key === '_meta_log' || key === 'log_config' || key === '_mood_history' || key === 'export_config' || key === 'SKILLS' || key === '_hourly_date') continue;
                 
                 const currentPath = path ? `${path}|${key}` : key;
                 const val = obj[key];
@@ -902,16 +970,28 @@ class ZyqralOS {
                             }
                             
                             if (!this.state.SKILLS[skillName]) {
-                                this.state.SKILLS[skillName] = { LEVEL: 1, CURRENT_XP: 0, DAILY_XP: 0, HISTORY: [] };
+                                this.state.SKILLS[skillName] = { LEVEL: 1, CURRENT_XP: 0, DAILY_XP: 0, HISTORY: [], HOURLY: new Array(24).fill(0), SESSION_START: null };
                             }
                             const skill = this.state.SKILLS[skillName];
+                            
+                            // Ensure hourly array exists
+                            if (!skill.HOURLY) skill.HOURLY = new Array(24).fill(0);
+                            
+                            // Track session start time for XP/hour calculation
+                            if (!skill.SESSION_START && delta > 0) {
+                                skill.SESSION_START = Date.now();
+                            }
                             
                             if (upperKey === 'SESSION_XP_LOSS') {
                                 skill.DAILY_XP -= delta;
                                 skill.CURRENT_XP -= delta;
+                                // Track hourly loss (subtract from current hour)
+                                skill.HOURLY[currentHour] = (skill.HOURLY[currentHour] || 0) - delta;
                             } else {
                                 skill.DAILY_XP += delta;
                                 skill.CURRENT_XP += delta;
+                                // Track hourly gain (add to current hour)
+                                skill.HOURLY[currentHour] = (skill.HOURLY[currentHour] || 0) + delta;
                             }
                             
                             skill.LEVEL = Math.floor(Math.sqrt(Math.max(0, skill.CURRENT_XP) / 100)) + 1;
@@ -996,29 +1076,28 @@ class ZyqralOS {
 
     renderSkillCharts() {
         const listContainer = document.getElementById('skill-list-container');
+        const rateContainer = document.getElementById('skill-rate-container');
         const pieContainer = document.getElementById('skill-pie-container');
         const graphContainer = document.getElementById('skill-graph-container');
+        const hourlyGraphContainer = document.getElementById('hourly-graph-container');
         const rangeInput = document.getElementById('skill-graph-range');
         const splitToggle = document.getElementById('skill-graph-split');
+        const hourlyResetTimer = document.getElementById('hourly-reset-timer');
         
-        const days = parseInt(rangeInput.value) || 7;
+        const days = parseInt(rangeInput?.value) || 7;
         const isSplit = splitToggle ? splitToggle.checked : false;
 
         // Helper to adjust color brightness
         const adjustColor = (hex, percent) => {
-            // Convert hex to RGB
             let r = parseInt(hex.slice(1, 3), 16);
             let g = parseInt(hex.slice(3, 5), 16);
             let b = parseInt(hex.slice(5, 7), 16);
             
-            // Adjust brightness
             if (percent > 0) {
-                // Lighten
                 r = Math.min(255, r + (255 - r) * percent);
                 g = Math.min(255, g + (255 - g) * percent);
                 b = Math.min(255, b + (255 - b) * percent);
             } else {
-                // Darken
                 r = Math.max(0, r * (1 + percent));
                 g = Math.max(0, g * (1 + percent));
                 b = Math.max(0, b * (1 + percent));
@@ -1028,6 +1107,7 @@ class ZyqralOS {
         };
 
         let htmlList = '';
+        let rateHtml = '';
         let totalDailyXP = 0;
         const skills = this.state.SKILLS || {};
         const colors = ['#eab308', '#3b82f6', '#ef4444', '#10b981', '#a855f7', '#ec4899', '#f97316'];
@@ -1052,11 +1132,36 @@ class ZyqralOS {
             }
         }
 
+        // Calculate time until midnight MST for reset timer
+        if (hourlyResetTimer) {
+            const now = new Date();
+            const mstOffset = -7; // MST is UTC-7
+            const utcHours = now.getUTCHours();
+            const utcMins = now.getUTCMinutes();
+            const mstHours = (utcHours + mstOffset + 24) % 24;
+            const hoursLeft = (24 - mstHours - 1);
+            const minsLeft = 60 - utcMins;
+            hourlyResetTimer.textContent = `RESETS IN ${hoursLeft}H ${minsLeft}M`;
+        }
+
         Object.keys(skills).forEach(key => {
             const skill = skills[key];
             const color = colors[colorIdx % colors.length];
             const daily = skill.DAILY_XP || 0;
             totalDailyXP += daily;
+            
+            // Calculate XP/hour rate
+            let xpPerHour = 0;
+            if (skill.SESSION_START) {
+                const hoursElapsed = Math.max(0.1, (Date.now() - skill.SESSION_START) / (1000 * 60 * 60));
+                xpPerHour = Math.round(daily / hoursElapsed);
+            } else if (skill.HOURLY) {
+                // Calculate from hourly data
+                const activeHours = skill.HOURLY.filter(h => h > 0).length;
+                if (activeHours > 0) {
+                    xpPerHour = Math.round(daily / activeHours);
+                }
+            }
             
             // Calculate progress towards next level
             const currentLevel = skill.LEVEL || 1;
@@ -1075,192 +1180,300 @@ class ZyqralOS {
                 <div class="w-full">
                     <div class="flex justify-between items-end mb-1">
                         <span class="text-[10px] font-bold" style="color:${color}">${key} <span class="text-gray-600 text-[9px]">LVL ${skill.LEVEL}</span></span>
-                        <span class="text-[9px] text-gray-400">Daily: ${daily} XP ${gainLossDisplay}</span>
+                        <span class="text-[9px] text-gray-400">${daily} XP ${gainLossDisplay}</span>
                     </div>
                     <div class="skill-bar-container bg-[#222]">
                         <div class="skill-bar" style="width: ${pct}%; background-color: ${color}"></div>
                     </div>
                     <div class="flex justify-between items-center mt-0.5">
-                         <span class="text-[8px] text-gray-600">NEXT LVL: ${Math.floor(xpNext - skill.CURRENT_XP)} XP</span>
+                         <span class="text-[8px] text-gray-600">NEXT: ${Math.floor(xpNext - skill.CURRENT_XP)} XP</span>
                          <span class="text-[8px] text-gray-600">TOTAL: ${skill.CURRENT_XP}</span>
                     </div>
                 </div>
             `;
+            
+            // XP/hour rate display
+            rateHtml += `
+                <div class="flex justify-between items-center">
+                    <span class="text-[9px]" style="color:${color}">${key}</span>
+                    <span class="text-[10px] font-mono text-cyan-400">${xpPerHour} XP/h</span>
+                </div>
+            `;
+            
             if (daily > 0) pieSegments.push({ value: daily, color: color });
             colorIdx++;
         });
-        listContainer.innerHTML = htmlList || '<div class="text-gray-600 text-[10px] italic">NO ACTIVE SKILLS</div>';
+        
+        if (listContainer) listContainer.innerHTML = htmlList || '<div class="text-gray-600 text-[10px] italic">NO ACTIVE SKILLS</div>';
+        if (rateContainer) rateContainer.innerHTML = rateHtml || '<div class="text-gray-600 text-[9px] italic">NO DATA</div>';
 
-        if (totalDailyXP <= 0) {
-            pieContainer.innerHTML = '<div class="flex items-center justify-center h-full text-[9px] text-gray-700">NO POSITIVE DATA</div>';
-            pieContainer.style.background = 'transparent';
-        } else {
-            pieContainer.innerHTML = '';
-            let accumulatedDeg = 0;
-            let gradients = [];
-            pieSegments.forEach(seg => {
-                const deg = (seg.value / totalDailyXP) * 360;
-                gradients.push(`${seg.color} ${accumulatedDeg}deg ${accumulatedDeg + deg}deg`);
-                accumulatedDeg += deg;
-            });
-            pieContainer.style.background = `conic-gradient(${gradients.join(', ')})`;
+        if (pieContainer) {
+            if (totalDailyXP <= 0) {
+                pieContainer.innerHTML = '<div class="flex items-center justify-center h-full text-[9px] text-gray-700">NO DATA</div>';
+                pieContainer.style.background = 'transparent';
+            } else {
+                pieContainer.innerHTML = '';
+                let accumulatedDeg = 0;
+                let gradients = [];
+                pieSegments.forEach(seg => {
+                    const deg = (seg.value / totalDailyXP) * 360;
+                    gradients.push(`${seg.color} ${accumulatedDeg}deg ${accumulatedDeg + deg}deg`);
+                    accumulatedDeg += deg;
+                });
+                pieContainer.style.background = `conic-gradient(${gradients.join(', ')})`;
+            }
         }
 
-        const dates = [];
-        for (let i = days - 1; i >= 0; i--) {
-            const d = new Date();
-            d.setDate(d.getDate() - i);
-            dates.push(d.toISOString().split('T')[0]);
-        }
+        // --- DAILY GRAPH ---
+        if (graphContainer) {
+            const dates = [];
+            for (let i = days - 1; i >= 0; i--) {
+                const d = new Date();
+                d.setDate(d.getDate() - i);
+                dates.push(d.toISOString().split('T')[0]);
+            }
 
-        let seriesData = []; 
-        let maxVal = 100;
+            let seriesData = []; 
+            let maxVal = 100;
 
-        if (isSplit) {
-            // Split mode: Show gain/loss/net as lighter/base/darker versions of skill color
-            let cIdx = 0;
-            Object.keys(skills).forEach(key => {
-                const skill = skills[key];
-                const baseColor = colors[cIdx % colors.length];
-                const lightColor = adjustColor(baseColor, 0.4);  // Lighter for gain
-                const darkColor = adjustColor(baseColor, -0.4);  // Darker for loss
-                
-                // Create gain series (lighter color)
-                const gainPoints = dates.map(date => {
-                    const today = new Date().toISOString().split('T')[0];
-                    const histEntry = skill.HISTORY ? skill.HISTORY.find(h => h.date === date) : null;
+            if (isSplit) {
+                let cIdx = 0;
+                Object.keys(skills).forEach(key => {
+                    const skill = skills[key];
+                    const baseColor = colors[cIdx % colors.length];
+                    const lightColor = adjustColor(baseColor, 0.4);
+                    const darkColor = adjustColor(baseColor, -0.4);
                     
-                    if (histEntry && histEntry.gain !== undefined) {
-                        return histEntry.gain;
-                    } else if (date === today && key === 'HANZI') {
-                        return currentGain;
-                    }
-                    // Fallback for legacy data
-                    if (histEntry && date !== today) return Math.max(0, histEntry.xp);
-                    if (date === today) return Math.max(0, skill.DAILY_XP || 0);
-                    return 0;
-                });
-                
-                // Create loss series (darker color)
-                const lossPoints = dates.map(date => {
-                    const today = new Date().toISOString().split('T')[0];
-                    const histEntry = skill.HISTORY ? skill.HISTORY.find(h => h.date === date) : null;
+                    const gainPoints = dates.map(date => {
+                        const today = new Date().toISOString().split('T')[0];
+                        const histEntry = skill.HISTORY ? skill.HISTORY.find(h => h.date === date) : null;
+                        if (histEntry && histEntry.gain !== undefined) return histEntry.gain;
+                        else if (date === today && key === 'HANZI') return currentGain;
+                        if (histEntry && date !== today) return Math.max(0, histEntry.xp);
+                        if (date === today) return Math.max(0, skill.DAILY_XP || 0);
+                        return 0;
+                    });
                     
-                    if (histEntry && histEntry.loss !== undefined) {
-                        return histEntry.loss;
-                    } else if (date === today && key === 'HANZI') {
-                        return currentLoss;
-                    }
-                    return 0;
+                    const lossPoints = dates.map(date => {
+                        const today = new Date().toISOString().split('T')[0];
+                        const histEntry = skill.HISTORY ? skill.HISTORY.find(h => h.date === date) : null;
+                        if (histEntry && histEntry.loss !== undefined) return histEntry.loss;
+                        else if (date === today && key === 'HANZI') return currentLoss;
+                        return 0;
+                    });
+                    
+                    const netPoints = dates.map(date => {
+                        const today = new Date().toISOString().split('T')[0];
+                        const histEntry = skill.HISTORY ? skill.HISTORY.find(h => h.date === date) : null;
+                        if (histEntry) return histEntry.xp;
+                        if (date === today) return skill.DAILY_XP || 0;
+                        return 0;
+                    });
+                    
+                    seriesData.push({ name: `${key} +`, color: lightColor, points: gainPoints, dashed: false });
+                    seriesData.push({ name: `${key} -`, color: darkColor, points: lossPoints, dashed: true });
+                    seriesData.push({ name: `${key}`, color: baseColor, points: netPoints, dashed: false });
+                    
+                    const localMax = Math.max(...gainPoints, ...lossPoints, ...netPoints.map(Math.abs));
+                    if (localMax > maxVal) maxVal = localMax;
+                    cIdx++;
+                });
+            } else {
+                const primaryColor = colors[0];
+                const lightColor = adjustColor(primaryColor, 0.4);
+                const darkColor = adjustColor(primaryColor, -0.4);
+                
+                const gainPoints = dates.map(() => 0);
+                const lossPoints = dates.map(() => 0);
+                const netPoints = dates.map(() => 0);
+                
+                Object.keys(skills).forEach(skillKey => {
+                    const skill = skills[skillKey];
+                    dates.forEach((date, idx) => {
+                        const today = new Date().toISOString().split('T')[0];
+                        const histEntry = skill.HISTORY ? skill.HISTORY.find(h => h.date === date) : null;
+                        if (histEntry) {
+                            if (histEntry.gain !== undefined) gainPoints[idx] += histEntry.gain;
+                            if (histEntry.loss !== undefined) lossPoints[idx] += histEntry.loss;
+                            netPoints[idx] += histEntry.xp;
+                        } else if (date === today) {
+                            if (skillKey === 'HANZI') {
+                                gainPoints[idx] += currentGain;
+                                lossPoints[idx] += currentLoss;
+                            }
+                            netPoints[idx] += skill.DAILY_XP || 0;
+                        }
+                    });
                 });
                 
-                // Create net XP series (base color)
-                const netPoints = dates.map(date => {
-                    const today = new Date().toISOString().split('T')[0];
-                    const histEntry = skill.HISTORY ? skill.HISTORY.find(h => h.date === date) : null;
-                    if (histEntry) return histEntry.xp;
-                    if (date === today) return skill.DAILY_XP || 0;
-                    return 0;
-                });
-                
-                seriesData.push({ name: `${key} +`, color: lightColor, points: gainPoints, dashed: false });
-                seriesData.push({ name: `${key} -`, color: darkColor, points: lossPoints, dashed: true });
-                seriesData.push({ name: `${key}`, color: baseColor, points: netPoints, dashed: false });
+                seriesData.push({ name: 'GAIN', color: lightColor, points: gainPoints, dashed: false });
+                seriesData.push({ name: 'LOSS', color: darkColor, points: lossPoints, dashed: true });
+                seriesData.push({ name: 'NET', color: primaryColor, points: netPoints, dashed: false });
                 
                 const localMax = Math.max(...gainPoints, ...lossPoints, ...netPoints.map(Math.abs));
                 if (localMax > maxVal) maxVal = localMax;
-                cIdx++;
+            }
+
+            const w = 400, h = 140, p = 25;
+            let svgContent = "";
+            
+            let legendHTML = '<div class="flex flex-wrap gap-1 justify-center px-1">';
+            seriesData.forEach(series => {
+                const dashStyle = series.dashed ? 'border-dashed border-b' : '';
+                legendHTML += `<div class="flex items-center gap-1 text-[7px]">
+                    <span class="w-2 h-0.5 ${dashStyle}" style="background:${series.dashed ? 'transparent' : series.color}; border-color: ${series.color}"></span>
+                    <span style="color:${series.color}">${series.name}</span>
+                </div>`;
             });
-        } else {
-            // Combined mode: Use primary skill color variations
-            const primaryColor = colors[0]; // Use first skill color as base
-            const lightColor = adjustColor(primaryColor, 0.4);
-            const darkColor = adjustColor(primaryColor, -0.4);
+            legendHTML += '</div>';
             
-            const gainPoints = dates.map(() => 0);
-            const lossPoints = dates.map(() => 0);
-            const netPoints = dates.map(() => 0);
+            const legendContainer = document.getElementById('skill-graph-legend');
+            if (legendContainer) legendContainer.innerHTML = legendHTML;
             
-            Object.keys(skills).forEach(skillKey => {
-                const skill = skills[skillKey];
-                dates.forEach((date, idx) => {
-                    const today = new Date().toISOString().split('T')[0];
-                    const histEntry = skill.HISTORY ? skill.HISTORY.find(h => h.date === date) : null;
-                    
-                    if (histEntry) {
-                        if (histEntry.gain !== undefined) gainPoints[idx] += histEntry.gain;
-                        if (histEntry.loss !== undefined) lossPoints[idx] += histEntry.loss;
-                        netPoints[idx] += histEntry.xp;
-                    } else if (date === today) {
-                        if (skillKey === 'HANZI') {
-                            gainPoints[idx] += currentGain;
-                            lossPoints[idx] += currentLoss;
-                        }
-                        netPoints[idx] += skill.DAILY_XP || 0;
-                    }
+            const dotRadius = days > 14 ? 2 : 3;
+            seriesData.forEach(series => {
+                let pathD = "";
+                let dots = "";
+                series.points.forEach((val, i) => {
+                    const x = p + (i / Math.max(1, series.points.length - 1)) * (w - 2*p);
+                    const safeVal = Math.max(0, val);
+                    const y = (h - p) - (safeVal / maxVal) * (h - 2*p);
+                    if (i===0) pathD += `M ${x} ${y}`;
+                    else pathD += ` L ${x} ${y}`;
+                    dots += `<circle cx="${x}" cy="${y}" r="${dotRadius}" fill="${series.color}" stroke="#000" stroke-width="1"><title>${series.name} (${dates[i]}): ${val} XP</title></circle>`;
                 });
+                const dashAttr = series.dashed ? 'stroke-dasharray="4,2"' : '';
+                svgContent += `<path d="${pathD}" stroke="${series.color}" stroke-width="2" fill="none" opacity="0.8" ${dashAttr} />${dots}`;
             });
             
-            seriesData.push({ name: 'GAIN', color: lightColor, points: gainPoints, dashed: false });
-            seriesData.push({ name: 'LOSS', color: darkColor, points: lossPoints, dashed: true });
-            seriesData.push({ name: 'NET', color: primaryColor, points: netPoints, dashed: false });
-            
-            const localMax = Math.max(...gainPoints, ...lossPoints, ...netPoints.map(Math.abs));
-            if (localMax > maxVal) maxVal = localMax;
+            graphContainer.innerHTML = `
+                <svg width="100%" height="100%" viewBox="0 0 ${w} ${h}" preserveAspectRatio="xMidYMid meet">
+                    <line x1="${p}" y1="${p}" x2="${p}" y2="${h-p}" class="chart-axis" />
+                    <line x1="${p}" y1="${h-p}" x2="${w-p}" y2="${h-p}" class="chart-axis" />
+                    ${svgContent}
+                    <text x="${p+5}" y="${p+8}" class="chart-label" fill="#444" font-size="8">MAX: ${maxVal}</text>
+                </svg>
+            `;
         }
 
-        // Use fixed viewBox dimensions - SVG will scale to fit container
-        const w = 400;
-        const h = 180;
-        const p = 25;
-        
-        let svgContent = "";
-        
-        // Create legend HTML
-        let legendHTML = '<div class="flex flex-wrap gap-2 mb-2 justify-center px-2">';
-        seriesData.forEach(series => {
-            const dashStyle = series.dashed ? 'border-dashed border-b' : '';
-            legendHTML += `<div class="flex items-center gap-1 text-[8px] md:text-[9px]">
-                <span class="w-3 h-0.5 ${dashStyle}" style="background:${series.dashed ? 'transparent' : series.color}; border-color: ${series.color}"></span>
-                <span style="color:${series.color}">${series.name}</span>
-            </div>`;
-        });
-        legendHTML += '</div>';
-        
-        // Output legend to separate container
-        const legendContainer = document.getElementById('skill-graph-legend');
-        if (legendContainer) legendContainer.innerHTML = legendHTML;
-        
-        seriesData.forEach(series => {
-            let pathD = "";
-            let dots = "";
+        // --- HOURLY GRAPH (24H) ---
+        if (hourlyGraphContainer) {
+            const hours = Array.from({length: 24}, (_, i) => i);
+            let hourlySeriesData = [];
+            let hourlyMaxVal = 50;
+
+            if (isSplit) {
+                let cIdx = 0;
+                Object.keys(skills).forEach(key => {
+                    const skill = skills[key];
+                    const baseColor = colors[cIdx % colors.length];
+                    const hourlyPoints = hours.map(h => (skill.HOURLY && skill.HOURLY[h]) || 0);
+                    hourlySeriesData.push({ name: key, color: baseColor, points: hourlyPoints });
+                    const localMax = Math.max(...hourlyPoints);
+                    if (localMax > hourlyMaxVal) hourlyMaxVal = localMax;
+                    cIdx++;
+                });
+            } else {
+                const totalPoints = hours.map(h => {
+                    let total = 0;
+                    Object.values(skills).forEach(skill => {
+                        total += (skill.HOURLY && skill.HOURLY[h]) || 0;
+                    });
+                    return total;
+                });
+                hourlySeriesData.push({ name: 'TOTAL', color: '#22d3ee', points: totalPoints });
+                const localMax = Math.max(...totalPoints);
+                if (localMax > hourlyMaxVal) hourlyMaxVal = localMax;
+            }
+
+            const hw = 400, hh = 120, hp = 25;
+            let hourlySvgContent = "";
             
-            // Calculate dot size based on number of days (smaller dots for more days)
-            const dotRadius = days > 14 ? 2 : 3;
-            
-            series.points.forEach((val, i) => {
-                const x = p + (i / Math.max(1, series.points.length - 1)) * (w - 2*p);
-                const safeVal = Math.max(0, val);
-                const y = (h - p) - (safeVal / maxVal) * (h - 2*p);
-                
-                if (i===0) pathD += `M ${x} ${y}`;
-                else pathD += ` L ${x} ${y}`;
-                
-                dots += `<circle cx="${x}" cy="${y}" r="${dotRadius}" fill="${series.color}" stroke="#000" stroke-width="1"><title>${series.name} (${dates[i]}): ${val} XP</title></circle>`;
+            let hourlyLegendHTML = '<div class="flex flex-wrap gap-1 justify-center px-1">';
+            hourlySeriesData.forEach(series => {
+                hourlyLegendHTML += `<div class="flex items-center gap-1 text-[7px]">
+                    <span class="w-2 h-0.5" style="background:${series.color}"></span>
+                    <span style="color:${series.color}">${series.name}</span>
+                </div>`;
             });
+            hourlyLegendHTML += '</div>';
             
-            const dashAttr = series.dashed ? 'stroke-dasharray="4,2"' : '';
-            svgContent += `<path d="${pathD}" stroke="${series.color}" stroke-width="2" fill="none" opacity="0.8" ${dashAttr} />${dots}`;
+            const hourlyLegendContainer = document.getElementById('hourly-graph-legend');
+            if (hourlyLegendContainer) hourlyLegendContainer.innerHTML = hourlyLegendHTML;
+
+            hourlySeriesData.forEach(series => {
+                let pathD = "";
+                let dots = "";
+                series.points.forEach((val, i) => {
+                    const x = hp + (i / 23) * (hw - 2*hp);
+                    const safeVal = Math.max(0, val);
+                    const y = (hh - hp) - (safeVal / hourlyMaxVal) * (hh - 2*hp);
+                    if (i===0) pathD += `M ${x} ${y}`;
+                    else pathD += ` L ${x} ${y}`;
+                    dots += `<circle cx="${x}" cy="${y}" r="2" fill="${series.color}" stroke="#000" stroke-width="1"><title>${series.name} (${String(i).padStart(2,'0')}:00): ${val} XP</title></circle>`;
+                });
+                hourlySvgContent += `<path d="${pathD}" stroke="${series.color}" stroke-width="2" fill="none" opacity="0.8" />${dots}`;
+            });
+
+            // Add hour labels
+            const hourLabels = [0, 6, 12, 18, 23].map(h => {
+                const x = hp + (h / 23) * (hw - 2*hp);
+                return `<text x="${x}" y="${hh - 5}" class="chart-label" fill="#555" font-size="7" text-anchor="middle">${String(h).padStart(2,'0')}</text>`;
+            }).join('');
+            
+            hourlyGraphContainer.innerHTML = `
+                <svg width="100%" height="100%" viewBox="0 0 ${hw} ${hh}" preserveAspectRatio="xMidYMid meet">
+                    <line x1="${hp}" y1="${hp}" x2="${hp}" y2="${hh-hp}" class="chart-axis" />
+                    <line x1="${hp}" y1="${hh-hp}" x2="${hw-hp}" y2="${hh-hp}" class="chart-axis" />
+                    ${hourlySvgContent}
+                    ${hourLabels}
+                    <text x="${hp+5}" y="${hp+8}" class="chart-label" fill="#444" font-size="8">MAX: ${hourlyMaxVal}</text>
+                </svg>
+            `;
+        }
+    }
+    
+    exportSkillLogs() {
+        const includeDaily = document.getElementById('export-daily-check')?.checked ?? true;
+        const includeHourly = document.getElementById('export-hourly-check')?.checked ?? true;
+        
+        const exportData = {
+            exported_at: this.getTimestamp(),
+            skills: {}
+        };
+        
+        Object.keys(this.state.SKILLS).forEach(skillName => {
+            const skill = this.state.SKILLS[skillName];
+            exportData.skills[skillName] = {
+                level: skill.LEVEL,
+                current_xp: skill.CURRENT_XP,
+                daily_xp: skill.DAILY_XP
+            };
+            
+            if (includeDaily && skill.HISTORY) {
+                exportData.skills[skillName].daily_history = skill.HISTORY;
+            }
+            
+            if (includeHourly && skill.HOURLY) {
+                exportData.skills[skillName].hourly_data = skill.HOURLY;
+                // Calculate XP/hour average
+                const activeHours = skill.HOURLY.filter(h => h > 0).length;
+                exportData.skills[skillName].avg_xp_per_hour = activeHours > 0 ? Math.round(skill.DAILY_XP / activeHours) : 0;
+            }
         });
         
-        graphContainer.innerHTML = `
-            <svg width="100%" height="100%" viewBox="0 0 ${w} ${h}" preserveAspectRatio="xMidYMid meet">
-                <line x1="${p}" y1="${p}" x2="${p}" y2="${h-p}" class="chart-axis" />
-                <line x1="${p}" y1="${h-p}" x2="${w-p}" y2="${h-p}" class="chart-axis" />
-                ${svgContent}
-                <text x="${p+5}" y="${p+10}" class="chart-label" fill="#444" font-size="10">MAX: ${maxVal}</text>
-            </svg>
-        `;
+        const jsonStr = JSON.stringify(exportData, null, 2);
+        const blob = new Blob([jsonStr], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `skill-logs-${this.getCurrentMSTDate()}.json`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+        
+        this.addLog(`SYSTEM <span class="log-hl">[SKILL EXPORT]</span><br>DOWNLOADED SKILL LOGS`);
     }
 
     // --- MACRO SYSTEM ---
