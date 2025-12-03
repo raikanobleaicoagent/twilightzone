@@ -34,7 +34,11 @@ class ZyqralOS {
         if(!this.state._mood_history) this.state._mood_history = [];
         if(!this.state.SKILLS) this.state.SKILLS = {};
         
+        // Initial Check
         this.checkDailyReset();
+
+        // Interval to check for midnight roll-over while app is running (Every 60s)
+        setInterval(() => this.checkDailyReset(), 60000);
 
         this.collapsed = this.loadUI(); 
         this.editingPath = null;
@@ -77,10 +81,24 @@ class ZyqralOS {
         return s ? JSON.parse(s) : JSON.parse(JSON.stringify(NULL_STATE));
     }
 
+    // Returns YYYY-MM-DD in America/Edmonton (MST/MDT)
+    getCurrentMSTDate() {
+        const now = new Date();
+        const formatter = new Intl.DateTimeFormat('en-CA', {
+            timeZone: 'America/Edmonton',
+            year: 'numeric',
+            month: '2-digit',
+            day: '2-digit'
+        });
+        return formatter.format(now);
+    }
+
     checkDailyReset() {
-        const today = new Date().toISOString().split('T')[0];
+        const today = this.getCurrentMSTDate();
+        
         if (this.state.last_login_date !== today) {
             if (this.state.last_login_date) {
+                // 1. Archive Skills
                 Object.keys(this.state.SKILLS).forEach(skillKey => {
                     const skill = this.state.SKILLS[skillKey];
                     if (skill.DAILY_XP !== 0) { 
@@ -90,7 +108,22 @@ class ZyqralOS {
                     }
                     skill.DAILY_XP = 0;
                 });
-                this.addLog(`SYSTEM <span class="log-hl">[DAILY RESET]</span><br>SKILL COUNTERS ARCHIVED`);
+
+                // 2. Wipe HANZI_SESSION
+                const sessionPath = this.findPathByKey(this.state, 'HANZI_SESSION');
+                if (sessionPath) {
+                    const { parent, key } = this.getParent(sessionPath);
+                    // Clear all keys/values by resetting the object
+                    parent[key] = {};
+                }
+
+                // 3. Reset Cache & Recalculate
+                // We clear the cache so the system doesn't try to subtract the 
+                // now-deleted session XP from the freshly reset (0) Daily XP.
+                this._lastSkillEvaluations = {};
+                this.recalculateAllSkillXP(true); // true = silent/boot mode
+
+                this.addLog(`SYSTEM <span class="log-hl">[DAILY RESET]</span><br>SKILLS ARCHIVED & SESSION WIPED`);
             }
             this.state.last_login_date = today;
             this.save();
