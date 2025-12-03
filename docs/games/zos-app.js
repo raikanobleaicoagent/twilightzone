@@ -32,7 +32,7 @@ class ZyqralOS {
         if(this.state.log_config.log_scratchpad === undefined) this.state.log_config.log_scratchpad = false;
         if(!this.state._meta_log) this.state._meta_log = [];
         if(!this.state._mood_history) this.state._mood_history = [];
-        if(!this.state.SKILLS) this.state.SKILLS = { "HANZI": { "LEVEL": 1, "CURRENT_XP": 0, "DAILY_XP": 0, "HISTORY": [] } };
+        if(!this.state.SKILLS) this.state.SKILLS = {};
         
         this.checkDailyReset();
 
@@ -48,9 +48,11 @@ class ZyqralOS {
         this.skillModalOpen = false;
         this.skillChartUpdatePending = false;
 
-        // FIX 5: Initialize skill evaluations cache
+        // Initialize skill evaluations cache
         this._lastSkillEvaluations = {};
-        this.initializeSkillEvaluations();
+        // We run a silent recalculation on boot to establish the baseline values
+        // so we don't grant XP for existing values on page reload.
+        this.recalculateAllSkillXP(true);
 
         document.addEventListener('click', (e) => {
             const menu = document.getElementById('macro-menu');
@@ -62,31 +64,6 @@ class ZyqralOS {
 
         this.render();
         this.updateMoodIndicator();
-    }
-
-    // FIX 6: Initialize skill evaluations on load
-    initializeSkillEvaluations() {
-        const scanForSkillXP = (obj, path = '') => {
-            for (let key in obj) {
-                if (key === '_meta_log' || key === 'log_config' || key === '_mood_history' || key === 'export_config' || key === 'SKILLS') continue;
-                
-                const currentPath = path ? `${path}|${key}` : key;
-                const val = obj[key];
-                
-                if (typeof val === 'object' && val !== null) {
-                    scanForSkillXP(val, currentPath);
-                } else if (typeof val === 'string' && val.startsWith('=')) {
-                    const upperKey = key.toUpperCase();
-                    const upperPath = currentPath.toUpperCase();
-                    
-                    if ((upperKey === 'SESSION_XP_GAIN' || upperKey === 'SESSION_XP_LOSS' || upperKey === 'XP') && upperPath.includes('SESSION')) {
-                        const evaluated = this.parseNumberFromValue(val, currentPath);
-                        this._lastSkillEvaluations[currentPath] = evaluated;
-                    }
-                }
-            }
-        };
-        scanForSkillXP(this.state);
     }
 
     load() {
@@ -124,9 +101,7 @@ class ZyqralOS {
     loadUI() {
         const stored = localStorage.getItem(STORAGE_KEY + '_ui');
         if (stored) {
-            try {
-                return new Set(JSON.parse(stored));
-            } catch (e) { return new Set(); }
+            try { return new Set(JSON.parse(stored)); } catch (e) { return new Set(); }
         }
         return new Set();
     }
@@ -208,16 +183,21 @@ class ZyqralOS {
         const normalizedPath = pathStr.replace(/ > /g, '|').replace(/>/g, '|');
         const parts = normalizedPath.split('|');
         let current = this.state;
+        
         for (const part of parts) {
             if (current === undefined || current === null) return 0;
             const cleanPart = part.trim();
-            if (current.hasOwnProperty(cleanPart)) { current = current[cleanPart]; } 
-            else {
+            // Try direct match first
+            if (current.hasOwnProperty(cleanPart)) { 
+                current = current[cleanPart]; 
+            } else {
+                // Try case-insensitive match
                 const lowerPart = cleanPart.toLowerCase();
                 const foundKey = Object.keys(current).find(k => k.toLowerCase() === lowerPart);
                 if (foundKey) { current = current[foundKey]; } else { return 0; }
             }
         }
+        
         if (typeof current === 'string' && current.startsWith('=')) { return this.processFormula(current, depth + 1, pathStr); }
         return this.parseInput(current); 
     }
@@ -225,11 +205,15 @@ class ZyqralOS {
     processFormula(formula, depth = 0, contextPath = '') {
         if (depth > 10) return "ERR:LOOP";
         let expression = formula.startsWith('=') ? formula.substring(1) : formula;
-        const regex = /{{([^{}]+)}}/g;
+        
+        // Regex to match {{ path }} or {{path}}
+        const regex = /{{(.*?)}}/g;
+        
         try {
             const replaced = expression.replace(regex, (match, path) => {
                 let targetPath = path.trim();
                 
+                // SKILL REF: {{[SKILL_NAME_PROPERTY]}}
                 if (targetPath.startsWith('[') && targetPath.endsWith(']')) {
                     const content = targetPath.slice(1, -1).toUpperCase(); 
                     let foundVal = 0;
@@ -246,11 +230,15 @@ class ZyqralOS {
                     return foundVal;
                 }
 
+                // RELATIVE PATH: {{ ~|key }}
                 if (targetPath.includes('~')) {
+                    // Remove trailing segment from contextPath to get parent
                     const parentPath = contextPath.includes('|') ? contextPath.substring(0, contextPath.lastIndexOf('|')) : '';
                     targetPath = targetPath.replace(/~/g, parentPath);
+                    // Cleanup pipe duplication if exists
                     if (targetPath.startsWith('|')) targetPath = targetPath.substring(1);
                 }
+                
                 const val = this.getValueFromPath(targetPath, depth);
                 if (typeof val === 'string' && val.includes('%')) { return parseFloat(val); }
                 return isNaN(val) ? 0 : val;
@@ -260,7 +248,7 @@ class ZyqralOS {
         } catch (e) { return "ERR:SYNTAX"; }
     }
 
-    // FIX 1: parseNumberFromValue now accepts context path
+    // Helper to evaluate a value, whether it's a raw number or a formula string
     parseNumberFromValue(val, contextPath = '') {
         if (typeof val === 'string' && val.startsWith('=')) {
             const result = this.processFormula(val, 0, contextPath);
@@ -276,112 +264,86 @@ class ZyqralOS {
         return isNaN(num) ? 0 : num;
     }
 
-    // --- SKILL LOGIC ---
-    monitorSkillUpdate(pathStr, oldVal, newVal) {
-        if (pathStr.toUpperCase().includes('SESSION')) {
-            const parts = pathStr.split('|');
-            const lastKey = parts[parts.length-1].toUpperCase();
-            
-            if (lastKey === 'SESSION_XP_GAIN' || lastKey === 'SESSION_XP_LOSS' || lastKey === 'XP') {
-                let skillName = "GENERAL";
-                for(let i=parts.length-2; i>=0; i--) {
-                    if(parts[i].toUpperCase().includes('SESSION')) {
-                        skillName = parts[i].toUpperCase().replace('_SESSION', '').replace('SESSION_', '').replace('SESSION', '').trim();
-                        if(skillName === "") skillName = "GENERAL";
-                        break;
-                    }
-                }
-                
-                // FIX 2: Pass context path for formula resolution
-                const v1 = this.parseNumberFromValue(oldVal, pathStr);
-                const v2 = this.parseNumberFromValue(newVal, pathStr);
-                const delta = v2 - v1;
-                
-                if (delta !== 0) {
-                    if (!this.state.SKILLS[skillName]) {
-                        this.state.SKILLS[skillName] = { LEVEL: 1, CURRENT_XP: 0, DAILY_XP: 0, HISTORY: [] };
-                    }
-                    const skill = this.state.SKILLS[skillName];
-                    
-                    if (lastKey === 'SESSION_XP_LOSS') {
-                        skill.DAILY_XP -= delta;
-                        skill.CURRENT_XP -= delta;
-                    } else {
-                        skill.DAILY_XP += delta;
-                        skill.CURRENT_XP += delta;
-                    }
-                    
-                    skill.LEVEL = Math.floor(Math.sqrt(Math.max(0, skill.CURRENT_XP) / 100)) + 1;
-                    
-                    // Update last evaluation cache
-                    this._lastSkillEvaluations[pathStr] = v2;
-                    
-                    if (this.skillModalOpen && !this.skillChartUpdatePending) {
-                        this.skillChartUpdatePending = true;
-                        setTimeout(() => {
-                            this.renderSkillCharts();
-                            this.skillChartUpdatePending = false;
-                        }, 100);
-                    }
-                }
-            }
-        }
-    }
-
-    // FIX 3: Recalculate all skill XP from formulas when any value changes
-    recalculateAllSkillXP() {
+    // --- CENTRALIZED SKILL LOGIC ---
+    
+    // Scans the entire state tree, evaluates all SESSION_XP formulas, 
+    // compares to last known value, and updates skills accordingly.
+    recalculateAllSkillXP(isBoot = false) {
         if (!this._lastSkillEvaluations) {
             this._lastSkillEvaluations = {};
         }
         
         const scanForSkillXP = (obj, path = '') => {
+            // Skip reserved keys to avoid recursion/overhead
             for (let key in obj) {
                 if (key === '_meta_log' || key === 'log_config' || key === '_mood_history' || key === 'export_config' || key === 'SKILLS') continue;
                 
                 const currentPath = path ? `${path}|${key}` : key;
                 const val = obj[key];
                 
+                // Recurse into objects
                 if (typeof val === 'object' && val !== null) {
                     scanForSkillXP(val, currentPath);
-                } else if (typeof val === 'string' && val.startsWith('=')) {
+                } 
+                // Process potential XP Keys
+                else {
                     const upperKey = key.toUpperCase();
                     const upperPath = currentPath.toUpperCase();
                     
-                    if (upperKey === 'SESSION_XP_GAIN' || upperKey === 'SESSION_XP_LOSS' || upperKey === 'XP') {
-                        if (upperPath.includes('SESSION')) {
-                            const evaluated = this.parseNumberFromValue(val, currentPath);
-                            const lastVal = this._lastSkillEvaluations[currentPath] || 0;
+                    // Logic: Must be a key related to XP, inside a path containing "SESSION"
+                    if ((upperKey === 'SESSION_XP_GAIN' || upperKey === 'SESSION_XP_LOSS' || upperKey === 'XP') && upperPath.includes('SESSION')) {
+                        
+                        // Evaluate the current value (resolving any formulas like ={{...}})
+                        const evaluated = this.parseNumberFromValue(val, currentPath);
+                        
+                        // If this is boot, just populate the cache so we don't double-count history
+                        if (isBoot) {
+                            this._lastSkillEvaluations[currentPath] = evaluated;
+                            continue; 
+                        }
+
+                        // Retrieve previous value, default to 0 if this is a new key
+                        const lastVal = this._lastSkillEvaluations[currentPath] || 0;
+                        
+                        // Detect change
+                        if (evaluated !== lastVal) {
+                            const delta = evaluated - lastVal;
                             
-                            if (evaluated !== lastVal) {
-                                const delta = evaluated - lastVal;
-                                
-                                // Determine skill name from path
-                                const parts = currentPath.split('|');
-                                let skillName = "GENERAL";
-                                for (let i = parts.length - 2; i >= 0; i--) {
-                                    if (parts[i].toUpperCase().includes('SESSION')) {
-                                        skillName = parts[i].toUpperCase().replace('_SESSION', '').replace('SESSION_', '').replace('SESSION', '').trim();
-                                        if (skillName === "") skillName = "GENERAL";
-                                        break;
-                                    }
+                            // Extract Skill Name from path
+                            // e.g. "CREATIVE_SESSION|SESSION_XP_GAIN" -> "CREATIVE"
+                            const parts = currentPath.split('|');
+                            let skillName = "GENERAL";
+                            
+                            // Look backwards from the key to find the folder ending in _SESSION
+                            for (let i = parts.length - 2; i >= 0; i--) {
+                                const partUpper = parts[i].toUpperCase();
+                                if (partUpper.includes('SESSION')) {
+                                    skillName = partUpper.replace('_SESSION', '').replace('SESSION_', '').replace('SESSION', '').trim();
+                                    if (skillName === "") skillName = "GENERAL";
+                                    break;
                                 }
-                                
-                                if (!this.state.SKILLS[skillName]) {
-                                    this.state.SKILLS[skillName] = { LEVEL: 1, CURRENT_XP: 0, DAILY_XP: 0, HISTORY: [] };
-                                }
-                                const skill = this.state.SKILLS[skillName];
-                                
-                                if (upperKey === 'SESSION_XP_LOSS') {
-                                    skill.DAILY_XP -= delta;
-                                    skill.CURRENT_XP -= delta;
-                                } else {
-                                    skill.DAILY_XP += delta;
-                                    skill.CURRENT_XP += delta;
-                                }
-                                
-                                skill.LEVEL = Math.floor(Math.sqrt(Math.max(0, skill.CURRENT_XP) / 100)) + 1;
-                                this._lastSkillEvaluations[currentPath] = evaluated;
                             }
+                            
+                            // Initialize Skill if missing
+                            if (!this.state.SKILLS[skillName]) {
+                                this.state.SKILLS[skillName] = { LEVEL: 1, CURRENT_XP: 0, DAILY_XP: 0, HISTORY: [] };
+                            }
+                            const skill = this.state.SKILLS[skillName];
+                            
+                            // Apply Delta
+                            if (upperKey === 'SESSION_XP_LOSS') {
+                                skill.DAILY_XP -= delta;
+                                skill.CURRENT_XP -= delta;
+                            } else {
+                                skill.DAILY_XP += delta;
+                                skill.CURRENT_XP += delta;
+                            }
+                            
+                            // Update Level
+                            skill.LEVEL = Math.floor(Math.sqrt(Math.max(0, skill.CURRENT_XP) / 100)) + 1;
+                            
+                            // Update Cache
+                            this._lastSkillEvaluations[currentPath] = evaluated;
                         }
                     }
                 }
@@ -390,8 +352,8 @@ class ZyqralOS {
         
         scanForSkillXP(this.state);
         
-        // Update charts if skill modal is open
-        if (this.skillModalOpen && !this.skillChartUpdatePending) {
+        // Auto-update charts if modal is open
+        if (this.skillModalOpen && !this.skillChartUpdatePending && !isBoot) {
             this.skillChartUpdatePending = true;
             setTimeout(() => {
                 this.renderSkillCharts();
@@ -444,7 +406,8 @@ class ZyqralOS {
             // Recursive Session Wipe
             const wipeSessionKeys = (obj) => {
                 for (let key in obj) {
-                    if (key === 'SESSION_XP_GAIN' || key === 'SESSION_XP_LOSS' || key === 'SESSION_XP') {
+                    const upperKey = key.toUpperCase();
+                    if (upperKey === 'SESSION_XP_GAIN' || upperKey === 'SESSION_XP_LOSS' || upperKey === 'XP') {
                         obj[key] = "=0";
                     } else if (typeof obj[key] === 'object' && obj[key] !== null) {
                         wipeSessionKeys(obj[key]);
@@ -455,7 +418,7 @@ class ZyqralOS {
 
             // Reset evaluation cache
             this._lastSkillEvaluations = {};
-            this.initializeSkillEvaluations();
+            this.recalculateAllSkillXP(true); // Re-init cache
 
             this.save();
             this.renderSkillCharts();
@@ -653,26 +616,9 @@ class ZyqralOS {
                 let targetPath = this.findPathByKey(this.state, targetKey);
                 if(!targetPath) { this.state[targetKey] = {}; targetPath = targetKey; }
                 const { parent: tParent, key: tKey } = this.getParent(targetPath);
-                const existingData = tParent[tKey] || {};
                 
-                // FIX 7: Pass context path for formula resolution
-                const oldGain = this.parseNumberFromValue(existingData["SESSION_XP_GAIN"], targetPath + '|SESSION_XP_GAIN');
-                const oldLoss = this.parseNumberFromValue(existingData["SESSION_XP_LOSS"], targetPath + '|SESSION_XP_LOSS');
-
-                const deltaGain = gainXP - oldGain;
-                const deltaLoss = lossXP - oldLoss;
-
-                if (!this.state.SKILLS.HANZI) this.state.SKILLS.HANZI = { LEVEL: 1, CURRENT_XP: 0, DAILY_XP: 0, HISTORY: [] };
-                
-                this.state.SKILLS.HANZI.CURRENT_XP += deltaGain;
-                this.state.SKILLS.HANZI.CURRENT_XP -= deltaLoss;
-                
-                this.state.SKILLS.HANZI.DAILY_XP += deltaGain;
-                this.state.SKILLS.HANZI.DAILY_XP -= deltaLoss;
-                
-                this.state.SKILLS.HANZI.LEVEL = Math.floor(Math.sqrt(Math.max(0, this.state.SKILLS.HANZI.CURRENT_XP) / 100)) + 1;
-
-                const sessionData = {
+                // Directly update the session data
+                tParent[tKey] = {
                     "TOTAL_CARDS": `=${totalCards}`,
                     "TIME_MINUTES": `=${timeMin.toFixed(2)}`,
                     "SPEED_S_PER_CARD": `=${speed}`,
@@ -686,19 +632,13 @@ class ZyqralOS {
                     "LAST_UPDATE": `=${this.getTimestamp()}`
                 };
 
-                tParent[tKey] = sessionData;
-
-                // Update evaluation cache for new values
-                this._lastSkillEvaluations[targetPath + '|SESSION_XP_GAIN'] = gainXP;
-                this._lastSkillEvaluations[targetPath + '|SESSION_XP_LOSS'] = lossXP;
-
-                const netDelta = deltaGain - deltaLoss;
-                const sign = netDelta >= 0 ? "+" : "";
-                this.addLog(`MACRO EXECUTION <span class="log-hl">[HANZI PARSE]</span><br>DELTA: ${sign}${netDelta} XP`);
-                
                 // Auto flush scratchpad
                 this.updateValue(scratchpadPath, ""); 
                 
+                // The master recalculation will pick up the changes and update XP
+                this.recalculateAllSkillXP();
+
+                this.addLog(`MACRO EXECUTION <span class="log-hl">[HANZI PARSE]</span> COMPLETED`);
                 this.save();
                 this.toggleMacros();
             } else {
@@ -1039,7 +979,6 @@ class ZyqralOS {
     moveUp(pathStr) { this.moveItem(pathStr, 'up'); }
     moveDown(pathStr) { this.moveItem(pathStr, 'down'); }
 
-    // FIX 4: Call recalculateAllSkillXP after value updates
     updateValue(pathStr, newValue) {
         const { parent, key } = this.getParent(pathStr);
         if (!parent) return;
@@ -1052,14 +991,12 @@ class ZyqralOS {
             return;
         }
         
-        this.monitorSkillUpdate(pathStr, oldValue, val);
-
         parent[key] = val;
         this.editingPath = null;
         if(this.pendingEdits[pathStr]) delete this.pendingEdits[pathStr];
         this.logGranular('UPDATE', pathStr, oldValue, val);
         
-        // FIX 4: Recalculate all skill XP when any value changes
+        // RECALCULATE XP GLOBALLY (Handles all dependencies/side-effects)
         this.recalculateAllSkillXP();
         
         this.save();
@@ -1071,7 +1008,6 @@ class ZyqralOS {
         if (typeof parent[key] === 'number') {
             const oldValue = parent[key];
             parent[key] += amount;
-            this.monitorSkillUpdate(pathStr, oldValue, parent[key]);
             this.logGranular('MATH', pathStr, oldValue, parent[key]);
             this.recalculateAllSkillXP();
             this.save();
@@ -1463,10 +1399,11 @@ class ZyqralOS {
             if (!newState.log_config) newState.log_config = { "limit": 10, "enabled": true, "chart_limit": 10, "log_scratchpad": false };
             if (!newState.export_config) newState.export_config = { "visible_only": false, "include_logs": true, "include_skills": true };
             if (!newState._mood_history) newState._mood_history = [];
-            if(!newState.SKILLS) newState.SKILLS = { "HANZI": { "LEVEL": 1, "CURRENT_XP": 0, "DAILY_XP": 0, "HISTORY": [] } };
+            if(!newState.SKILLS) newState.SKILLS = {};
             this.state = newState;
             this._lastSkillEvaluations = {};
-            this.initializeSkillEvaluations();
+            // Re-init cache to prevent huge XP drops/gains on load
+            this.recalculateAllSkillXP(true);
             this.save(); 
             this.toggleIO(); 
         } catch(e) { alert("SYNTAX ERROR: Invalid JSON."); } 
