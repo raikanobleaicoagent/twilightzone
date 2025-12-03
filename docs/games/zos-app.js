@@ -1,6 +1,7 @@
 const NULL_STATE = { 
     "system_status": "BOOT_REQUIRED",
     "timestamp": "2025-11-25 @ 14:30",
+    "last_login_date": "", 
     "battery_level": "75%",
     "elapsed_time": "00:45",
     "active_variables": {
@@ -33,14 +34,7 @@ class ZyqralOS {
         if(!this.state._mood_history) this.state._mood_history = [];
         if(!this.state.SKILLS) this.state.SKILLS = {};
         
-        // Cleanup legacy fields
-        if(this.state.last_login_date) delete this.state.last_login_date;
-
-        // Check for stale session data immediately on boot
-        this.checkSessionReset();
-
-        // Interval to check for midnight roll-over while app is running (Every 60s)
-        setInterval(() => this.checkSessionReset(), 60000);
+        this.checkDailyReset();
 
         this.collapsed = this.loadUI(); 
         this.editingPath = null;
@@ -83,83 +77,22 @@ class ZyqralOS {
         return s ? JSON.parse(s) : JSON.parse(JSON.stringify(NULL_STATE));
     }
 
-    // ROBUST DATE FORMATTER: Guarantees YYYY-MM-DD regardless of browser locale
-    getCurrentMSTDate() {
-        const now = new Date();
-        const options = { timeZone: 'America/Edmonton', year: 'numeric', month: '2-digit', day: '2-digit' };
-        const formatter = new Intl.DateTimeFormat('en-CA', options);
-        const parts = formatter.formatToParts(now);
-        
-        const year = parts.find(p => p.type === 'year').value;
-        const month = parts.find(p => p.type === 'month').value;
-        const day = parts.find(p => p.type === 'day').value;
-        
-        return `${year}-${month}-${day}`;
-    }
-
-    checkSessionReset() {
-        const today = this.getCurrentMSTDate();
-        let changesMade = false;
-
-        // TARGETED CHECK: HANZI_SESSION
-        const sessionPath = this.findPathByKey(this.state, 'HANZI_SESSION');
-        if (sessionPath) {
-            const { parent, key } = this.getParent(sessionPath);
-            const sessionData = parent[key];
-            
-            // Check if there is data and a timestamp key (Case Insensitive Search)
-            if (sessionData && typeof sessionData === 'object') {
-                const updateKey = Object.keys(sessionData).find(k => k.toUpperCase() === 'LAST_UPDATE');
-                
-                if (updateKey && sessionData[updateKey]) {
-                    const lastUpdateRaw = String(sessionData[updateKey]);
-                    
-                    // EXTRACT DATE: Matches YYYY-MM-DD pattern explicitly
-                    // This handles "=2025-12-02 @..." or just "2025-12-02"
-                    const dateMatch = lastUpdateRaw.match(/(\d{4}-\d{2}-\d{2})/);
-                    
-                    if (dateMatch) {
-                        const sessionDate = dateMatch[1];
-                        
-                        // If the session date is NOT today, it is stale. Archive and Wipe.
-                        if (sessionDate !== today) {
-                            
-                            // 1. Archive Daily XP if it exists
-                            if (this.state.SKILLS.HANZI && this.state.SKILLS.HANZI.DAILY_XP > 0) {
-                                if (!this.state.SKILLS.HANZI.HISTORY) this.state.SKILLS.HANZI.HISTORY = [];
-                                
-                                // Push to history
-                                this.state.SKILLS.HANZI.HISTORY.push({ 
-                                    date: sessionDate, 
-                                    xp: this.state.SKILLS.HANZI.DAILY_XP 
-                                });
-                                
-                                // Keep history trim (Last 365 entries)
-                                if (this.state.SKILLS.HANZI.HISTORY.length > 365) this.state.SKILLS.HANZI.HISTORY.shift();
-                                
-                                // Reset Counter
-                                this.state.SKILLS.HANZI.DAILY_XP = 0;
-                            }
-
-                            // 2. Wipe the Session Object
-                            parent[key] = {}; 
-                            
-                            changesMade = true;
-                            this.addLog(`SYSTEM <span class="log-hl">[AUTO-ARCHIVE]</span><br>WIPED HANZI SESSION (${sessionDate})`);
-                        }
-                    } else {
-                        // Log parsing error if we found a key but couldn't read the date
-                        // This helps debug if the format is somehow wrong
-                        // console.log("Date Parse Failed for:", lastUpdateRaw);
+    checkDailyReset() {
+        const today = new Date().toISOString().split('T')[0];
+        if (this.state.last_login_date !== today) {
+            if (this.state.last_login_date) {
+                Object.keys(this.state.SKILLS).forEach(skillKey => {
+                    const skill = this.state.SKILLS[skillKey];
+                    if (skill.DAILY_XP !== 0) { 
+                        if (!skill.HISTORY) skill.HISTORY = [];
+                        skill.HISTORY.push({ date: this.state.last_login_date, xp: skill.DAILY_XP });
+                        if (skill.HISTORY.length > 365) skill.HISTORY.shift();
                     }
-                }
+                    skill.DAILY_XP = 0;
+                });
+                this.addLog(`SYSTEM <span class="log-hl">[DAILY RESET]</span><br>SKILL COUNTERS ARCHIVED`);
             }
-        }
-
-        if (changesMade) {
-            // Reset Cache & Recalculate to ensure 0 Daily XP state is recognized
-            this._lastSkillEvaluations = {};
-            this.recalculateAllSkillXP(true); // true = silent/boot mode
+            this.state.last_login_date = today;
             this.save();
         }
     }
