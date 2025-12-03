@@ -1599,3 +1599,18 @@ class ZyqralOS {
                 
                 <line x1="${padding}" y1="${padding + contentH*0.25}" x2="${width-padding}" y2="${padding + contentH*0.25}" class="chart-grid" />
                 <line x1="${padding}" y1="${padding + contentH*0.50}" x2="${width-padding}" y2="${padding + contentH*0.50}" class="chart-grid" />
+                <line x1="${padding}" y1="${padding + contentH*0.75}" x2="${width-padding}" y2="${padding + contentH*0.75}" class="chart-grid" />
+
+                <text x="${padding-5}" y="${padding + contentH*0.25 + 3}" text-anchor="end" class="chart-label">75%</text>
+                <text x="${padding-5}" y="${padding + contentH*0.50 + 3}" text-anchor="end" class="chart-label">50%</text>
+                <text x="${padding-5}" y="${padding + contentH*0.75 + 3}" text-anchor="end" class="chart-label">25%</text>
+
+                ${chartElementsHTML}
+            </svg>
+        `;
+        
+        container.innerHTML = svg;
+    }
+}
+
+const app = new ZyqralOS();
