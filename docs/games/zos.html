@@ -834,23 +834,42 @@ class ZyqralOS {
     // --- FORMULA LOGIC ---
     getValueFromPath(pathStr, depth = 0) {
         if (depth > 5) return 0;
+        if (!pathStr || typeof pathStr !== 'string') return 0;
+        
+        // Normalize path separators (support both | and >)
         const normalizedPath = pathStr.replace(/ > /g, '|').replace(/>/g, '|');
-        const parts = normalizedPath.split('|');
+        const parts = normalizedPath.split('|').filter(p => p.trim());
+        
+        if (parts.length === 0) return 0;
+        
         let current = this.state;
         
         for (const part of parts) {
             if (current === undefined || current === null) return 0;
+            if (typeof current !== 'object') return 0;
+            
             const cleanPart = part.trim();
+            
+            // Try exact match first
             if (current.hasOwnProperty(cleanPart)) { 
                 current = current[cleanPart]; 
             } else {
+                // Try case-insensitive match
                 const lowerPart = cleanPart.toLowerCase();
                 const foundKey = Object.keys(current).find(k => k.toLowerCase() === lowerPart);
-                if (foundKey) { current = current[foundKey]; } else { return 0; }
+                if (foundKey) { 
+                    current = current[foundKey]; 
+                } else { 
+                    return 0; 
+                }
             }
         }
         
-        if (typeof current === 'string' && current.startsWith('=')) { return this.processFormula(current, depth + 1, pathStr); }
+        // If the resolved value is itself a formula, process it
+        if (typeof current === 'string' && current.startsWith('=')) { 
+            return this.processFormula(current, depth + 1, pathStr); 
+        }
+        
         return this.parseInput(current); 
     }
 
@@ -858,28 +877,31 @@ class ZyqralOS {
         if (depth > 10) return "ERR:LOOP";
         let expression = formula.startsWith('=') ? formula.substring(1) : formula;
         
-        const regex = /{{(.*?)}}/g;
+        // Match {{path}} references - using non-greedy match
+        const regex = /\{\{([^}]+)\}\}/g;
         
         try {
             const replaced = expression.replace(regex, (match, path) => {
                 let targetPath = path.trim();
                 
+                // Handle [SKILL_PROPERTY] syntax
                 if (targetPath.startsWith('[') && targetPath.endsWith(']')) {
                     const content = targetPath.slice(1, -1).toUpperCase(); 
                     let foundVal = 0;
-                    const skillKeys = Object.keys(this.state.SKILLS);
+                    const skillKeys = Object.keys(this.state.SKILLS || {});
                     for (let sKey of skillKeys) {
                         if (content.startsWith(sKey + '_SKILL_')) {
                             const prop = content.replace(sKey + '_SKILL_', ''); 
-                            if (prop === 'TOTAL_XP') foundVal = this.state.SKILLS[sKey].CURRENT_XP;
-                            if (prop === 'LEVEL') foundVal = this.state.SKILLS[sKey].LEVEL;
-                            if (prop === 'DAILY_XP') foundVal = this.state.SKILLS[sKey].DAILY_XP;
+                            if (prop === 'TOTAL_XP') foundVal = this.state.SKILLS[sKey].CURRENT_XP || 0;
+                            if (prop === 'LEVEL') foundVal = this.state.SKILLS[sKey].LEVEL || 1;
+                            if (prop === 'DAILY_XP') foundVal = this.state.SKILLS[sKey].DAILY_XP || 0;
                             break;
                         }
                     }
                     return foundVal;
                 }
 
+                // Handle ~ for relative paths
                 if (targetPath.includes('~')) {
                     const parentPath = contextPath.includes('|') ? contextPath.substring(0, contextPath.lastIndexOf('|')) : '';
                     targetPath = targetPath.replace(/~/g, parentPath);
@@ -887,9 +909,17 @@ class ZyqralOS {
                 }
                 
                 const val = this.getValueFromPath(targetPath, depth);
-                if (typeof val === 'string' && val.includes('%')) { return parseFloat(val); }
-                return isNaN(val) ? 0 : val;
+                
+                // Handle percentage values
+                if (typeof val === 'string' && val.includes('%')) { 
+                    return parseFloat(val) || 0; 
+                }
+                
+                // Return numeric value or 0
+                const numVal = parseFloat(val);
+                return isNaN(numVal) ? 0 : numVal;
             });
+            
             const result = this.safeEvaluate(replaced);
             return result;
         } catch (e) { return "ERR:SYNTAX"; }
@@ -1996,14 +2026,29 @@ class ZyqralOS {
     
     safeEvaluate(input) {
         if (typeof input !== 'string') return input;
-        const mathChars = /[+\-*/]/;
+        
+        // Check if this looks like a math expression
+        const mathChars = /[+\-*/()]/;
         if (!mathChars.test(input)) return input;
+        
         const isPercent = input.includes('%');
         const cleanExpr = input.replace(/%/g, '').replace(/,/g, '').trim();
-        if(/[^0-9+\-*/.() ]/.test(cleanExpr)) return input;
+        
+        // Allow: digits, operators, decimal points, parentheses, spaces, and negative numbers
+        if (/[^0-9+\-*/.() ]/.test(cleanExpr)) return input;
+        
+        // Validate balanced parentheses
+        let parenCount = 0;
+        for (const char of cleanExpr) {
+            if (char === '(') parenCount++;
+            if (char === ')') parenCount--;
+            if (parenCount < 0) return input; // More closing than opening
+        }
+        if (parenCount !== 0) return input; // Unbalanced
+        
         try {
             const result = new Function('return ' + cleanExpr)();
-            if(!isFinite(result)) return input;
+            if (!isFinite(result)) return input;
             const rounded = Math.round(result * 100) / 100;
             return isPercent ? `${rounded}%` : rounded;
         } catch(e) { return input; }
