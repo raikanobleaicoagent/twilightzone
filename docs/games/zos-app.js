@@ -554,7 +554,10 @@ class ZyqralOS {
             if(!rawData || typeof rawData !== 'string' || rawData.length < 10) { alert("ERROR: PASTE ANKI STATS IN SCRATCHPAD."); return; }
 
             const totalCardsMatch = rawData.match(/Studied[^\d]*(\d+)/i);
-            const timeMatch = rawData.match(/in[^\d]*([\d.]+)[^\d]*(minutes|seconds)/i);
+            
+            // FIX: Allow 'hours' as a valid time unit
+            const timeMatch = rawData.match(/in[^\d]*([\d.]+)[^\d]*(minutes|seconds|hours)/i);
+            
             const speedMatch = rawData.match(/\([^\d]*([\d.]+)[^\d]*s\/card/i);
             const againMatch = rawData.match(/Again count:[^\d]*(\d+)/i);
             const breakdownMatch = rawData.match(/Learn:[^\d]*(\d+)[^\d]*Review:[^\d]*(\d+)[^\d]*Relearn:[^\d]*(\d+)/i);
@@ -564,7 +567,14 @@ class ZyqralOS {
                 
                 let timeVal = parseFloat(timeMatch[1]);
                 const timeUnit = timeMatch[2].toLowerCase();
-                const timeMin = timeUnit.includes('second') ? timeVal / 60 : timeVal;
+                
+                // FIX: Calculate minutes correctly based on parsed unit
+                let timeMin = timeVal;
+                if (timeUnit.includes('second')) {
+                    timeMin = timeVal / 60;
+                } else if (timeUnit.includes('hour')) {
+                    timeMin = timeVal * 60;
+                }
 
                 const speed = speedMatch ? parseFloat(speedMatch[1]) : 0;
                 const againCount = parseInt(againMatch[1]);
