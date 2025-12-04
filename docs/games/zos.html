@@ -835,6 +835,34 @@ class ZyqralOS {
     }
 
     // --- FORMULA LOGIC ---
+    
+    // Helper: Strip metadata tags <...> and extract numeric value
+    stripMetadataAndGetNumber(val) {
+        if (typeof val === 'number') return val;
+        if (typeof val !== 'string') return 0;
+        
+        // If it's a formula, don't strip - it will be processed separately
+        if (val.startsWith('=')) return val;
+        
+        // Remove all <...> metadata tags (including nested content)
+        let cleaned = val.replace(/<[^>]*>/g, '').trim();
+        
+        // Handle percentage values
+        if (cleaned.includes('%')) {
+            const match = cleaned.match(/-?[\d.]+/);
+            return match ? parseFloat(match[0]) : 0;
+        }
+        
+        // Extract the first number found (supports negative and decimal)
+        const numMatch = cleaned.match(/-?[\d.]+/);
+        if (numMatch) {
+            const num = parseFloat(numMatch[0]);
+            return isNaN(num) ? 0 : num;
+        }
+        
+        return 0;
+    }
+    
     getValueFromPath(pathStr, depth = 0) {
         if (depth > 5) return 0;
         if (!pathStr || typeof pathStr !== 'string') return 0;
@@ -913,14 +941,15 @@ class ZyqralOS {
                 
                 const val = this.getValueFromPath(targetPath, depth);
                 
-                // Handle percentage values
-                if (typeof val === 'string' && val.includes('%')) { 
-                    return parseFloat(val) || 0; 
+                // Use helper to strip metadata tags and get clean number
+                const cleanNum = this.stripMetadataAndGetNumber(val);
+                
+                // If it's a formula that needs further processing, it will be handled by recursion
+                if (typeof cleanNum === 'string' && cleanNum.startsWith('=')) {
+                    return this.processFormula(cleanNum, depth + 1, targetPath);
                 }
                 
-                // Return numeric value or 0
-                const numVal = parseFloat(val);
-                return isNaN(numVal) ? 0 : numVal;
+                return cleanNum;
             });
             
             const result = this.safeEvaluate(replaced);
@@ -934,13 +963,13 @@ class ZyqralOS {
             if (typeof result === 'number') {
                 return result;
             } else if (typeof result === 'string') {
-                const match = result.match(/^(\d+(?:\.\d+)?)%?$/);
-                return match ? parseFloat(match[1]) : 0;
+                // Strip metadata and extract number from result
+                return this.stripMetadataAndGetNumber(result);
             }
             return 0;
         }
-        const num = parseFloat(val);
-        return isNaN(num) ? 0 : num;
+        // Use helper to strip metadata tags and get clean number
+        return this.stripMetadataAndGetNumber(val);
     }
 
     // --- CENTRALIZED SKILL LOGIC ---
