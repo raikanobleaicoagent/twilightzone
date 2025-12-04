@@ -1854,11 +1854,31 @@ class ZyqralOS {
         } else if (type === 'QUICK_NOTE') {
             const path = this.findPathByKey(this.state, 'SCRATCHPAD');
             if (path) {
-                this.toggleMacros(); // Close menu immediately
-                this.updateValue(path, ""); 
-                const vp = document.getElementById('viewport');
-                if (vp) vp.scrollTop = vp.scrollHeight;
-                setTimeout(() => { this.setEdit(path); }, 50);
+                // Close menu first
+                this.toggleMacros();
+                
+                // Set value directly (avoid updateValue which clears editingPath)
+                const { parent, key } = this.getParent(path);
+                if (parent) {
+                    parent[key] = "";
+                }
+                
+                // Set editing mode BEFORE render
+                this.editingPath = path;
+                
+                // Save and render
+                localStorage.setItem(STORAGE_KEY, JSON.stringify(this.state));
+                this.render();
+                
+                // Scroll and focus after render completes
+                setTimeout(() => {
+                    const vp = document.getElementById('viewport');
+                    if (vp) vp.scrollTop = vp.scrollHeight;
+                    const el = document.getElementById(`input-${path}`);
+                    if (el) {
+                        el.focus();
+                    }
+                }, 100);
             } else { alert("SYSTEM ERROR: 'SCRATCHPAD' KEY NOT FOUND."); }
         } else if (type === 'UPDATE_TIME') {
             const path = this.findPathByKey(this.state, 'timestamp');
