@@ -1157,40 +1157,22 @@ class ZyqralOS {
     }
     
     clearSkillHistory() {
-        if(confirm("FULL RESET: WIPE ALL SKILL PROGRESSION AND SESSION DATA?\n\nNote: skill_level, session_xp_gain, session_xp_loss preserved (except HANZI).")) {
+        if(confirm("FULL RESET: WIPE ALL SKILL PROGRESSION DATA?\n\n• Resets LEVEL, CURRENT_XP, DAILY_XP, HISTORY\n• Preserves session_xp_gain, session_xp_loss formulas")) {
             Object.values(this.state.SKILLS).forEach(s => {
                 s.HISTORY = [];
                 s.CURRENT_XP = 0;
                 s.DAILY_XP = 0;
                 s.LEVEL = 1;
+                s.HOURLY = new Array(24).fill(0);
+                s.SESSION_START = null;
             });
-
-            const wipeSessionKeys = (obj, path = '') => {
-                for (let key in obj) {
-                    const currentPath = path ? `${path}|${key}` : key;
-                    const upperKey = key.toUpperCase();
-                    const pathUpper = currentPath.toUpperCase();
-                    const isHanziPath = pathUpper.includes('HANZI');
-                    
-                    if (upperKey === 'SESSION_XP_GAIN' || upperKey === 'SESSION_XP_LOSS' || upperKey === 'XP' || upperKey === 'SKILL_LEVEL') {
-                        // Only reset if it's in a HANZI path
-                        if (isHanziPath) {
-                            obj[key] = "=0";
-                        }
-                        // Otherwise preserve the value (contains algorithms)
-                    } else if (typeof obj[key] === 'object' && obj[key] !== null) {
-                        wipeSessionKeys(obj[key], currentPath);
-                    }
-                }
-            };
-            wipeSessionKeys(this.state);
 
             this._lastSkillEvaluations = {};
             this.recalculateAllSkillXP(true);
 
             this.save();
             this.renderSkillCharts();
-            this.addLog("SYSTEM <span class='log-hl'>[SKILL WIPE]</span> COMPLETED");
+            this.addLog("SYSTEM <span class='log-hl'>[SKILL WIPE]</span> XP LOGS CLEARED");
         }
     }
 
@@ -1599,24 +1581,16 @@ class ZyqralOS {
 
                 const repInput = prompt("INPUT: Number of Hanzi characters written (10x Reps)?", "0");
                 const writingReps = parseInt(repInput) || 0;
-
-                const baseXP = totalCards * 5;
-                const qualityXP = (reviewCount * 10) + (learnCount * 8) + (relearnCount * 5);
-                const penaltyXP = (againCount * 10);
-                let timeBonus = 0;
-                if(speed > 0 && speed < 20) {
-                    const savedSec = 20 - speed;
-                    timeBonus = (baseXP + Math.max(0, qualityXP - penaltyXP)) * (savedSec * 0.01);
-                }
-                const writingXP = writingReps * 25;
-                
-                const gainXP = Math.floor(baseXP + qualityXP + timeBonus + writingXP);
-                const lossXP = penaltyXP;
                 
                 const targetKey = 'HANZI_SESSION';
                 let targetPath = this.findPathByKey(this.state, targetKey);
                 if(!targetPath) { this.state[targetKey] = {}; targetPath = targetKey; }
                 const { parent: tParent, key: tKey } = this.getParent(targetPath);
+                
+                // Get existing session_xp_gain and session_xp_loss if they exist (preserve formulas)
+                const existingSession = tParent[tKey] || {};
+                const existingGain = existingSession.SESSION_XP_GAIN || existingSession.session_xp_gain || "=0";
+                const existingLoss = existingSession.SESSION_XP_LOSS || existingSession.session_xp_loss || "=0";
                 
                 tParent[tKey] = {
                     "TOTAL_CARDS": `=${totalCards}`,
@@ -1627,8 +1601,8 @@ class ZyqralOS {
                     "REVIEW_COUNT": `=${reviewCount}`,
                     "RELEARN_COUNT": `=${relearnCount}`,
                     "WRITTEN_REPS_10X": `=${writingReps}`,
-                    "SESSION_XP_GAIN": `=${gainXP}`,
-                    "SESSION_XP_LOSS": `=${lossXP}`,
+                    "SESSION_XP_GAIN": existingGain,
+                    "SESSION_XP_LOSS": existingLoss,
                     "LAST_UPDATE": `=${this.getTimestamp()}`
                 };
 
@@ -1715,7 +1689,7 @@ class ZyqralOS {
             }
         } else if (type === 'RESET_TAGGED') {
             // Reset all fields containing <rst> tag
-            if(confirm('MACRO EXECUTION: Reset all fields with <rst> tag?\n\n• Integers → 0\n• Times (HH:MM) → 00:00\n• Percentages → 0%\n• Strings → empty\n\nMetadata tags will be preserved.\nNote: skill_level, session_xp_gain, session_xp_loss preserved (except HANZI).')) {
+            if(confirm('MACRO EXECUTION: Reset all fields with <rst> tag?\n\n• Integers → 0\n• Times (HH:MM) → 00:00\n• Percentages → 0%\n• Strings → empty\n\nMetadata tags will be preserved.\nNote: skill_level, session_xp_gain, session_xp_loss always preserved.')) {
                 let count = 0;
                 const recursiveResetTagged = (obj, path = '') => {
                     for (let k in obj) {
@@ -1728,14 +1702,12 @@ class ZyqralOS {
                         } 
                         else if (typeof obj[k] === 'string' && this.hasMetaTag(obj[k], 'rst')) {
                             const keyUpper = k.toUpperCase();
-                            const pathUpper = currentPath.toUpperCase();
                             
-                            // Skip skill_level, session_xp_gain, session_xp_loss UNLESS it's in a HANZI path
+                            // Always skip skill_level, session_xp_gain, session_xp_loss (contain formulas)
                             const isProtectedKey = keyUpper === 'SKILL_LEVEL' || keyUpper === 'SESSION_XP_GAIN' || keyUpper === 'SESSION_XP_LOSS';
-                            const isHanziPath = pathUpper.includes('HANZI');
                             
-                            if (isProtectedKey && !isHanziPath) {
-                                continue; // Skip protected keys outside of HANZI
+                            if (isProtectedKey) {
+                                continue; // Skip protected keys
                             }
                             
                             const metaPrefix = this.getMetaPrefix(obj[k]);
