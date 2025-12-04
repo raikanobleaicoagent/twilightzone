@@ -536,7 +536,8 @@ const NULL_STATE = {
     "export_config": { "visible_only": false, "include_logs": true, "include_skills": true },
     "_meta_log": [],
     "_mood_history": [],
-    "_hourly_date": null
+    "_hourly_date": null,
+    "_dly_reset_date": null
 };
 
 const STORAGE_KEY = 'zos_v7_8';
@@ -565,15 +566,21 @@ class ZyqralOS {
             if (!skill.SESSION_START) skill.SESSION_START = null;
         });
         if (!this.state._hourly_date) this.state._hourly_date = this.getCurrentMSTDate();
+        if (!this.state._dly_reset_date) this.state._dly_reset_date = this.getCurrentMSTDate();
         
         // Cleanup legacy fields
         if(this.state.last_login_date) delete this.state.last_login_date;
 
         // Check for stale session data immediately on boot
         this.checkSessionReset();
+        // Check for daily <dly> tagged field resets (runs AFTER skill logging)
+        this.checkDailyTaggedReset();
 
         // Interval to check for midnight roll-over while app is running (Every 60s)
-        setInterval(() => this.checkSessionReset(), 60000);
+        setInterval(() => {
+            this.checkSessionReset();
+            this.checkDailyTaggedReset();
+        }, 60000);
 
         this.collapsed = this.loadUI(); 
         this.editingPath = null;
@@ -752,6 +759,63 @@ class ZyqralOS {
             this._lastSkillEvaluations = {};
             this.recalculateAllSkillXP(true); // true = silent/boot mode
             this.save();
+        }
+    }
+
+    // Daily reset for fields tagged with <dly> - fires at 00:00 MST
+    // Runs AFTER checkSessionReset so skill logging captures values first
+    checkDailyTaggedReset() {
+        const today = this.getCurrentMSTDate();
+        
+        // Skip if already reset today
+        if (this.state._dly_reset_date === today) return;
+        
+        let count = 0;
+        const recursiveResetDaily = (obj, path = '') => {
+            for (let k in obj) {
+                if (k === '_meta_log' || k === 'log_config' || k === '_mood_history' || k === 'export_config' || k === 'SKILLS' || k === '_hourly_date' || k === '_dly_reset_date') continue;
+                
+                const currentPath = path ? `${path}|${k}` : k;
+                
+                if (typeof obj[k] === 'object' && obj[k] !== null) {
+                    recursiveResetDaily(obj[k], currentPath);
+                } 
+                else if (typeof obj[k] === 'string' && this.hasMetaTag(obj[k], 'dly')) {
+                    const metaPrefix = this.getMetaPrefix(obj[k]);
+                    const content = this.stripMetaTags(obj[k]);
+                    
+                    // Detect value type and reset accordingly
+                    const timeMatch = content.match(/^\d{1,2}:\d{2}$/);
+                    const percentMatch = content.match(/^(\d+)%$/);
+                    const intMatch = content.match(/^-?\d+$/);
+                    const floatMatch = content.match(/^-?\d+\.\d+$/);
+                    
+                    if (timeMatch) {
+                        obj[k] = metaPrefix + '00:00';
+                    } else if (percentMatch) {
+                        obj[k] = metaPrefix + '0%';
+                    } else if (intMatch || floatMatch) {
+                        obj[k] = metaPrefix + '0';
+                    } else {
+                        // Regular string - reset to empty (keeping meta)
+                        obj[k] = metaPrefix;
+                    }
+                    count++;
+                }
+            }
+        };
+        
+        recursiveResetDaily(this.state);
+        
+        // Update the reset date
+        this.state._dly_reset_date = today;
+        
+        if (count > 0) {
+            this.addLog(`SYSTEM <span class="log-hl">[DAILY RESET]</span><br>AUTO-RESET ${count} &lt;dly&gt; FIELDS @ 00:00 MST`);
+            this.save();
+        } else {
+            // Still save the date update even if no fields were reset
+            localStorage.setItem(STORAGE_KEY, JSON.stringify(this.state));
         }
     }
 
@@ -990,7 +1054,7 @@ class ZyqralOS {
         
         const scanForSkillXP = (obj, path = '') => {
             for (let key in obj) {
-                if (key === '_meta_log' || key === 'log_config' || key === '_mood_history' || key === 'export_config' || key === 'SKILLS' || key === '_hourly_date') continue;
+                if (key === '_meta_log' || key === 'log_config' || key === '_mood_history' || key === 'export_config' || key === 'SKILLS' || key === '_hourly_date' || key === '_dly_reset_date') continue;
                 
                 const currentPath = path ? `${path}|${key}` : key;
                 const val = obj[key];
@@ -1589,7 +1653,7 @@ class ZyqralOS {
                 let count = 0;
                 const recursiveReset = (obj) => {
                     for (let k in obj) {
-                        if (k === '_meta_log' || k === 'log_config' || k === '_mood_history' || k === 'export_config' || k === 'SKILLS' || k === '_hourly_date') continue;
+                        if (k === '_meta_log' || k === 'log_config' || k === '_mood_history' || k === 'export_config' || k === 'SKILLS' || k === '_hourly_date' || k === '_dly_reset_date') continue;
                         
                         // Recursive step
                         if (typeof obj[k] === 'object' && obj[k] !== null) {
@@ -1632,7 +1696,7 @@ class ZyqralOS {
                 let count = 0;
                 const recursiveClear = (obj) => {
                     for (let k in obj) {
-                        if (k === '_meta_log' || k === 'log_config' || k === '_mood_history' || k === 'export_config' || k === 'SKILLS' || k === '_hourly_date') continue;
+                        if (k === '_meta_log' || k === 'log_config' || k === '_mood_history' || k === 'export_config' || k === 'SKILLS' || k === '_hourly_date' || k === '_dly_reset_date') continue;
                         if (k.toUpperCase() === 'ACTIVITY') { obj[k] = ""; count++; }
                         if (k.toUpperCase() === 'RICK' && typeof obj[k] === 'object' && obj[k] !== null) {
                             if (obj[k].hasOwnProperty('PRESENT')) { 
@@ -1655,7 +1719,7 @@ class ZyqralOS {
                 let count = 0;
                 const recursiveResetTagged = (obj, path = '') => {
                     for (let k in obj) {
-                        if (k === '_meta_log' || k === 'log_config' || k === '_mood_history' || k === 'export_config' || k === 'SKILLS' || k === '_hourly_date') continue;
+                        if (k === '_meta_log' || k === 'log_config' || k === '_mood_history' || k === 'export_config' || k === 'SKILLS' || k === '_hourly_date' || k === '_dly_reset_date') continue;
                         
                         const currentPath = path ? `${path}|${k}` : k;
                         
@@ -2082,7 +2146,7 @@ class ZyqralOS {
         // First, set all other RICK PRESENT fields to FALSE
         const clearRickPresence = (obj, currentPath = '') => {
             for (let k in obj) {
-                if (k === '_meta_log' || k === 'log_config' || k === '_mood_history' || k === 'export_config' || k === 'SKILLS' || k === '_hourly_date') continue;
+                if (k === '_meta_log' || k === 'log_config' || k === '_mood_history' || k === 'export_config' || k === 'SKILLS' || k === '_hourly_date' || k === '_dly_reset_date') continue;
                 const thisPath = currentPath ? `${currentPath}|${k}` : k;
                 
                 if (k.toUpperCase() === 'RICK' && typeof obj[k] === 'object' && obj[k] !== null) {
@@ -2226,7 +2290,7 @@ class ZyqralOS {
         const isArray = Array.isArray(data);
         const result = isArray ? [] : {};
         Object.keys(data).forEach(key => {
-            if (key === '_meta_log' || key === 'log_config' || key === '_mood_history' || key === 'export_config' || key === 'SKILLS' || key === '_hourly_date') return;
+            if (key === '_meta_log' || key === 'log_config' || key === '_mood_history' || key === 'export_config' || key === 'SKILLS' || key === '_hourly_date' || key === '_dly_reset_date') return;
             const value = data[key];
             const currentPath = path ? `${path}|${key}` : key;
             const isCollapsed = this.collapsed.has(currentPath);
@@ -2560,6 +2624,7 @@ class ZyqralOS {
             if (!newState.log_config) newState.log_config = { "limit": 10, "enabled": true, "chart_limit": 10, "log_scratchpad": false };
             if (!newState.export_config) newState.export_config = { "visible_only": false, "include_logs": true, "include_skills": true };
             if (!newState._mood_history) newState._mood_history = [];
+            if (!newState._dly_reset_date) newState._dly_reset_date = null;
             if(!newState.SKILLS) newState.SKILLS = {};
             this.state = newState;
             this._lastSkillEvaluations = {};
