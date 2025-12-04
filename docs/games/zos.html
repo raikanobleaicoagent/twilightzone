@@ -641,105 +641,77 @@ class ZyqralOS {
         const today = this.getCurrentMSTDate();
         let changesMade = false;
 
-        // TARGETED CHECK: HANZI_SESSION
-        const sessionPath = this.findPathByKey(this.state, 'HANZI_SESSION');
-        if (sessionPath) {
-            const { parent, key } = this.getParent(sessionPath);
-            const sessionData = parent[key];
-            
-            // Check if there is data and a timestamp key (Case Insensitive Search)
-            if (sessionData && typeof sessionData === 'object' && Object.keys(sessionData).length > 0) {
-                const updateKey = Object.keys(sessionData).find(k => k.toUpperCase() === 'LAST_UPDATE');
+        // Archive skill data on day change (uses dedicated _skill_archive_date)
+        const lastArchiveDate = this.state._skill_archive_date;
+        if (lastArchiveDate && lastArchiveDate !== today) {
+            // Archive Daily XP with gain/loss breakdown for ALL skills
+            Object.keys(this.state.SKILLS).forEach(skillName => {
+                const skill = this.state.SKILLS[skillName];
+                if (!skill.HISTORY) skill.HISTORY = [];
                 
-                // Only process if we have a LAST_UPDATE with a valid date
-                if (updateKey && sessionData[updateKey]) {
-                    const lastUpdateRaw = String(sessionData[updateKey]);
-                    
-                    // EXTRACT DATE: Matches YYYY-MM-DD pattern explicitly
-                    // This handles "=2025-12-02 @..." or just "2025-12-02"
-                    const dateMatch = lastUpdateRaw.match(/(\d{4}-\d{2}-\d{2})/);
-                    
-                    if (dateMatch) {
-                        const sessionDate = dateMatch[1];
+                // Calculate session gain/loss by scanning for session XP keys
+                let sessionGain = 0;
+                let sessionLoss = 0;
+                
+                // Scan entire state for session XP values related to this skill
+                const scanForSessionXP = (obj, path = '') => {
+                    for (let k in obj) {
+                        if (k === '_meta_log' || k === 'log_config' || k === '_mood_history' || k === 'export_config' || k === 'SKILLS' || k === '_hourly_date' || k === '_dly_reset_date' || k === '_skill_archive_date') continue;
                         
-                        // If the session date is NOT today, it is stale. Archive and Reset.
-                        if (sessionDate !== today) {
+                        const currentPath = path ? `${path}|${k}` : k;
+                        const val = obj[k];
+                        
+                        if (typeof val === 'object' && val !== null) {
+                            scanForSessionXP(val, currentPath);
+                        } else {
+                            const upperKey = k.toUpperCase();
+                            const upperPath = currentPath.toUpperCase();
                             
-                            // 1. Archive Daily XP with gain/loss breakdown for ALL skills
-                            Object.keys(this.state.SKILLS).forEach(skillName => {
-                                const skill = this.state.SKILLS[skillName];
-                                if (!skill.HISTORY) skill.HISTORY = [];
-                                
-                                // Calculate session gain/loss from session data
-                                let sessionGain = 0;
-                                let sessionLoss = 0;
-                                
-                                // Find session XP values from the session object
-                                const scanSessionXP = (obj) => {
-                                    for (let k in obj) {
-                                        const upperKey = k.toUpperCase();
-                                        if (upperKey === 'SESSION_XP_GAIN') {
-                                            sessionGain = this.parseNumberFromValue(obj[k], '');
-                                        } else if (upperKey === 'SESSION_XP_LOSS') {
-                                            sessionLoss = this.parseNumberFromValue(obj[k], '');
-                                        }
-                                    }
-                                };
-                                
-                                // For HANZI skill, scan the HANZI_SESSION object
-                                if (skillName === 'HANZI' && sessionData) {
-                                    scanSessionXP(sessionData);
-                                }
-                                
-                                const dailyXP = skill.DAILY_XP || 0;
-                                
-                                // Only archive if there's any activity (non-zero values)
-                                if (dailyXP !== 0 || sessionGain !== 0 || sessionLoss !== 0) {
-                                    // Check if we already archived this date (prevent duplicate entries)
-                                    const existingEntry = skill.HISTORY.find(h => h.date === sessionDate);
-                                    if (!existingEntry) {
-                                        skill.HISTORY.push({ 
-                                            date: sessionDate, 
-                                            xp: dailyXP,
-                                            gain: sessionGain,
-                                            loss: sessionLoss
-                                        });
-                                        
-                                        // Keep history trim (Last 365 entries)
-                                        if (skill.HISTORY.length > 365) skill.HISTORY.shift();
-                                    }
-                                }
-                                
-                                // Reset Daily Counter
-                                skill.DAILY_XP = 0;
-                            });
-
-                            // 2. Reset all HANZI_SESSION keys to =0 and clear LAST_UPDATE
-                            const resetSessionKeys = (obj) => {
-                                for (let k in obj) {
-                                    const upperKey = k.toUpperCase();
-                                    // Clear LAST_UPDATE so we know session is fresh/archived
-                                    if (upperKey === 'LAST_UPDATE') {
-                                        obj[k] = '';
-                                        continue;
-                                    }
-                                    // Reset numeric formula keys to =0
-                                    if (typeof obj[k] === 'string' && obj[k].startsWith('=')) {
-                                        obj[k] = '=0';
-                                    } else if (typeof obj[k] === 'number') {
-                                        obj[k] = 0;
-                                    }
-                                }
-                            };
-                            resetSessionKeys(sessionData);
+                            // Check if this path relates to this skill's session
+                            const pathHasSkill = upperPath.includes(skillName) || (skillName === 'HANZI' && upperPath.includes('HANZI'));
                             
-                            changesMade = true;
-                            this.addLog(`SYSTEM <span class="log-hl">[AUTO-ARCHIVE]</span><br>ARCHIVED & RESET HANZI SESSION (${sessionDate})`);
+                            if (pathHasSkill && upperPath.includes('SESSION')) {
+                                if (upperKey === 'SESSION_XP_GAIN') {
+                                    sessionGain = this.parseNumberFromValue(val, currentPath);
+                                } else if (upperKey === 'SESSION_XP_LOSS') {
+                                    sessionLoss = this.parseNumberFromValue(val, currentPath);
+                                }
+                            }
                         }
                     }
+                };
+                
+                scanForSessionXP(this.state);
+                
+                const dailyXP = skill.DAILY_XP || 0;
+                
+                // Only archive if there's any activity (non-zero values)
+                if (dailyXP !== 0 || sessionGain !== 0 || sessionLoss !== 0) {
+                    // Check if we already archived this date (prevent duplicate entries)
+                    const existingEntry = skill.HISTORY.find(h => h.date === lastArchiveDate);
+                    if (!existingEntry) {
+                        skill.HISTORY.push({ 
+                            date: lastArchiveDate, 
+                            xp: dailyXP,
+                            gain: sessionGain,
+                            loss: sessionLoss
+                        });
+                        
+                        // Keep history trim (Last 365 entries)
+                        if (skill.HISTORY.length > 365) skill.HISTORY.shift();
+                    }
                 }
-            }
+                
+                // Reset Daily Counter
+                skill.DAILY_XP = 0;
+            });
+
+            changesMade = true;
+            this.addLog(`SYSTEM <span class="log-hl">[AUTO-ARCHIVE]</span><br>ARCHIVED SKILL DATA (${lastArchiveDate})`);
         }
+        
+        // Update archive date to today
+        this.state._skill_archive_date = today;
 
         // Check if hourly data needs reset (new day)
         if (this.state._hourly_date !== today) {
@@ -770,12 +742,25 @@ class ZyqralOS {
         // Skip if already reset today
         if (this.state._dly_reset_date === today) return;
         
+        // Helper: Check if formula is simple =number (not math expression)
+        const isSimpleNumberFormula = (content) => {
+            if (!content.startsWith('=')) return false;
+            const afterEquals = content.substring(1).trim();
+            // Only match simple numbers like =0, =5, =-3, =12.5
+            // NOT things like ={{ref}}, =5+3, =foo*bar, etc.
+            return /^-?\d+(\.\d+)?$/.test(afterEquals);
+        };
+        
         let count = 0;
         const recursiveResetDaily = (obj, path = '') => {
             for (let k in obj) {
-                if (k === '_meta_log' || k === 'log_config' || k === '_mood_history' || k === 'export_config' || k === 'SKILLS' || k === '_hourly_date' || k === '_dly_reset_date') continue;
+                if (k === '_meta_log' || k === 'log_config' || k === '_mood_history' || k === 'export_config' || k === 'SKILLS' || k === '_hourly_date' || k === '_dly_reset_date' || k === '_skill_archive_date') continue;
                 
                 const currentPath = path ? `${path}|${k}` : k;
+                const keyUpper = k.toUpperCase();
+                
+                // Skip session_xp_gain and session_xp_loss keys entirely - user manages these with their own <dly> tags
+                if (keyUpper === 'SESSION_XP_GAIN' || keyUpper === 'SESSION_XP_LOSS') continue;
                 
                 if (typeof obj[k] === 'object' && obj[k] !== null) {
                     recursiveResetDaily(obj[k], currentPath);
@@ -790,17 +775,27 @@ class ZyqralOS {
                     const intMatch = content.match(/^-?\d+$/);
                     const floatMatch = content.match(/^-?\d+\.\d+$/);
                     
-                    if (timeMatch) {
+                    // For formulas: only reset if it's a simple =number, not a math expression
+                    if (content.startsWith('=')) {
+                        if (isSimpleNumberFormula(content)) {
+                            obj[k] = metaPrefix + '=0';
+                            count++;
+                        }
+                        // Skip formulas with math/references - don't reset them
+                    } else if (timeMatch) {
                         obj[k] = metaPrefix + '00:00';
+                        count++;
                     } else if (percentMatch) {
                         obj[k] = metaPrefix + '0%';
+                        count++;
                     } else if (intMatch || floatMatch) {
                         obj[k] = metaPrefix + '0';
+                        count++;
                     } else {
                         // Regular string - reset to empty (keeping meta)
                         obj[k] = metaPrefix;
+                        count++;
                     }
-                    count++;
                 }
             }
         };
@@ -1695,8 +1690,7 @@ class ZyqralOS {
                     "RELEARN_COUNT": `=${relearnCount}`,
                     "WRITTEN_REPS_10X": `=${writingReps}`,
                     "SESSION_XP_GAIN": existingGain,
-                    "SESSION_XP_LOSS": existingLoss,
-                    "LAST_UPDATE": `=${this.getTimestamp()}`
+                    "SESSION_XP_LOSS": existingLoss
                 };
 
                 this.updateValue(scratchpadPath, ""); 
@@ -1782,27 +1776,32 @@ class ZyqralOS {
             }
         } else if (type === 'RESET_TAGGED') {
             // Reset all fields containing <rst> tag
-            if(confirm('MACRO EXECUTION: Reset all fields with <rst> tag?\n\n• Integers → 0\n• Times (HH:MM) → 00:00\n• Percentages → 0%\n• Strings → empty\n\nMetadata tags will be preserved.\nNote: skill_level, session_xp_gain, session_xp_loss always preserved.')) {
+            if(confirm('MACRO EXECUTION: Reset all fields with <rst> tag?\n\n• Integers → 0\n• Times (HH:MM) → 00:00\n• Percentages → 0%\n• Simple =number formulas → =0\n• Strings → empty\n\nMetadata tags will be preserved.\nNote: Math formulas (with +,-,*,/,{{}}) are NOT reset.')) {
+                
+                // Helper: Check if formula is simple =number (not math expression)
+                const isSimpleNumberFormula = (content) => {
+                    if (!content.startsWith('=')) return false;
+                    const afterEquals = content.substring(1).trim();
+                    // Only match simple numbers like =0, =5, =-3, =12.5
+                    // NOT things like ={{ref}}, =5+3, =foo*bar, etc.
+                    return /^-?\d+(\.\d+)?$/.test(afterEquals);
+                };
+                
                 let count = 0;
                 const recursiveResetTagged = (obj, path = '') => {
                     for (let k in obj) {
-                        if (k === '_meta_log' || k === 'log_config' || k === '_mood_history' || k === 'export_config' || k === 'SKILLS' || k === '_hourly_date' || k === '_dly_reset_date') continue;
+                        if (k === '_meta_log' || k === 'log_config' || k === '_mood_history' || k === 'export_config' || k === 'SKILLS' || k === '_hourly_date' || k === '_dly_reset_date' || k === '_skill_archive_date') continue;
                         
                         const currentPath = path ? `${path}|${k}` : k;
+                        const keyUpper = k.toUpperCase();
+                        
+                        // Skip session_xp_gain and session_xp_loss keys entirely
+                        if (keyUpper === 'SESSION_XP_GAIN' || keyUpper === 'SESSION_XP_LOSS' || keyUpper === 'SKILL_LEVEL') continue;
                         
                         if (typeof obj[k] === 'object' && obj[k] !== null) {
                             recursiveResetTagged(obj[k], currentPath);
                         } 
                         else if (typeof obj[k] === 'string' && this.hasMetaTag(obj[k], 'rst')) {
-                            const keyUpper = k.toUpperCase();
-                            
-                            // Always skip skill_level, session_xp_gain, session_xp_loss (contain formulas)
-                            const isProtectedKey = keyUpper === 'SKILL_LEVEL' || keyUpper === 'SESSION_XP_GAIN' || keyUpper === 'SESSION_XP_LOSS';
-                            
-                            if (isProtectedKey) {
-                                continue; // Skip protected keys
-                            }
-                            
                             const metaPrefix = this.getMetaPrefix(obj[k]);
                             const content = this.stripMetaTags(obj[k]);
                             
@@ -1812,17 +1811,27 @@ class ZyqralOS {
                             const intMatch = content.match(/^-?\d+$/);
                             const floatMatch = content.match(/^-?\d+\.\d+$/);
                             
-                            if (timeMatch) {
+                            // For formulas: only reset if it's a simple =number, not a math expression
+                            if (content.startsWith('=')) {
+                                if (isSimpleNumberFormula(content)) {
+                                    obj[k] = metaPrefix + '=0';
+                                    count++;
+                                }
+                                // Skip formulas with math/references - don't reset them
+                            } else if (timeMatch) {
                                 obj[k] = metaPrefix + '00:00';
+                                count++;
                             } else if (percentMatch) {
                                 obj[k] = metaPrefix + '0%';
+                                count++;
                             } else if (intMatch || floatMatch) {
                                 obj[k] = metaPrefix + '0';
+                                count++;
                             } else {
                                 // Regular string - reset to empty (keeping meta)
                                 obj[k] = metaPrefix;
+                                count++;
                             }
-                            count++;
                         }
                     }
                 };
