@@ -1135,12 +1135,102 @@ class ZyqralOS {
     }
 
     refreshSkillCharts() {
+        // Handle mid-day reset: if cached values are 0 but current values are non-zero,
+        // this indicates a system reset occurred and we should add the current values
+        this.applyMidDayResetXP();
+        
         this.renderSkillCharts();
         const btn = event?.target?.closest('button');
         if(btn) {
             const originalText = btn.innerHTML;
             btn.innerHTML = '<i class="fa-solid fa-check"></i> REFRESHED';
             setTimeout(() => btn.innerHTML = originalText, 1000);
+        }
+    }
+    
+    // Handles mid-day reset: adds current session XP values when cache shows zero
+    applyMidDayResetXP() {
+        if (!this._lastSkillEvaluations) {
+            this._lastSkillEvaluations = {};
+        }
+        
+        const getCurrentMSTHour = () => {
+            const now = new Date();
+            const options = { timeZone: 'America/Edmonton', hour: '2-digit', hour12: false };
+            const formatter = new Intl.DateTimeFormat('en-CA', options);
+            return parseInt(formatter.format(now));
+        };
+        
+        const currentHour = getCurrentMSTHour();
+        let appliedCount = 0;
+        
+        const scanForZeroCached = (obj, path = '') => {
+            for (let key in obj) {
+                if (key === '_meta_log' || key === 'log_config' || key === '_mood_history' || key === 'export_config' || key === 'SKILLS' || key === '_hourly_date' || key === '_dly_reset_date') continue;
+                
+                const currentPath = path ? `${path}|${key}` : key;
+                const val = obj[key];
+                
+                if (typeof val === 'object' && val !== null) {
+                    scanForZeroCached(val, currentPath);
+                } 
+                else {
+                    const upperKey = key.toUpperCase();
+                    const upperPath = currentPath.toUpperCase();
+                    
+                    if ((upperKey === 'SESSION_XP_GAIN' || upperKey === 'SESSION_XP_LOSS') && upperPath.includes('SESSION')) {
+                        const evaluated = this.parseNumberFromValue(val, currentPath);
+                        const lastVal = this._lastSkillEvaluations[currentPath];
+                        
+                        // If cache is 0 (or undefined) but current value is non-zero, apply the full value
+                        if ((lastVal === 0 || lastVal === undefined) && evaluated !== 0) {
+                            const parts = currentPath.split('|');
+                            let skillName = "GENERAL";
+                            
+                            for (let i = parts.length - 2; i >= 0; i--) {
+                                const partUpper = parts[i].toUpperCase();
+                                if (partUpper.includes('SESSION')) {
+                                    skillName = partUpper.replace('_SESSION', '').replace('SESSION_', '').replace('SESSION', '').trim();
+                                    if (skillName === "") skillName = "GENERAL";
+                                    break;
+                                }
+                            }
+                            
+                            if (!this.state.SKILLS[skillName]) {
+                                this.state.SKILLS[skillName] = { LEVEL: 1, CURRENT_XP: 0, DAILY_XP: 0, HISTORY: [], HOURLY: new Array(24).fill(0), SESSION_START: null };
+                            }
+                            const skill = this.state.SKILLS[skillName];
+                            
+                            if (!skill.HOURLY) skill.HOURLY = new Array(24).fill(0);
+                            
+                            if (!skill.SESSION_START && evaluated > 0) {
+                                skill.SESSION_START = Date.now();
+                            }
+                            
+                            if (upperKey === 'SESSION_XP_LOSS') {
+                                skill.DAILY_XP -= evaluated;
+                                skill.CURRENT_XP -= evaluated;
+                                skill.HOURLY[currentHour] = (skill.HOURLY[currentHour] || 0) - evaluated;
+                            } else {
+                                skill.DAILY_XP += evaluated;
+                                skill.CURRENT_XP += evaluated;
+                                skill.HOURLY[currentHour] = (skill.HOURLY[currentHour] || 0) + evaluated;
+                            }
+                            
+                            skill.LEVEL = Math.floor(Math.sqrt(Math.max(0, skill.CURRENT_XP) / 100)) + 1;
+                            this._lastSkillEvaluations[currentPath] = evaluated;
+                            appliedCount++;
+                        }
+                    }
+                }
+            }
+        };
+        
+        scanForZeroCached(this.state);
+        
+        if (appliedCount > 0) {
+            this.addLog(`SYSTEM <span class="log-hl">[MID-DAY SYNC]</span><br>APPLIED ${appliedCount} CACHED XP VALUES`);
+            this.save();
         }
     }
 
