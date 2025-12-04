@@ -2588,9 +2588,15 @@ class ZyqralOS {
             const showClock = /timestamp/i.test(keyName);
             return `<div class="flex items-start w-full gap-1"><textarea id="input-${path}" class="edit-input" rows="${rows}" onkeydown="if(event.key==='Enter' && event.shiftKey) {event.preventDefault(); app.updateValue('${path}', this.value)}" >${initialValue}</textarea><div class="flex flex-col gap-1 mt-1"><div class="flex items-center gap-1"><button onclick="app.updateValue('${path}', document.getElementById('input-${path}').value)" class="text-green-500 hover:bg-green-900/50 large-control-btn"><i class="fa-solid fa-check"></i></button><button onclick="app.cancelEdit()" class="text-gray-500 hover:bg-gray-800 large-control-btn"><i class="fa-solid fa-ban"></i></button>${showClock ? `<button onclick="app.injectTime('${path}')" class="text-blue-400 hover:bg-blue-900/30 large-control-btn" title="Inject Timestamp"><i class="fa-solid fa-clock"></i></button>` : ''}</div><button onclick="app.deleteItem('${path}')" class="text-red-900 hover:text-red-500 text-[10px] p-1 mt-1 text-right"><i class="fa-solid fa-xmark"></i></button></div></div>`; 
         }
-        if (typeof val === 'string' && val.startsWith('=')) {
-            const processedVal = this.processFormula(val, 0, path); 
-            return `<span class="val-display mono val-calc hover:underline" onclick="app.setEdit('${path}')" title="${val.replace(/"/g, '&quot;')}">${processedVal}</span>`;
+        
+        // Check for formula using displayVal (after metadata stripped)
+        if (typeof displayVal === 'string' && displayVal.startsWith('=')) {
+            const processedVal = this.processFormula(displayVal, 0, path);
+            // Escape the formula for title attribute and prevent >= ligature by using HTML entities
+            const escapedFormula = String(val).replace(/"/g, '&quot;').replace(/>/g, '&gt;').replace(/</g, '&lt;');
+            // Also escape the processed value to prevent >= ligature in display
+            const escapedProcessed = String(processedVal).replace(/>/g, '&gt;').replace(/</g, '&lt;');
+            return `<span class="val-display mono val-calc hover:underline" onclick="app.setEdit('${path}')" title="${escapedFormula}">${escapedProcessed}</span>`;
         }
         
         // Use displayVal (stripped of meta tags) for type detection
