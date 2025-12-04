@@ -330,6 +330,9 @@
                 <button class="macro-item text-yellow-500 hover:text-yellow-400" onclick="app.executeMacro('RESET_TASKS')">
                     <i class="fa-solid fa-rotate-left"></i> RESET TASKS
                 </button>
+                <button class="macro-item text-cyan-500 hover:text-cyan-400" onclick="app.executeMacro('RESET_TAGGED')">
+                    <i class="fa-solid fa-tags"></i> RESET &lt;rst&gt;
+                </button>
                 <button class="macro-item text-red-500 hover:text-red-400" onclick="app.executeMacro('CLEAR_PRESENCE')">
                     <i class="fa-solid fa-ghost"></i> CLEAR PRESENCE
                 </button>
@@ -1609,6 +1612,47 @@ class ZyqralOS {
                 this.save();
                 this.toggleMacros();
             }
+        } else if (type === 'RESET_TAGGED') {
+            // Reset all fields containing <rst> tag
+            if(confirm('MACRO EXECUTION: Reset all fields with <rst> tag?\n\n• Integers → 0\n• Times (HH:MM) → 00:00\n• Percentages → 0%\n• Strings → empty\n\nMetadata tags will be preserved.')) {
+                let count = 0;
+                const recursiveResetTagged = (obj) => {
+                    for (let k in obj) {
+                        if (k === '_meta_log' || k === 'log_config' || k === '_mood_history' || k === 'export_config' || k === 'SKILLS' || k === '_hourly_date') continue;
+                        
+                        if (typeof obj[k] === 'object' && obj[k] !== null) {
+                            recursiveResetTagged(obj[k]);
+                        } 
+                        else if (typeof obj[k] === 'string' && this.hasMetaTag(obj[k], 'rst')) {
+                            const metaPrefix = this.getMetaPrefix(obj[k]);
+                            const content = this.stripMetaTags(obj[k]);
+                            
+                            // Detect value type and reset accordingly
+                            const timeMatch = content.match(/^\d{1,2}:\d{2}$/);
+                            const percentMatch = content.match(/^(\d+)%$/);
+                            const intMatch = content.match(/^-?\d+$/);
+                            const floatMatch = content.match(/^-?\d+\.\d+$/);
+                            
+                            if (timeMatch) {
+                                obj[k] = metaPrefix + '00:00';
+                            } else if (percentMatch) {
+                                obj[k] = metaPrefix + '0%';
+                            } else if (intMatch || floatMatch) {
+                                obj[k] = metaPrefix + '0';
+                            } else {
+                                // Regular string - reset to empty (keeping meta)
+                                obj[k] = metaPrefix;
+                            }
+                            count++;
+                        }
+                    }
+                };
+                recursiveResetTagged(this.state);
+                this.addLog(`MACRO EXECUTION <span class="log-hl">[RESET TAGGED]</span><br> RESET ${count} &lt;rst&gt; FIELDS`);
+                this.save();
+                this.render();
+                this.toggleMacros();
+            }
         } else if (type === 'QUICK_NOTE') {
             const path = this.findPathByKey(this.state, 'SCRATCHPAD');
             if (path) {
@@ -2247,8 +2291,48 @@ class ZyqralOS {
         return ''; 
     }
 
+    // --- METADATA TAG SYSTEM ---
+    // Extract metadata tags like <rst>, <lock>, etc. from a value
+    extractMetaTags(val) {
+        if (typeof val !== 'string') return { tags: [], content: val };
+        const tagRegex = /<([a-zA-Z_][a-zA-Z0-9_]*)>/g;
+        const tags = [];
+        let match;
+        while ((match = tagRegex.exec(val)) !== null) {
+            tags.push(match[1].toLowerCase());
+        }
+        const content = val.replace(tagRegex, '').trim();
+        return { tags, content };
+    }
+    
+    // Strip metadata tags from value for display
+    stripMetaTags(val) {
+        if (typeof val !== 'string') return val;
+        return val.replace(/<([a-zA-Z_][a-zA-Z0-9_]*)>/g, '').trim();
+    }
+    
+    // Get just the metadata prefix from a value
+    getMetaPrefix(val) {
+        if (typeof val !== 'string') return '';
+        const tagRegex = /<([a-zA-Z_][a-zA-Z0-9_]*)>/g;
+        const matches = val.match(tagRegex);
+        return matches ? matches.join('') : '';
+    }
+    
+    // Check if value has a specific tag
+    hasMetaTag(val, tagName) {
+        const { tags } = this.extractMetaTags(val);
+        return tags.includes(tagName.toLowerCase());
+    }
+
     buildPrimitive(val, path, keyName) {
         const initialValue = typeof val === 'object' && val !== null ? JSON.stringify(val) : val;
+        
+        // Extract metadata for display purposes
+        const metaPrefix = this.getMetaPrefix(val);
+        const displayVal = this.stripMetaTags(val);
+        const hasMeta = metaPrefix.length > 0;
+        
         if (this.editingPath === path) {
             const lineCount = String(initialValue).split('\n').length;
             const rows = Math.max(3, lineCount + 1); 
@@ -2259,42 +2343,52 @@ class ZyqralOS {
             const processedVal = this.processFormula(val, 0, path); 
             return `<span class="val-display mono val-calc hover:underline" onclick="app.setEdit('${path}')" title="${val.replace(/"/g, '&quot;')}">${processedVal}</span>`;
         }
-        const percentMatch = String(val).match(/^(\d{1,3})%$/);
+        
+        // Use displayVal (stripped of meta tags) for type detection
+        const checkVal = hasMeta ? displayVal : val;
+        const checkStr = String(checkVal);
+        
+        const percentMatch = checkStr.match(/^(\d{1,3})%$/);
         if (percentMatch) {
-            return `<div class="flex items-center"><button class="stepper-btn" onclick="app.incrementPercent('${path}', -25)"><i class="fa-solid fa-angles-left"></i></button><button class="stepper-btn" onclick="app.incrementPercent('${path}', -5)"><i class="fa-solid fa-minus"></i></button><span class="val-display mono text-[#00ff9d] hover:underline mx-0 whitespace-nowrap min-w-[3rem] text-center flex-shrink-0" onclick="app.setEdit('${path}')">${val}</span><button class="stepper-btn" onclick="app.incrementPercent('${path}', 5)"><i class="fa-solid fa-plus"></i></button><button class="stepper-btn" onclick="app.incrementPercent('${path}', 25)"><i class="fa-solid fa-angles-right"></i></button></div>`;
+            const metaIndicator = hasMeta ? `<span class="text-orange-600 text-[8px] mr-1" title="${metaPrefix}">●</span>` : '';
+            return `<div class="flex items-center">${metaIndicator}<button class="stepper-btn" onclick="app.incrementPercent('${path}', -25)"><i class="fa-solid fa-angles-left"></i></button><button class="stepper-btn" onclick="app.incrementPercent('${path}', -5)"><i class="fa-solid fa-minus"></i></button><span class="val-display mono text-[#00ff9d] hover:underline mx-0 whitespace-nowrap min-w-[3rem] text-center flex-shrink-0" onclick="app.setEdit('${path}')">${checkVal}</span><button class="stepper-btn" onclick="app.incrementPercent('${path}', 5)"><i class="fa-solid fa-plus"></i></button><button class="stepper-btn" onclick="app.incrementPercent('${path}', 25)"><i class="fa-solid fa-angles-right"></i></button></div>`;
         }
-        const vUpper = String(val).toUpperCase();
+        const vUpper = checkStr.toUpperCase();
         if (['PENDING', 'IN PROGRESS', 'COMPLETED', 'FAILED'].includes(vUpper)) {
-            return `<div class="state-switch"><div class="state-btn ${vUpper === 'PENDING' ? 'state-btn-active-pend' : ''}" onclick="app.updateValue('${path}', 'PENDING')">PEND</div><div class="state-btn ${vUpper === 'IN PROGRESS' ? 'state-btn-active-prog' : ''}" onclick="app.updateValue('${path}', 'IN PROGRESS')">PROG</div><div class="state-btn ${vUpper === 'COMPLETED' ? 'state-btn-active-comp' : ''}" onclick="app.updateValue('${path}', 'COMPLETED')">DONE</div><div class="state-btn ${vUpper === 'FAILED' ? 'state-btn-active-fail' : ''}" onclick="app.updateValue('${path}', 'FAILED')">FAIL</div></div>`;
+            return `<div class="state-switch"><div class="state-btn ${vUpper === 'PENDING' ? 'state-btn-active-pend' : ''}" onclick="app.updateValue('${path}', '${metaPrefix}PENDING')">PEND</div><div class="state-btn ${vUpper === 'IN PROGRESS' ? 'state-btn-active-prog' : ''}" onclick="app.updateValue('${path}', '${metaPrefix}IN PROGRESS')">PROG</div><div class="state-btn ${vUpper === 'COMPLETED' ? 'state-btn-active-comp' : ''}" onclick="app.updateValue('${path}', '${metaPrefix}COMPLETED')">DONE</div><div class="state-btn ${vUpper === 'FAILED' ? 'state-btn-active-fail' : ''}" onclick="app.updateValue('${path}', '${metaPrefix}FAILED')">FAIL</div></div>`;
         }
         if (['ACTIVE', 'INACTIVE'].includes(vUpper)) {
-            return `<div class="state-switch"><div class="state-btn ${vUpper === 'ACTIVE' ? 'state-btn-active-on' : ''}" onclick="app.updateValue('${path}', 'ACTIVE')">ACTIVE</div><div class="state-btn ${vUpper === 'INACTIVE' ? 'state-btn-active-off' : ''}" onclick="app.updateValue('${path}', 'INACTIVE')">INACTIVE</div></div>`;
+            return `<div class="state-switch"><div class="state-btn ${vUpper === 'ACTIVE' ? 'state-btn-active-on' : ''}" onclick="app.updateValue('${path}', '${metaPrefix}ACTIVE')">ACTIVE</div><div class="state-btn ${vUpper === 'INACTIVE' ? 'state-btn-active-off' : ''}" onclick="app.updateValue('${path}', '${metaPrefix}INACTIVE')">INACTIVE</div></div>`;
         }
         if (['NOBODY', 'RICK', 'TRIBE MEMBER', 'TRIBE'].includes(vUpper)) {
-            return `<div class="state-switch"><div class="state-btn ${vUpper === 'NOBODY' ? 'state-btn-active-off' : ''}" onclick="app.updateValue('${path}', 'NOBODY')">NOBODY</div><div class="state-btn ${vUpper === 'RICK' ? 'state-btn-active-on' : ''}" onclick="app.updateValue('${path}', 'RICK')">RICK</div><div class="state-btn ${vUpper.includes('TRIBE') ? 'state-btn-active-prog' : ''}" onclick="app.updateValue('${path}', 'TRIBE MEMBER')">TRIBE</div></div>`;
+            return `<div class="state-switch"><div class="state-btn ${vUpper === 'NOBODY' ? 'state-btn-active-off' : ''}" onclick="app.updateValue('${path}', '${metaPrefix}NOBODY')">NOBODY</div><div class="state-btn ${vUpper === 'RICK' ? 'state-btn-active-on' : ''}" onclick="app.updateValue('${path}', '${metaPrefix}RICK')">RICK</div><div class="state-btn ${vUpper.includes('TRIBE') ? 'state-btn-active-prog' : ''}" onclick="app.updateValue('${path}', '${metaPrefix}TRIBE MEMBER')">TRIBE</div></div>`;
         }
         if (['BASELINE', 'COME UP', 'PLATEAU', 'COME DOWN'].includes(vUpper)) {
-            return `<div class="state-switch"><div class="state-btn ${vUpper === 'BASELINE' ? 'state-btn-active-off' : ''}" onclick="app.updateValue('${path}', 'BASELINE')">BASE</div><div class="state-btn ${vUpper === 'COME UP' ? 'state-btn-active-on' : ''}" onclick="app.updateValue('${path}', 'COME UP')">RISE</div><div class="state-btn ${vUpper === 'PLATEAU' ? 'state-btn-active-pend' : ''}" onclick="app.updateValue('${path}', 'PLATEAU')">FLAT</div><div class="state-btn ${vUpper === 'COME DOWN' ? 'state-btn-active-fail' : ''}" onclick="app.updateValue('${path}', 'COME DOWN')">FALL</div></div>`;
+            return `<div class="state-switch"><div class="state-btn ${vUpper === 'BASELINE' ? 'state-btn-active-off' : ''}" onclick="app.updateValue('${path}', '${metaPrefix}BASELINE')">BASE</div><div class="state-btn ${vUpper === 'COME UP' ? 'state-btn-active-on' : ''}" onclick="app.updateValue('${path}', '${metaPrefix}COME UP')">RISE</div><div class="state-btn ${vUpper === 'PLATEAU' ? 'state-btn-active-pend' : ''}" onclick="app.updateValue('${path}', '${metaPrefix}PLATEAU')">FLAT</div><div class="state-btn ${vUpper === 'COME DOWN' ? 'state-btn-active-fail' : ''}" onclick="app.updateValue('${path}', '${metaPrefix}COME DOWN')">FALL</div></div>`;
         }
         if (['FASTING', 'RISING', 'STABLE', 'FALLING'].includes(vUpper)) {
-            return `<div class="state-switch"><div class="state-btn ${vUpper === 'FASTING' ? 'state-btn-active-off' : ''}" onclick="app.updateValue('${path}', 'FASTING')">FAST</div><div class="state-btn ${vUpper === 'RISING' ? 'state-btn-active-on' : ''}" onclick="app.updateValue('${path}', 'RISING')">RISE</div><div class="state-btn ${vUpper === 'STABLE' ? 'state-btn-active-pend' : ''}" onclick="app.updateValue('${path}', 'STABLE')">STABLE</div><div class="state-btn ${vUpper === 'FALLING' ? 'state-btn-active-fail' : ''}" onclick="app.updateValue('${path}', 'FALLING')">FALL</div></div>`;
+            return `<div class="state-switch"><div class="state-btn ${vUpper === 'FASTING' ? 'state-btn-active-off' : ''}" onclick="app.updateValue('${path}', '${metaPrefix}FASTING')">FAST</div><div class="state-btn ${vUpper === 'RISING' ? 'state-btn-active-on' : ''}" onclick="app.updateValue('${path}', '${metaPrefix}RISING')">RISE</div><div class="state-btn ${vUpper === 'STABLE' ? 'state-btn-active-pend' : ''}" onclick="app.updateValue('${path}', '${metaPrefix}STABLE')">STABLE</div><div class="state-btn ${vUpper === 'FALLING' ? 'state-btn-active-fail' : ''}" onclick="app.updateValue('${path}', '${metaPrefix}FALLING')">FALL</div></div>`;
         }
         if (['TRUE', 'FALSE'].includes(vUpper) || typeof val === 'boolean') {
             const isTrue = vUpper === 'TRUE' || val === true;
-            return `<div class="state-switch"><div class="state-btn ${isTrue ? 'state-btn-active-on' : ''}" onclick="app.updateValue('${path}', 'TRUE')">TRUE</div><div class="state-btn ${!isTrue ? 'state-btn-active-off' : ''}" onclick="app.updateValue('${path}', 'FALSE')">FALSE</div></div>`;
+            return `<div class="state-switch"><div class="state-btn ${isTrue ? 'state-btn-active-on' : ''}" onclick="app.updateValue('${path}', '${metaPrefix}TRUE')">TRUE</div><div class="state-btn ${!isTrue ? 'state-btn-active-off' : ''}" onclick="app.updateValue('${path}', '${metaPrefix}FALSE')">FALSE</div></div>`;
         }
         if (typeof val === 'number') {
                 return `<div class="flex items-center"><button class="stepper-btn" onclick="app.incrementValue('${path}', -10)"><i class="fa-solid fa-angles-left"></i></button><button class="stepper-btn" onclick="app.incrementValue('${path}', -1)"><i class="fa-solid fa-minus"></i></button><span class="val-display mono text-green-400 hover:underline mx-0 whitespace-nowrap min-w-[3rem] text-center flex-shrink-0" onclick="app.setEdit('${path}')">${val}</span><button class="stepper-btn" onclick="app.incrementValue('${path}', 1)"><i class="fa-solid fa-plus"></i></button><button class="stepper-btn" onclick="app.incrementValue('${path}', 10)"><i class="fa-solid fa-angles-right"></i></button></div>`;
         }
-        const timeMatch = String(val).match(/^\d{1,2}:\d{2}$/);
+        const timeMatch = checkStr.match(/^\d{1,2}:\d{2}$/);
         if (timeMatch) {
-            return `<div class="flex items-center"><button class="stepper-btn" onclick="app.incrementTime('${path}', -10)"><i class="fa-solid fa-angles-left"></i></button><button class="stepper-btn" onclick="app.incrementTime('${path}', -1)"><i class="fa-solid fa-minus"></i></button><span class="val-display mono text-blue-400 hover:underline mx-0 whitespace-nowrap min-w-[3rem] text-center flex-shrink-0" onclick="app.setEdit('${path}')">${val}</span><button class="stepper-btn" onclick="app.incrementTime('${path}', 1)"><i class="fa-solid fa-plus"></i></button><button class="stepper-btn" onclick="app.incrementTime('${path}', 10)"><i class="fa-solid fa-angles-right"></i></button></div>`;
+            const metaIndicator = hasMeta ? `<span class="text-orange-600 text-[8px] mr-1" title="${metaPrefix}">●</span>` : '';
+            return `<div class="flex items-center">${metaIndicator}<button class="stepper-btn" onclick="app.incrementTime('${path}', -10)"><i class="fa-solid fa-angles-left"></i></button><button class="stepper-btn" onclick="app.incrementTime('${path}', -1)"><i class="fa-solid fa-minus"></i></button><span class="val-display mono text-blue-400 hover:underline mx-0 whitespace-nowrap min-w-[3rem] text-center flex-shrink-0" onclick="app.setEdit('${path}')">${checkVal}</span><button class="stepper-btn" onclick="app.incrementTime('${path}', 1)"><i class="fa-solid fa-plus"></i></button><button class="stepper-btn" onclick="app.incrementTime('${path}', 10)"><i class="fa-solid fa-angles-right"></i></button></div>`;
         }
         if (vUpper === 'CRITICAL') return `<span class="badge badge-critical cursor-pointer" onclick="app.setEdit('${path}')">CRITICAL</span>`;
         if (vUpper === 'HIGH') return `<span class="badge badge-high cursor-pointer" onclick="app.setEdit('${path}')">HIGH</span>`;
         if (vUpper === 'MEDIUM') return `<span class="badge badge-medium cursor-pointer" onclick="app.setEdit('${path}')">MEDIUM</span>`;
         if (vUpper === 'LOW') return `<span class="badge badge-low cursor-pointer" onclick="app.setEdit('${path}')">LOW</span>`;
-        return `<span class="val-display mono text-green-400 hover:underline" onclick="app.setEdit('${path}')">${val}</span>`;
+        
+        // Default string display with meta indicator
+        const metaIndicator = hasMeta ? `<span class="text-orange-600 text-[8px] mr-1" title="${metaPrefix}">●</span>` : '';
+        return `<span class="val-display mono text-green-400 hover:underline" onclick="app.setEdit('${path}')">${metaIndicator}${displayVal}</span>`;
     }
 
     setEdit(path) { this.editingPath = path; this.render(); setTimeout(() => { const el = document.getElementById(`input-${path}`); if(el) { el.focus(); el.select(); } }, 50); }
