@@ -1064,7 +1064,7 @@ class ZyqralOS {
     }
     
     clearSkillHistory() {
-        if(confirm("FULL RESET: WIPE ALL SKILL PROGRESSION AND SESSION DATA?\n\nNote: skill_level, session_xp_gain, session_xp_loss preserved (except HANZI).")) {
+        if(confirm("FULL RESET: WIPE ALL SKILL PROGRESSION AND SESSION DATA?")) {
             Object.values(this.state.SKILLS).forEach(s => {
                 s.HISTORY = [];
                 s.CURRENT_XP = 0;
@@ -1072,21 +1072,13 @@ class ZyqralOS {
                 s.LEVEL = 1;
             });
 
-            const wipeSessionKeys = (obj, path = '') => {
+            const wipeSessionKeys = (obj) => {
                 for (let key in obj) {
-                    const currentPath = path ? `${path}|${key}` : key;
                     const upperKey = key.toUpperCase();
-                    const pathUpper = currentPath.toUpperCase();
-                    const isHanziPath = pathUpper.includes('HANZI');
-                    
-                    if (upperKey === 'SESSION_XP_GAIN' || upperKey === 'SESSION_XP_LOSS' || upperKey === 'XP' || upperKey === 'SKILL_LEVEL') {
-                        // Only reset if it's in a HANZI path
-                        if (isHanziPath) {
-                            obj[key] = "=0";
-                        }
-                        // Otherwise preserve the value (contains algorithms)
+                    if (upperKey === 'SESSION_XP_GAIN' || upperKey === 'SESSION_XP_LOSS' || upperKey === 'XP') {
+                        obj[key] = "=0";
                     } else if (typeof obj[key] === 'object' && obj[key] !== null) {
-                        wipeSessionKeys(obj[key], currentPath);
+                        wipeSessionKeys(obj[key]);
                     }
                 }
             };
@@ -1515,7 +1507,7 @@ class ZyqralOS {
                     const savedSec = 20 - speed;
                     timeBonus = (baseXP + Math.max(0, qualityXP - penaltyXP)) * (savedSec * 0.01);
                 }
-                const writingXP = writingReps * 25;
+                const writingXP = writingReps * 50;
                 
                 const gainXP = Math.floor(baseXP + qualityXP + timeBonus + writingXP);
                 const lossXP = penaltyXP;
@@ -1622,29 +1614,16 @@ class ZyqralOS {
             }
         } else if (type === 'RESET_TAGGED') {
             // Reset all fields containing <rst> tag
-            if(confirm('MACRO EXECUTION: Reset all fields with <rst> tag?\n\n• Integers → 0\n• Times (HH:MM) → 00:00\n• Percentages → 0%\n• Strings → empty\n\nMetadata tags will be preserved.\nNote: skill_level, session_xp_gain, session_xp_loss preserved (except HANZI).')) {
+            if(confirm('MACRO EXECUTION: Reset all fields with <rst> tag?\n\n• Integers → 0\n• Times (HH:MM) → 00:00\n• Percentages → 0%\n• Strings → empty\n\nMetadata tags will be preserved.')) {
                 let count = 0;
-                const recursiveResetTagged = (obj, path = '') => {
+                const recursiveResetTagged = (obj) => {
                     for (let k in obj) {
                         if (k === '_meta_log' || k === 'log_config' || k === '_mood_history' || k === 'export_config' || k === 'SKILLS' || k === '_hourly_date') continue;
                         
-                        const currentPath = path ? `${path}|${k}` : k;
-                        
                         if (typeof obj[k] === 'object' && obj[k] !== null) {
-                            recursiveResetTagged(obj[k], currentPath);
+                            recursiveResetTagged(obj[k]);
                         } 
                         else if (typeof obj[k] === 'string' && this.hasMetaTag(obj[k], 'rst')) {
-                            const keyUpper = k.toUpperCase();
-                            const pathUpper = currentPath.toUpperCase();
-                            
-                            // Skip skill_level, session_xp_gain, session_xp_loss UNLESS it's in a HANZI path
-                            const isProtectedKey = keyUpper === 'SKILL_LEVEL' || keyUpper === 'SESSION_XP_GAIN' || keyUpper === 'SESSION_XP_LOSS';
-                            const isHanziPath = pathUpper.includes('HANZI');
-                            
-                            if (isProtectedKey && !isHanziPath) {
-                                continue; // Skip protected keys outside of HANZI
-                            }
-                            
                             const metaPrefix = this.getMetaPrefix(obj[k]);
                             const content = this.stripMetaTags(obj[k]);
                             
