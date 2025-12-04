@@ -811,6 +811,9 @@ class ZyqralOS {
         this.state._dly_reset_date = today;
         
         if (count > 0) {
+            // Reset skill cache and recalculate silently to prevent negative delta logs
+            this._lastSkillEvaluations = {};
+            this.recalculateAllSkillXP(true); // true = boot/silent mode
             this.addLog(`SYSTEM <span class="log-hl">[DAILY RESET]</span><br>AUTO-RESET ${count} &lt;dly&gt; FIELDS @ 00:00 MST`);
             this.save();
         } else {
@@ -1824,6 +1827,9 @@ class ZyqralOS {
                     }
                 };
                 recursiveResetTagged(this.state);
+                // Reset skill cache and recalculate silently to prevent negative delta logs
+                this._lastSkillEvaluations = {};
+                this.recalculateAllSkillXP(true); // true = boot/silent mode
                 this.addLog(`MACRO EXECUTION <span class="log-hl">[RESET TAGGED]</span><br> RESET ${count} &lt;rst&gt; FIELDS`);
                 this.save();
                 this.render();
