@@ -1976,15 +1976,13 @@ class ZyqralOS {
         const { parent, key } = this.getParent(pathStr);
         if (!parent) return;
         const oldValue = parent[key];
-        const metaPrefix = this.getMetaPrefix(oldValue);
-        const content = this.stripMetaTags(oldValue);
-        const match = String(content).match(/^(\d{1,3})%$/);
+        const match = String(oldValue).match(/^(\d{1,3})%$/);
         if (match) {
             let val = parseInt(match[1]);
             val += amount;
             if (val < 0) val = 0;
             if (val > 100) val = 100;
-            parent[key] = `${metaPrefix}${val}%`;
+            parent[key] = `${val}%`;
             this.logGranular('MATH', pathStr, oldValue, parent[key]);
             this.recalculateAllSkillXP();
             this.save();
@@ -1995,9 +1993,7 @@ class ZyqralOS {
         const { parent, key } = this.getParent(pathStr);
         if (!parent) return;
         const oldValue = parent[key];
-        const metaPrefix = this.getMetaPrefix(oldValue);
-        const content = this.stripMetaTags(oldValue);
-        const parts = String(content).split(':');
+        const parts = String(oldValue).split(':');
         if (parts.length !== 2) return;
         let h = parseInt(parts[0]);
         let m = parseInt(parts[1]);
@@ -2005,60 +2001,10 @@ class ZyqralOS {
         if (totalMin < 0) totalMin = 0;
         let newH = Math.floor(totalMin / 60);
         let newM = totalMin % 60;
-        parent[key] = `${metaPrefix}${String(newH).padStart(2, '0')}:${String(newM).padStart(2, '0')}`;
+        parent[key] = `${String(newH).padStart(2, '0')}:${String(newM).padStart(2, '0')}`;
         this.logGranular('TIME', pathStr, oldValue, parent[key]);
         this.recalculateAllSkillXP();
         this.save();
-    }
-    
-    incrementMetaValue(pathStr, amount) {
-        const { parent, key } = this.getParent(pathStr);
-        if (!parent) return;
-        const oldValue = parent[key];
-        const metaPrefix = this.getMetaPrefix(oldValue);
-        const content = this.stripMetaTags(oldValue);
-        const intMatch = String(content).match(/^-?\d+$/);
-        if (intMatch) {
-            let val = parseInt(content);
-            val += amount;
-            parent[key] = `${metaPrefix}${val}`;
-            this.logGranular('MATH', pathStr, oldValue, parent[key]);
-            this.recalculateAllSkillXP();
-            this.save();
-        }
-    }
-    
-    setRickPresent(pathStr, metaPrefix = '') {
-        // First, set all other RICK PRESENT fields to FALSE
-        const clearRickPresence = (obj, currentPath = '') => {
-            for (let k in obj) {
-                if (k === '_meta_log' || k === 'log_config' || k === '_mood_history' || k === 'export_config' || k === 'SKILLS' || k === '_hourly_date') continue;
-                const thisPath = currentPath ? `${currentPath}|${k}` : k;
-                
-                if (k.toUpperCase() === 'RICK' && typeof obj[k] === 'object' && obj[k] !== null) {
-                    for (let subK in obj[k]) {
-                        if (subK.toUpperCase() === 'PRESENT') {
-                            const subPath = `${thisPath}|${subK}`;
-                            // Don't clear the one we're setting
-                            if (subPath !== pathStr) {
-                                const oldVal = obj[k][subK];
-                                const existingMeta = this.getMetaPrefix(oldVal);
-                                obj[k][subK] = existingMeta + 'FALSE';
-                            }
-                        }
-                    }
-                }
-                if (typeof obj[k] === 'object' && obj[k] !== null) {
-                    clearRickPresence(obj[k], thisPath);
-                }
-            }
-        };
-        
-        clearRickPresence(this.state);
-        
-        // Now set the target to TRUE
-        this.updateValue(pathStr, metaPrefix + 'TRUE');
-        this.addLog(`SYSTEM <span class="log-hl">[RICK LOCATION]</span> UPDATED`);
     }
 
     injectTime(pathStr) {
@@ -2404,7 +2350,8 @@ class ZyqralOS {
         
         const percentMatch = checkStr.match(/^(\d{1,3})%$/);
         if (percentMatch) {
-            return `<div class="flex items-center"><button class="stepper-btn" onclick="app.incrementPercent('${path}', -25)"><i class="fa-solid fa-angles-left"></i></button><button class="stepper-btn" onclick="app.incrementPercent('${path}', -5)"><i class="fa-solid fa-minus"></i></button><span class="val-display mono text-[#00ff9d] hover:underline mx-0 whitespace-nowrap min-w-[3rem] text-center flex-shrink-0" onclick="app.setEdit('${path}')">${checkVal}</span><button class="stepper-btn" onclick="app.incrementPercent('${path}', 5)"><i class="fa-solid fa-plus"></i></button><button class="stepper-btn" onclick="app.incrementPercent('${path}', 25)"><i class="fa-solid fa-angles-right"></i></button></div>`;
+            const metaIndicator = hasMeta ? `<span class="text-orange-600 text-[8px] mr-1" title="${metaPrefix}">●</span>` : '';
+            return `<div class="flex items-center">${metaIndicator}<button class="stepper-btn" onclick="app.incrementPercent('${path}', -25)"><i class="fa-solid fa-angles-left"></i></button><button class="stepper-btn" onclick="app.incrementPercent('${path}', -5)"><i class="fa-solid fa-minus"></i></button><span class="val-display mono text-[#00ff9d] hover:underline mx-0 whitespace-nowrap min-w-[3rem] text-center flex-shrink-0" onclick="app.setEdit('${path}')">${checkVal}</span><button class="stepper-btn" onclick="app.incrementPercent('${path}', 5)"><i class="fa-solid fa-plus"></i></button><button class="stepper-btn" onclick="app.incrementPercent('${path}', 25)"><i class="fa-solid fa-angles-right"></i></button></div>`;
         }
         const vUpper = checkStr.toUpperCase();
         if (['PENDING', 'IN PROGRESS', 'COMPLETED', 'FAILED'].includes(vUpper)) {
@@ -2424,34 +2371,24 @@ class ZyqralOS {
         }
         if (['TRUE', 'FALSE'].includes(vUpper) || typeof val === 'boolean') {
             const isTrue = vUpper === 'TRUE' || val === true;
-            // Check if this is a RICK PRESENT field for exclusive toggle
-            const isRickPresent = path.toUpperCase().includes('RICK') && keyName && keyName.toUpperCase() === 'PRESENT';
-            if (isRickPresent) {
-                return `<div class="state-switch"><div class="state-btn ${isTrue ? 'state-btn-active-on' : ''}" onclick="app.setRickPresent('${path}', '${metaPrefix}')">TRUE</div><div class="state-btn ${!isTrue ? 'state-btn-active-off' : ''}" onclick="app.updateValue('${path}', '${metaPrefix}FALSE')">FALSE</div></div>`;
-            }
             return `<div class="state-switch"><div class="state-btn ${isTrue ? 'state-btn-active-on' : ''}" onclick="app.updateValue('${path}', '${metaPrefix}TRUE')">TRUE</div><div class="state-btn ${!isTrue ? 'state-btn-active-off' : ''}" onclick="app.updateValue('${path}', '${metaPrefix}FALSE')">FALSE</div></div>`;
         }
-        // Native number type
         if (typeof val === 'number') {
-            return `<div class="flex items-center"><button class="stepper-btn" onclick="app.incrementValue('${path}', -10)"><i class="fa-solid fa-angles-left"></i></button><button class="stepper-btn" onclick="app.incrementValue('${path}', -1)"><i class="fa-solid fa-minus"></i></button><span class="val-display mono text-green-400 hover:underline mx-0 whitespace-nowrap min-w-[3rem] text-center flex-shrink-0" onclick="app.setEdit('${path}')">${val}</span><button class="stepper-btn" onclick="app.incrementValue('${path}', 1)"><i class="fa-solid fa-plus"></i></button><button class="stepper-btn" onclick="app.incrementValue('${path}', 10)"><i class="fa-solid fa-angles-right"></i></button></div>`;
+                return `<div class="flex items-center"><button class="stepper-btn" onclick="app.incrementValue('${path}', -10)"><i class="fa-solid fa-angles-left"></i></button><button class="stepper-btn" onclick="app.incrementValue('${path}', -1)"><i class="fa-solid fa-minus"></i></button><span class="val-display mono text-green-400 hover:underline mx-0 whitespace-nowrap min-w-[3rem] text-center flex-shrink-0" onclick="app.setEdit('${path}')">${val}</span><button class="stepper-btn" onclick="app.incrementValue('${path}', 1)"><i class="fa-solid fa-plus"></i></button><button class="stepper-btn" onclick="app.incrementValue('${path}', 10)"><i class="fa-solid fa-angles-right"></i></button></div>`;
         }
-        // Time format HH:MM or H:MM
         const timeMatch = checkStr.match(/^\d{1,2}:\d{2}$/);
         if (timeMatch) {
-            return `<div class="flex items-center"><button class="stepper-btn" onclick="app.incrementTime('${path}', -10)"><i class="fa-solid fa-angles-left"></i></button><button class="stepper-btn" onclick="app.incrementTime('${path}', -1)"><i class="fa-solid fa-minus"></i></button><span class="val-display mono text-blue-400 hover:underline mx-0 whitespace-nowrap min-w-[3rem] text-center flex-shrink-0" onclick="app.setEdit('${path}')">${checkVal}</span><button class="stepper-btn" onclick="app.incrementTime('${path}', 1)"><i class="fa-solid fa-plus"></i></button><button class="stepper-btn" onclick="app.incrementTime('${path}', 10)"><i class="fa-solid fa-angles-right"></i></button></div>`;
-        }
-        // String that looks like an integer (including metadata-tagged)
-        const intMatch = checkStr.match(/^-?\d+$/);
-        if (intMatch) {
-            return `<div class="flex items-center"><button class="stepper-btn" onclick="app.incrementMetaValue('${path}', -10)"><i class="fa-solid fa-angles-left"></i></button><button class="stepper-btn" onclick="app.incrementMetaValue('${path}', -1)"><i class="fa-solid fa-minus"></i></button><span class="val-display mono text-green-400 hover:underline mx-0 whitespace-nowrap min-w-[3rem] text-center flex-shrink-0" onclick="app.setEdit('${path}')">${checkVal}</span><button class="stepper-btn" onclick="app.incrementMetaValue('${path}', 1)"><i class="fa-solid fa-plus"></i></button><button class="stepper-btn" onclick="app.incrementMetaValue('${path}', 10)"><i class="fa-solid fa-angles-right"></i></button></div>`;
+            const metaIndicator = hasMeta ? `<span class="text-orange-600 text-[8px] mr-1" title="${metaPrefix}">●</span>` : '';
+            return `<div class="flex items-center">${metaIndicator}<button class="stepper-btn" onclick="app.incrementTime('${path}', -10)"><i class="fa-solid fa-angles-left"></i></button><button class="stepper-btn" onclick="app.incrementTime('${path}', -1)"><i class="fa-solid fa-minus"></i></button><span class="val-display mono text-blue-400 hover:underline mx-0 whitespace-nowrap min-w-[3rem] text-center flex-shrink-0" onclick="app.setEdit('${path}')">${checkVal}</span><button class="stepper-btn" onclick="app.incrementTime('${path}', 1)"><i class="fa-solid fa-plus"></i></button><button class="stepper-btn" onclick="app.incrementTime('${path}', 10)"><i class="fa-solid fa-angles-right"></i></button></div>`;
         }
         if (vUpper === 'CRITICAL') return `<span class="badge badge-critical cursor-pointer" onclick="app.setEdit('${path}')">CRITICAL</span>`;
         if (vUpper === 'HIGH') return `<span class="badge badge-high cursor-pointer" onclick="app.setEdit('${path}')">HIGH</span>`;
         if (vUpper === 'MEDIUM') return `<span class="badge badge-medium cursor-pointer" onclick="app.setEdit('${path}')">MEDIUM</span>`;
         if (vUpper === 'LOW') return `<span class="badge badge-low cursor-pointer" onclick="app.setEdit('${path}')">LOW</span>`;
         
-        // Default string display
-        return `<span class="val-display mono text-green-400 hover:underline" onclick="app.setEdit('${path}')">${displayVal}</span>`;
+        // Default string display with meta indicator
+        const metaIndicator = hasMeta ? `<span class="text-orange-600 text-[8px] mr-1" title="${metaPrefix}">●</span>` : '';
+        return `<span class="val-display mono text-green-400 hover:underline" onclick="app.setEdit('${path}')">${metaIndicator}${displayVal}</span>`;
     }
 
     setEdit(path) { this.editingPath = path; this.render(); setTimeout(() => { const el = document.getElementById(`input-${path}`); if(el) { el.focus(); el.select(); } }, 50); }
