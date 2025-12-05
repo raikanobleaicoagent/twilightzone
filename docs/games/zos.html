@@ -364,11 +364,15 @@
             <div id="export-option-container" class="hidden flex items-center gap-4">
                 <label class="flex items-center gap-2 cursor-pointer group">
                     <input type="checkbox" id="export-visible-check" onchange="app.updateExportConfig()" class="accent-green-500 cursor-pointer w-3 h-3">
-                    <span class="text-[10px] text-gray-500 font-bold tracking-wider group-hover:text-green-400">VISIBLE ONLY</span>
+                    <span class="text-[10px] text-gray-500 font-bold tracking-wider group-hover:text-green-400">VISIBLE</span>
                 </label>
                 <label class="flex items-center gap-2 cursor-pointer group">
                     <input type="checkbox" id="export-logs-check" onchange="app.updateExportConfig()" class="accent-blue-500 cursor-pointer w-3 h-3">
-                    <span class="text-[10px] text-gray-500 font-bold tracking-wider group-hover:text-blue-400">INCLUDE LOGS</span>
+                    <span class="text-[10px] text-gray-500 font-bold tracking-wider group-hover:text-blue-400">LOGS</span>
+                </label>
+                <label class="flex items-center gap-2 cursor-pointer group">
+                    <input type="checkbox" id="export-metadata-check" onchange="app.updateExportConfig()" class="accent-purple-500 cursor-pointer w-3 h-3">
+                    <span class="text-[10px] text-gray-500 font-bold tracking-wider group-hover:text-purple-400">METADATA</span>
                 </label>
             </div>
         </div>
@@ -533,7 +537,7 @@ const NULL_STATE = {
     },
     "SKILLS": { "HANZI": { "LEVEL": 1, "CURRENT_XP": 0, "DAILY_XP": 0, "HISTORY": [], "HOURLY": new Array(24).fill(0), "SESSION_START": null } },
     "log_config": { "limit": 10, "enabled": true, "chart_limit": 10, "log_scratchpad": false },
-    "export_config": { "visible_only": false, "include_logs": true, "include_skills": true },
+    "export_config": { "visible_only": false, "include_logs": true, "include_skills": true, "include_metadata": true },
     "_meta_log": [],
     "_mood_history": [],
     "_hourly_date": null,
@@ -552,7 +556,7 @@ class ZyqralOS {
         
         // Initialization checks
         if(!this.state.log_config) this.state.log_config = { "limit": 10, "enabled": true, "chart_limit": 10, "log_scratchpad": false };
-        if(!this.state.export_config) this.state.export_config = { "visible_only": false, "include_logs": true, "include_skills": true };
+        if(!this.state.export_config) this.state.export_config = { "visible_only": false, "include_logs": true, "include_skills": true, "include_metadata": true };
         if(!this.state.log_config.chart_limit) this.state.log_config.chart_limit = 10;
         if(this.state.log_config.log_scratchpad === undefined) this.state.log_config.log_scratchpad = false;
         if(!this.state._meta_log) this.state._meta_log = [];
@@ -2527,17 +2531,40 @@ class ZyqralOS {
     updateExportConfig() {
         const visibleCheck = document.getElementById('export-visible-check');
         const logsCheck = document.getElementById('export-logs-check');
-        if(!this.state.export_config) this.state.export_config = { visible_only: false, include_logs: true, include_skills: true };
+        const metadataCheck = document.getElementById('export-metadata-check');
+        if(!this.state.export_config) this.state.export_config = { visible_only: false, include_logs: true, include_skills: true, include_metadata: true };
         this.state.export_config.visible_only = visibleCheck.checked;
         this.state.export_config.include_logs = logsCheck.checked;
+        this.state.export_config.include_metadata = metadataCheck.checked;
         this.save();
         this.updateExportPreview();
+    }
+
+    // Recursively scrub metadata tags from all string values in an object
+    scrubMetadataFromObject(obj) {
+        if (typeof obj !== 'object' || obj === null) {
+            if (typeof obj === 'string') {
+                return this.stripMetaTags(obj);
+            }
+            return obj;
+        }
+        
+        if (Array.isArray(obj)) {
+            return obj.map(item => this.scrubMetadataFromObject(item));
+        }
+        
+        const result = {};
+        for (const key of Object.keys(obj)) {
+            result[key] = this.scrubMetadataFromObject(obj[key]);
+        }
+        return result;
     }
 
     updateExportPreview() {
         const ta = document.getElementById('raw-json');
         const visibleCheck = document.getElementById('export-visible-check');
         const logsCheck = document.getElementById('export-logs-check');
+        const metadataCheck = document.getElementById('export-metadata-check');
         const dailyCheck = document.getElementById('export-daily-check');
         const hourlyCheck = document.getElementById('export-hourly-check');
         
@@ -2546,6 +2573,11 @@ class ZyqralOS {
             dataToExport = this.filterVisible(this.state);
         } else {
             dataToExport = JSON.parse(JSON.stringify(this.state));
+        }
+
+        // Scrub metadata if checkbox is unchecked
+        if (!metadataCheck.checked) {
+            dataToExport = this.scrubMetadataFromObject(dataToExport);
         }
 
         if (logsCheck.checked) {
@@ -2894,6 +2926,7 @@ class ZyqralOS {
         const exportOption = document.getElementById('export-option-container');
         const exportCheck = document.getElementById('export-visible-check');
         const logsCheck = document.getElementById('export-logs-check');
+        const metadataCheck = document.getElementById('export-metadata-check');
 
         if (modal.classList.contains('hidden')) {
             if (mode === 'export') { 
@@ -2902,6 +2935,9 @@ class ZyqralOS {
                 if(this.state.export_config) {
                     exportCheck.checked = this.state.export_config.visible_only;
                     logsCheck.checked = this.state.export_config.include_logs;
+                    metadataCheck.checked = this.state.export_config.include_metadata !== false;
+                } else {
+                    metadataCheck.checked = true;
                 }
 
                 this.updateExportPreview(); 
@@ -2936,7 +2972,7 @@ class ZyqralOS {
             let newState = JSON.parse(ta.value); 
             newState._meta_log = []; 
             if (!newState.log_config) newState.log_config = { "limit": 10, "enabled": true, "chart_limit": 10, "log_scratchpad": false };
-            if (!newState.export_config) newState.export_config = { "visible_only": false, "include_logs": true, "include_skills": true };
+            if (!newState.export_config) newState.export_config = { "visible_only": false, "include_logs": true, "include_skills": true, "include_metadata": true };
             if (!newState._mood_history) newState._mood_history = [];
             if (!newState._dly_reset_date) newState._dly_reset_date = null;
             if(!newState.SKILLS) newState.SKILLS = {};
