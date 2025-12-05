@@ -2287,7 +2287,33 @@ class ZyqralOS {
             if (displayEl) {
                 displayEl.textContent = val;
             }
+            
+            // Update all formula displays that might depend on this value
+            this.updateFormulaDisplaysSilent();
         }
+    }
+    
+    // Update all visible formula displays without full render
+    updateFormulaDisplaysSilent() {
+        const formulaSpans = document.querySelectorAll('[data-formula-path]');
+        formulaSpans.forEach(span => {
+            const path = span.getAttribute('data-formula-path');
+            if (!path) return;
+            
+            // Get the current formula value from state
+            const { parent, key } = this.getParent(path);
+            if (!parent || parent[key] === undefined) return;
+            
+            const val = parent[key];
+            const displayVal = this.stripMetaTags(val);
+            
+            if (typeof displayVal === 'string' && displayVal.startsWith('=')) {
+                const processedVal = this.processFormula(displayVal, 0, path);
+                // Escape to prevent >= ligature
+                const escapedProcessed = String(processedVal).replace(/>/g, '&gt;').replace(/</g, '&lt;');
+                span.innerHTML = escapedProcessed;
+            }
+        });
     }
     
     stopPomTimer(pathStr) {
@@ -2703,7 +2729,8 @@ class ZyqralOS {
             const escapedFormula = String(val).replace(/"/g, '&quot;').replace(/>/g, '&gt;').replace(/</g, '&lt;');
             // Also escape the processed value to prevent >= ligature in display
             const escapedProcessed = String(processedVal).replace(/>/g, '&gt;').replace(/</g, '&lt;');
-            return `<span class="val-display mono val-calc hover:underline" onclick="app.setEdit('${path}')" title="${escapedFormula}">${escapedProcessed}</span>`;
+            const safePathAttr = path.replace(/"/g, '&quot;');
+            return `<span class="val-display mono val-calc hover:underline" data-formula-path="${safePathAttr}" onclick="app.setEdit('${path}')" title="${escapedFormula}">${escapedProcessed}</span>`;
         }
         
         // Use displayVal (stripped of meta tags) for type detection
