@@ -470,6 +470,10 @@
                 <h3 class="text-[10px] font-bold text-gray-500 mb-2 uppercase tracking-wider">EXPORT OPTIONS</h3>
                 <div class="space-y-2">
                     <label class="flex items-center gap-2 cursor-pointer group">
+                        <input type="checkbox" id="export-skills-check" checked class="accent-green-500 cursor-pointer w-3 h-3">
+                        <span class="text-[9px] text-gray-500 font-bold tracking-wider group-hover:text-green-400">SKILLS</span>
+                    </label>
+                    <label class="flex items-center gap-2 cursor-pointer group">
                         <input type="checkbox" id="export-daily-check" checked class="accent-yellow-500 cursor-pointer w-3 h-3">
                         <span class="text-[9px] text-gray-500 font-bold tracking-wider group-hover:text-yellow-400">DAILY HISTORY</span>
                     </label>
@@ -1907,9 +1911,11 @@ class ZyqralOS {
         if (pathStr.toUpperCase().includes('MOOD')) {
             const currentMoodObj = this.findMoodRecursive(this.state);
             if (currentMoodObj) {
+                // Strip metadata tags from mood values for clean chart display
+                const cleanMoodData = this.scrubMetadataFromObject(JSON.parse(JSON.stringify(currentMoodObj)));
                 const snapshot = {
                     ts: this.getTimestamp(),
-                    data: JSON.parse(JSON.stringify(currentMoodObj))
+                    data: cleanMoodData
                 };
                 if (this.moodCycleTimer) {
                     this.pendingMoodSnapshot = snapshot;
@@ -1927,9 +1933,11 @@ class ZyqralOS {
     forceSnapshot() {
         const currentMoodObj = this.findMoodRecursive(this.state);
         if (currentMoodObj) {
+            // Strip metadata tags from mood values for clean chart display
+            const cleanMoodData = this.scrubMetadataFromObject(JSON.parse(JSON.stringify(currentMoodObj)));
             const snapshot = {
                 ts: this.getTimestamp(),
-                data: JSON.parse(JSON.stringify(currentMoodObj))
+                data: cleanMoodData
             };
             if (!this.state._mood_history) this.state._mood_history = [];
             this.state._mood_history.push(snapshot);
@@ -2569,6 +2577,7 @@ class ZyqralOS {
         const visibleCheck = document.getElementById('export-visible-check');
         const logsCheck = document.getElementById('export-logs-check');
         const metadataCheck = document.getElementById('export-metadata-check');
+        const skillsCheck = document.getElementById('export-skills-check');
         const dailyCheck = document.getElementById('export-daily-check');
         const hourlyCheck = document.getElementById('export-hourly-check');
         
@@ -2600,10 +2609,14 @@ class ZyqralOS {
             dataToExport._mood_history = this.state._mood_history || [];
         }
         
-        // Handle SKILLS export with daily/hourly options
-        if (dataToExport.SKILLS) {
+        // Handle SKILLS export - always from full state, independent of visible filter
+        const includeSkills = skillsCheck ? skillsCheck.checked : true;
+        if (includeSkills && this.state.SKILLS) {
             const includeDaily = dailyCheck ? dailyCheck.checked : true;
             const includeHourly = hourlyCheck ? hourlyCheck.checked : true;
+            
+            // Always get skills from full state
+            dataToExport.SKILLS = JSON.parse(JSON.stringify(this.state.SKILLS));
             
             Object.keys(dataToExport.SKILLS).forEach(skillName => {
                 const skill = dataToExport.SKILLS[skillName];
@@ -2624,6 +2637,8 @@ class ZyqralOS {
                 // Remove SESSION_START from export (internal tracking only)
                 delete skill.SESSION_START;
             });
+        } else {
+            delete dataToExport.SKILLS;
         }
         
         delete dataToExport.export_config; 
