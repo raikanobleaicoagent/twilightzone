@@ -332,9 +332,6 @@
                 <button class="macro-item text-yellow-500 hover:text-yellow-400" onclick="app.executeMacro('RESET_TASKS')">
                     <i class="fa-solid fa-rotate-left"></i> RESET TASKS
                 </button>
-                <button class="macro-item text-cyan-500 hover:text-cyan-400" onclick="app.executeMacro('RESET_TAGGED')">
-                    <i class="fa-solid fa-tags"></i> RESET &lt;rst&gt;
-                </button>
                 <button class="macro-item text-red-500 hover:text-red-400" onclick="app.executeMacro('CLEAR_PRESENCE')">
                     <i class="fa-solid fa-ghost"></i> CLEAR PRESENCE
                 </button>
@@ -1710,71 +1707,6 @@ class ZyqralOS {
                 this.save();
                 this.toggleMacros();
             }
-        } else if (type === 'RESET_TAGGED') {
-            // Reset all fields containing <rst> tag
-            if(confirm('MACRO EXECUTION: Reset all fields with <rst> tag?\n\n• Integers → 0\n• Times (HH:MM) → 00:00\n• Percentages → 0%\n• Simple =number formulas → =0\n• Strings → empty\n\nMetadata tags preserved. Math formulas (with +,-,*,/,{{}}) NOT reset.')) {
-                
-                // Helper: Check if formula is simple =number (not math expression)
-                const isSimpleNumberFormula = (content) => {
-                    if (!content.startsWith('=')) return false;
-                    const afterEquals = content.substring(1).trim();
-                    // Only match simple numbers like =0, =5, =-3, =12.5
-                    // NOT things like ={{ref}}, =5+3, =foo*bar, etc.
-                    return /^-?\d+(\.\d+)?$/.test(afterEquals);
-                };
-                
-                let count = 0;
-                const recursiveResetTagged = (obj, path = '') => {
-                    for (let k in obj) {
-                        if (k === '_meta_log' || k === 'log_config' || k === '_mood_history' || k === 'export_config' || k === 'SKILLS' || k === '_hourly_date' || k === '_dly_reset_date' || k === '_skill_archive_date') continue;
-                        
-                        const currentPath = path ? `${path}|${k}` : k;
-                        
-                        if (typeof obj[k] === 'object' && obj[k] !== null) {
-                            recursiveResetTagged(obj[k], currentPath);
-                        } 
-                        else if (typeof obj[k] === 'string' && this.hasMetaTag(obj[k], 'rst')) {
-                            const metaPrefix = this.getMetaPrefix(obj[k]);
-                            const content = this.stripMetaTags(obj[k]);
-                            
-                            // Detect value type and reset accordingly
-                            const timeMatch = content.match(/^\d{1,2}:\d{2}$/);
-                            const percentMatch = content.match(/^(\d+(?:\.\d+)?)%$/);
-                            const numMatch = content.match(/^-?\d+(?:\.\d+)?$/);
-                            
-                            // For formulas: only reset if it's a simple =number, not a math expression
-                            if (content.startsWith('=')) {
-                                if (isSimpleNumberFormula(content)) {
-                                    obj[k] = metaPrefix + '=0';
-                                    count++;
-                                }
-                                // Skip formulas with math/references - don't reset them
-                            } else if (timeMatch) {
-                                obj[k] = metaPrefix + '00:00';
-                                count++;
-                            } else if (percentMatch) {
-                                obj[k] = metaPrefix + '0%';
-                                count++;
-                            } else if (numMatch) {
-                                obj[k] = metaPrefix + '0';
-                                count++;
-                            } else {
-                                // Regular string - reset to empty (keeping meta)
-                                obj[k] = metaPrefix;
-                                count++;
-                            }
-                        }
-                    }
-                };
-                recursiveResetTagged(this.state);
-                // Reset skill cache and recalculate silently to prevent negative delta logs
-                this._lastSkillEvaluations = {};
-                this.recalculateAllSkillXP(true); // true = boot/silent mode
-                this.addLog(`MACRO EXECUTION <span class="log-hl">[RESET TAGGED]</span><br> RESET ${count} &lt;rst&gt; FIELDS`);
-                this.save();
-                this.render();
-                this.toggleMacros();
-            }
         } else if (type === 'QUICK_NOTE') {
             const path = this.findPathByKey(this.state, 'SCRATCHPAD');
             if (path) {
@@ -2660,18 +2592,19 @@ class ZyqralOS {
     // Strip metadata tags from value for display
     stripMetaTags(val) {
         if (typeof val !== 'string') return val;
-        // Strip stepper tags, options tags, then regular tags
-        return val.replace(/<stepper:[^>]+>/gi, '').replace(/<options:[^>]+>/gi, '').replace(/<([a-zA-Z_][a-zA-Z0-9_]*)>/g, '').trim();
+        // Strip stepper tags, options tags, rst tags, then regular tags
+        return val.replace(/<stepper:[^>]+>/gi, '').replace(/<options:[^>]+>/gi, '').replace(/<rst:[^>]+>/gi, '').replace(/<([a-zA-Z_][a-zA-Z0-9_]*)>/g, '').trim();
     }
     
-    // Get just the metadata prefix from a value (including stepper and options tags)
+    // Get just the metadata prefix from a value (including stepper, options, and rst tags)
     getMetaPrefix(val) {
         if (typeof val !== 'string') return '';
-        // Match regular tags, stepper tags, and options tags
+        // Match regular tags, stepper tags, options tags, and rst tags
         const regularTags = val.match(/<([a-zA-Z_][a-zA-Z0-9_]*)>/g) || [];
         const stepperTags = val.match(/<stepper:[^>]+>/gi) || [];
         const optionsTags = val.match(/<options:[^>]+>/gi) || [];
-        return [...regularTags, ...stepperTags, ...optionsTags].join('');
+        const rstTags = val.match(/<rst:[^>]+>/gi) || [];
+        return [...regularTags, ...stepperTags, ...optionsTags, ...rstTags].join('');
     }
     
     // Check if value has a specific tag
@@ -2762,8 +2695,39 @@ class ZyqralOS {
         return html;
     }
     
+    // Parse rst configuration from <rst:value> tag
+    // Format: <rst:0> or <rst:00:00> or <rst:default text>
+    parseRstConfig(val) {
+        if (typeof val !== 'string') return null;
+        const rstMatch = val.match(/<rst:([^>]*)>/i);
+        if (!rstMatch) return null;
+        return rstMatch[1]; // Return the reset value
+    }
+    
+    // Reset value to the specified default while preserving metadata
+    resetToValue(pathStr, resetValue) {
+        const { parent, key } = this.getParent(pathStr);
+        if (!parent) return;
+        const oldValue = parent[key];
+        const metaPrefix = this.getMetaPrefix(oldValue);
+        parent[key] = `${metaPrefix}${resetValue}`;
+        this.logGranular('RESET', pathStr, oldValue, parent[key]);
+        this._lastSkillEvaluations = {};
+        this.recalculateAllSkillXP(true);
+        this.save();
+        this.render();
+    }
+    
+    // Build reset button if rst tag is present
+    buildResetButton(path, val) {
+        const resetValue = this.parseRstConfig(val);
+        if (resetValue === null) return '';
+        const escapedValue = resetValue.replace(/'/g, "\\'").replace(/"/g, '&quot;');
+        return `<button class="stepper-btn text-cyan-400 ml-0.5" onclick="app.resetToValue('${path}', '${escapedValue}')" title="Reset to ${this.escapeHtml(resetValue)}"><i class="fa-solid fa-rotate-left"></i></button>`;
+    }
+    
     // Build stepper buttons from config
-    buildStepperButtons(path, stepperConfig, incrementFn, displayVal, colorClass) {
+    buildStepperButtons(path, stepperConfig, incrementFn, displayVal, colorClass, originalVal) {
         const leftButtons = stepperConfig.filter(b => b.delta < 0);
         const rightButtons = stepperConfig.filter(b => b.delta >= 0);
         
@@ -2781,6 +2745,9 @@ class ZyqralOS {
         for (const btn of rightButtons) {
             html += `<button class="stepper-btn" onclick="app.${incrementFn}('${path}', ${btn.delta})">${this.escapeHtml(btn.symbol)}</button>`;
         }
+        
+        // Reset button if rst tag present
+        html += this.buildResetButton(path, originalVal);
         
         html += '</div>';
         return html;
@@ -2831,9 +2798,10 @@ class ZyqralOS {
         if (percentMatch) {
             const stepperConfig = this.parseStepperConfig(val);
             if (stepperConfig) {
-                return this.buildStepperButtons(path, stepperConfig, 'incrementPercent', checkVal, 'text-[#00ff9d]');
+                return this.buildStepperButtons(path, stepperConfig, 'incrementPercent', checkVal, 'text-[#00ff9d]', val);
             }
-            return `<span class="val-display mono text-[#00ff9d] hover:underline" onclick="app.setEdit('${path}')">${checkVal}</span>`;
+            const resetBtn = this.buildResetButton(path, val);
+            return `<div class="flex items-center"><span class="val-display mono text-[#00ff9d] hover:underline" onclick="app.setEdit('${path}')">${checkVal}</span>${resetBtn}</div>`;
         }
         const vUpper = checkStr.toUpperCase();
         if (['PENDING', 'IN PROGRESS', 'COMPLETED', 'FAILED'].includes(vUpper)) {
@@ -2869,9 +2837,10 @@ class ZyqralOS {
         if (timeMatch) {
             const stepperConfig = this.parseStepperConfig(val);
             if (stepperConfig) {
-                return this.buildStepperButtons(path, stepperConfig, 'incrementTime', checkVal, 'text-blue-400');
+                return this.buildStepperButtons(path, stepperConfig, 'incrementTime', checkVal, 'text-blue-400', val);
             }
-            return `<span class="val-display mono text-blue-400 hover:underline" onclick="app.setEdit('${path}')">${checkVal}</span>`;
+            const resetBtn = this.buildResetButton(path, val);
+            return `<div class="flex items-center"><span class="val-display mono text-blue-400 hover:underline" onclick="app.setEdit('${path}')">${checkVal}</span>${resetBtn}</div>`;
         }
         // String that looks like a number (integer or float, including metadata-tagged)
         const numMatch = checkStr.match(/^-?\d+(?:\.\d+)?$/);
@@ -2887,16 +2856,21 @@ class ZyqralOS {
             }
             const stepperConfig = this.parseStepperConfig(val);
             if (stepperConfig) {
-                return this.buildStepperButtons(path, stepperConfig, 'incrementMetaValue', checkVal, 'text-green-400');
+                return this.buildStepperButtons(path, stepperConfig, 'incrementMetaValue', checkVal, 'text-green-400', val);
             }
-            return `<span class="val-display mono text-green-400 hover:underline" onclick="app.setEdit('${path}')">${checkVal}</span>`;
+            const resetBtn = this.buildResetButton(path, val);
+            return `<div class="flex items-center"><span class="val-display mono text-green-400 hover:underline" onclick="app.setEdit('${path}')">${checkVal}</span>${resetBtn}</div>`;
         }
         if (vUpper === 'CRITICAL') return `<span class="badge badge-critical cursor-pointer" onclick="app.setEdit('${path}')">CRITICAL</span>`;
         if (vUpper === 'HIGH') return `<span class="badge badge-high cursor-pointer" onclick="app.setEdit('${path}')">HIGH</span>`;
         if (vUpper === 'MEDIUM') return `<span class="badge badge-medium cursor-pointer" onclick="app.setEdit('${path}')">MEDIUM</span>`;
         if (vUpper === 'LOW') return `<span class="badge badge-low cursor-pointer" onclick="app.setEdit('${path}')">LOW</span>`;
         
-        // Default string display
+        // Default string display - check for rst tag
+        const resetBtn = this.buildResetButton(path, val);
+        if (resetBtn) {
+            return `<div class="flex items-center"><span class="val-display mono text-green-400 hover:underline" onclick="app.setEdit('${path}')">${displayVal}</span>${resetBtn}</div>`;
+        }
         return `<span class="val-display mono text-green-400 hover:underline" onclick="app.setEdit('${path}')">${displayVal}</span>`;
     }
 
