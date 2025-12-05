@@ -657,62 +657,34 @@ class ZyqralOS {
         // Archive skill data on day change (uses dedicated _skill_archive_date)
         const lastArchiveDate = this.state._skill_archive_date;
         if (lastArchiveDate && lastArchiveDate !== today) {
-            // Archive Daily XP with gain/loss breakdown for ALL skills
+            // Archive Daily XP for ALL skills
             Object.keys(this.state.SKILLS).forEach(skillName => {
                 const skill = this.state.SKILLS[skillName];
                 if (!skill.HISTORY) skill.HISTORY = [];
                 
-                // Calculate session gain/loss by scanning for session XP keys
-                let sessionGain = 0;
-                let sessionLoss = 0;
-                
-                // Scan entire state for session XP values related to this skill
-                const scanForSessionXP = (obj, path = '') => {
-                    for (let k in obj) {
-                        if (k === '_meta_log' || k === 'log_config' || k === '_mood_history' || k === 'export_config' || k === 'SKILLS' || k === '_hourly_date' || k === '_dly_reset_date' || k === '_skill_archive_date') continue;
-                        
-                        const currentPath = path ? `${path}|${k}` : k;
-                        const val = obj[k];
-                        
-                        if (typeof val === 'object' && val !== null) {
-                            scanForSessionXP(val, currentPath);
-                        } else {
-                            const upperKey = k.toUpperCase();
-                            const upperPath = currentPath.toUpperCase();
-                            
-                            // Check if this path relates to this skill's session
-                            const pathHasSkill = upperPath.includes(skillName) || (skillName === 'HANZI' && upperPath.includes('HANZI'));
-                            
-                            if (pathHasSkill && upperPath.includes('SESSION')) {
-                                if (upperKey === 'SESSION_XP_GAIN') {
-                                    sessionGain = this.parseNumberFromValue(val, currentPath);
-                                } else if (upperKey === 'SESSION_XP_LOSS') {
-                                    sessionLoss = this.parseNumberFromValue(val, currentPath);
-                                }
-                            }
-                        }
-                    }
-                };
-                
-                scanForSessionXP(this.state);
-                
                 const dailyXP = skill.DAILY_XP || 0;
                 
                 // Only archive if there's any activity (non-zero values)
-                if (dailyXP !== 0 || sessionGain !== 0 || sessionLoss !== 0) {
+                if (dailyXP !== 0) {
                     // Check if we already archived this date (prevent duplicate entries)
                     const existingEntry = skill.HISTORY.find(h => h.date === lastArchiveDate);
                     if (!existingEntry) {
                         skill.HISTORY.push({ 
                             date: lastArchiveDate, 
-                            xp: dailyXP,
-                            gain: sessionGain,
-                            loss: sessionLoss
+                            xp: dailyXP
                         });
                         
                         // Keep history trim (Last 365 entries)
                         if (skill.HISTORY.length > 365) skill.HISTORY.shift();
                     }
+                }
+                
+                // Apply daily decay if SESSION_XP_DAILY_DECAY exists for this skill
+                const decayAmount = this.findSkillDailyDecay(skillName);
+                if (decayAmount > 0) {
+                    skill.CURRENT_XP = Math.max(0, skill.CURRENT_XP - decayAmount);
+                    skill.LEVEL = Math.floor(Math.sqrt(Math.max(0, skill.CURRENT_XP) / 100)) + 1;
+                    this.addLog(`SKILL <span class="log-hl">[${skillName}]</span> DECAY -${decayAmount} XP`);
                 }
                 
                 // Reset Daily Counter
@@ -904,6 +876,37 @@ class ZyqralOS {
         return null;
     }
 
+    // Find SESSION_XP_DAILY_DECAY value for a specific skill
+    findSkillDailyDecay(skillName) {
+        let decayAmount = 0;
+        
+        const scanForDecay = (obj, path = '') => {
+            for (let k in obj) {
+                if (k === '_meta_log' || k === 'log_config' || k === '_mood_history' || k === 'export_config' || k === 'SKILLS') continue;
+                
+                const currentPath = path ? `${path}|${k}` : k;
+                const val = obj[k];
+                
+                if (typeof val === 'object' && val !== null) {
+                    scanForDecay(val, currentPath);
+                } else {
+                    const upperKey = k.toUpperCase();
+                    const upperPath = currentPath.toUpperCase();
+                    
+                    // Check if this path relates to this skill's session and has decay key
+                    const pathHasSkill = upperPath.includes(skillName) || (skillName === 'HANZI' && upperPath.includes('HANZI'));
+                    
+                    if (pathHasSkill && upperPath.includes('SESSION') && upperKey === 'SESSION_XP_DAILY_DECAY') {
+                        decayAmount = this.parseNumberFromValue(val, currentPath);
+                    }
+                }
+            }
+        };
+        
+        scanForDecay(this.state);
+        return decayAmount;
+    }
+
     // --- FORMULA LOGIC ---
     
     // Helper: Strip metadata tags <...> and extract numeric value
@@ -1072,7 +1075,7 @@ class ZyqralOS {
                     const upperKey = key.toUpperCase();
                     const upperPath = currentPath.toUpperCase();
                     
-                    if ((upperKey === 'SESSION_XP_GAIN' || upperKey === 'SESSION_XP_LOSS' || upperKey === 'XP') && upperPath.includes('SESSION')) {
+                    if ((upperKey === 'SESSION_XP_GAIN' || upperKey === 'XP') && upperPath.includes('SESSION')) {
                         const evaluated = this.parseNumberFromValue(val, currentPath);
                         
                         if (isBoot) {
@@ -1109,17 +1112,10 @@ class ZyqralOS {
                                 skill.SESSION_START = Date.now();
                             }
                             
-                            if (upperKey === 'SESSION_XP_LOSS') {
-                                skill.DAILY_XP -= delta;
-                                skill.CURRENT_XP -= delta;
-                                // Track hourly loss (subtract from current hour)
-                                skill.HOURLY[currentHour] = (skill.HOURLY[currentHour] || 0) - delta;
-                            } else {
-                                skill.DAILY_XP += delta;
-                                skill.CURRENT_XP += delta;
-                                // Track hourly gain (add to current hour)
-                                skill.HOURLY[currentHour] = (skill.HOURLY[currentHour] || 0) + delta;
-                            }
+                            skill.DAILY_XP += delta;
+                            skill.CURRENT_XP += delta;
+                            // Track hourly gain (add to current hour)
+                            skill.HOURLY[currentHour] = (skill.HOURLY[currentHour] || 0) + delta;
                             
                             skill.LEVEL = Math.floor(Math.sqrt(Math.max(0, skill.CURRENT_XP) / 100)) + 1;
                             this._lastSkillEvaluations[currentPath] = evaluated;
@@ -1184,7 +1180,7 @@ class ZyqralOS {
                     const upperKey = key.toUpperCase();
                     const upperPath = currentPath.toUpperCase();
                     
-                    if ((upperKey === 'SESSION_XP_GAIN' || upperKey === 'SESSION_XP_LOSS') && upperPath.includes('SESSION')) {
+                    if ((upperKey === 'SESSION_XP_GAIN' || upperKey === 'XP') && upperPath.includes('SESSION')) {
                         const evaluated = this.parseNumberFromValue(val, currentPath);
                         const lastVal = this._lastSkillEvaluations[currentPath];
                         
@@ -1213,15 +1209,9 @@ class ZyqralOS {
                                 skill.SESSION_START = Date.now();
                             }
                             
-                            if (upperKey === 'SESSION_XP_LOSS') {
-                                skill.DAILY_XP -= evaluated;
-                                skill.CURRENT_XP -= evaluated;
-                                skill.HOURLY[currentHour] = (skill.HOURLY[currentHour] || 0) - evaluated;
-                            } else {
-                                skill.DAILY_XP += evaluated;
-                                skill.CURRENT_XP += evaluated;
-                                skill.HOURLY[currentHour] = (skill.HOURLY[currentHour] || 0) + evaluated;
-                            }
+                            skill.DAILY_XP += evaluated;
+                            skill.CURRENT_XP += evaluated;
+                            skill.HOURLY[currentHour] = (skill.HOURLY[currentHour] || 0) + evaluated;
                             
                             skill.LEVEL = Math.floor(Math.sqrt(Math.max(0, skill.CURRENT_XP) / 100)) + 1;
                             this._lastSkillEvaluations[currentPath] = evaluated;
@@ -1253,7 +1243,7 @@ class ZyqralOS {
     }
     
     clearSkillHistory() {
-        if(confirm("FULL RESET: WIPE ALL SKILL PROGRESSION DATA?\n\n• Resets LEVEL, CURRENT_XP, DAILY_XP, HISTORY\n• Preserves session_xp_gain, session_xp_loss formulas")) {
+        if(confirm("FULL RESET: WIPE ALL SKILL PROGRESSION DATA?\n\n• Resets LEVEL, CURRENT_XP, DAILY_XP, HISTORY\n• Preserves session_xp_gain formulas")) {
             Object.values(this.state.SKILLS).forEach(s => {
                 s.HISTORY = [];
                 s.CURRENT_XP = 0;
@@ -1285,25 +1275,6 @@ class ZyqralOS {
         const days = parseInt(rangeInput?.value) || 7;
         const isSplit = splitToggle ? splitToggle.checked : false;
 
-        // Helper to adjust color brightness
-        const adjustColor = (hex, percent) => {
-            let r = parseInt(hex.slice(1, 3), 16);
-            let g = parseInt(hex.slice(3, 5), 16);
-            let b = parseInt(hex.slice(5, 7), 16);
-            
-            if (percent > 0) {
-                r = Math.min(255, r + (255 - r) * percent);
-                g = Math.min(255, g + (255 - g) * percent);
-                b = Math.min(255, b + (255 - b) * percent);
-            } else {
-                r = Math.max(0, r * (1 + percent));
-                g = Math.max(0, g * (1 + percent));
-                b = Math.max(0, b * (1 + percent));
-            }
-            
-            return `rgb(${Math.round(r)}, ${Math.round(g)}, ${Math.round(b)})`;
-        };
-
         let htmlList = '';
         let rateHtml = '';
         let totalDailyXP = 0;
@@ -1311,24 +1282,6 @@ class ZyqralOS {
         const colors = ['#eab308', '#3b82f6', '#ef4444', '#10b981', '#a855f7', '#ec4899', '#f97316'];
         let colorIdx = 0;
         const pieSegments = [];
-
-        // Get current session gain/loss for display
-        const sessionPath = this.findPathByKey(this.state, 'HANZI_SESSION');
-        let currentGain = 0, currentLoss = 0;
-        if (sessionPath) {
-            const { parent, key } = this.getParent(sessionPath);
-            const sessionData = parent[key];
-            if (sessionData && typeof sessionData === 'object') {
-                for (let k in sessionData) {
-                    const upperKey = k.toUpperCase();
-                    if (upperKey === 'SESSION_XP_GAIN') {
-                        currentGain = this.parseNumberFromValue(sessionData[k], '');
-                    } else if (upperKey === 'SESSION_XP_LOSS') {
-                        currentLoss = this.parseNumberFromValue(sessionData[k], '');
-                    }
-                }
-            }
-        }
 
         // Calculate time until midnight MST for reset timer
         if (hourlyResetTimer) {
@@ -1369,16 +1322,11 @@ class ZyqralOS {
             const currentProgressXP = Math.max(0, skill.CURRENT_XP - xpStart);
             const pct = Math.min(100, Math.max(0, (currentProgressXP / xpRange) * 100));
 
-            // Show gain/loss breakdown for HANZI
-            const gainLossDisplay = key === 'HANZI' ? 
-                `<span class="text-green-500">+${currentGain}</span> / <span class="text-red-500">-${currentLoss}</span>` :
-                '';
-
             htmlList += `
                 <div class="w-full">
                     <div class="flex justify-between items-end mb-1">
                         <span class="text-[10px] font-bold" style="color:${color}">${key} <span class="text-gray-600 text-[9px]">LVL ${skill.LEVEL}</span></span>
-                        <span class="text-[9px] text-gray-400">${daily} XP ${gainLossDisplay}</span>
+                        <span class="text-[9px] text-gray-400">${daily} XP</span>
                     </div>
                     <div class="skill-bar-container bg-[#222]">
                         <div class="skill-bar" style="width: ${pct}%; background-color: ${color}"></div>
@@ -1435,32 +1383,13 @@ class ZyqralOS {
             let maxVal = 100;
 
             if (isSplit) {
+                // Split mode: show each skill's XP velocity separately
                 let cIdx = 0;
                 Object.keys(skills).forEach(key => {
                     const skill = skills[key];
                     const baseColor = colors[cIdx % colors.length];
-                    const lightColor = adjustColor(baseColor, 0.4);
-                    const darkColor = adjustColor(baseColor, -0.4);
                     
-                    const gainPoints = dates.map(date => {
-                        const today = new Date().toISOString().split('T')[0];
-                        const histEntry = skill.HISTORY ? skill.HISTORY.find(h => h.date === date) : null;
-                        if (histEntry && histEntry.gain !== undefined) return histEntry.gain;
-                        else if (date === today && key === 'HANZI') return currentGain;
-                        if (histEntry && date !== today) return Math.max(0, histEntry.xp);
-                        if (date === today) return Math.max(0, skill.DAILY_XP || 0);
-                        return 0;
-                    });
-                    
-                    const lossPoints = dates.map(date => {
-                        const today = new Date().toISOString().split('T')[0];
-                        const histEntry = skill.HISTORY ? skill.HISTORY.find(h => h.date === date) : null;
-                        if (histEntry && histEntry.loss !== undefined) return histEntry.loss;
-                        else if (date === today && key === 'HANZI') return currentLoss;
-                        return 0;
-                    });
-                    
-                    const netPoints = dates.map(date => {
+                    const xpPoints = dates.map(date => {
                         const today = new Date().toISOString().split('T')[0];
                         const histEntry = skill.HISTORY ? skill.HISTORY.find(h => h.date === date) : null;
                         if (histEntry) return histEntry.xp;
@@ -1468,22 +1397,17 @@ class ZyqralOS {
                         return 0;
                     });
                     
-                    seriesData.push({ name: `${key} +`, color: lightColor, points: gainPoints, dashed: false });
-                    seriesData.push({ name: `${key} -`, color: darkColor, points: lossPoints, dashed: true });
-                    seriesData.push({ name: `${key}`, color: baseColor, points: netPoints, dashed: false });
+                    seriesData.push({ name: key, color: baseColor, points: xpPoints, dashed: false });
                     
-                    const localMax = Math.max(...gainPoints, ...lossPoints, ...netPoints.map(Math.abs));
+                    const localMax = Math.max(...xpPoints);
                     if (localMax > maxVal) maxVal = localMax;
                     cIdx++;
                 });
             } else {
+                // Combined mode: show total XP velocity across all skills
                 const primaryColor = colors[0];
-                const lightColor = adjustColor(primaryColor, 0.4);
-                const darkColor = adjustColor(primaryColor, -0.4);
                 
-                const gainPoints = dates.map(() => 0);
-                const lossPoints = dates.map(() => 0);
-                const netPoints = dates.map(() => 0);
+                const totalPoints = dates.map(() => 0);
                 
                 Object.keys(skills).forEach(skillKey => {
                     const skill = skills[skillKey];
@@ -1491,24 +1415,16 @@ class ZyqralOS {
                         const today = new Date().toISOString().split('T')[0];
                         const histEntry = skill.HISTORY ? skill.HISTORY.find(h => h.date === date) : null;
                         if (histEntry) {
-                            if (histEntry.gain !== undefined) gainPoints[idx] += histEntry.gain;
-                            if (histEntry.loss !== undefined) lossPoints[idx] += histEntry.loss;
-                            netPoints[idx] += histEntry.xp;
+                            totalPoints[idx] += histEntry.xp;
                         } else if (date === today) {
-                            if (skillKey === 'HANZI') {
-                                gainPoints[idx] += currentGain;
-                                lossPoints[idx] += currentLoss;
-                            }
-                            netPoints[idx] += skill.DAILY_XP || 0;
+                            totalPoints[idx] += skill.DAILY_XP || 0;
                         }
                     });
                 });
                 
-                seriesData.push({ name: 'GAIN', color: lightColor, points: gainPoints, dashed: false });
-                seriesData.push({ name: 'LOSS', color: darkColor, points: lossPoints, dashed: true });
-                seriesData.push({ name: 'NET', color: primaryColor, points: netPoints, dashed: false });
+                seriesData.push({ name: 'TOTAL', color: primaryColor, points: totalPoints, dashed: false });
                 
-                const localMax = Math.max(...gainPoints, ...lossPoints, ...netPoints.map(Math.abs));
+                const localMax = Math.max(...totalPoints);
                 if (localMax > maxVal) maxVal = localMax;
             }
 
@@ -1710,7 +1626,7 @@ class ZyqralOS {
                     "RELEARN_COUNT": `${getMetaFor('RELEARN_COUNT')}=${relearnCount}`,
                     "WRITTEN_REPS_10X": `${getMetaFor('WRITTEN_REPS_10X')}=${writingReps}`,
                     "SESSION_XP_GAIN": getExistingWithMeta('SESSION_XP_GAIN') || "=0",
-                    "SESSION_XP_LOSS": getExistingWithMeta('SESSION_XP_LOSS') || "=0"
+                    "SESSION_XP_DAILY_DECAY": getExistingWithMeta('SESSION_XP_DAILY_DECAY') || "0"
                 };
 
                 this.updateValue(scratchpadPath, ""); 
