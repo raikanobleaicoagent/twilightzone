@@ -774,9 +774,8 @@ class ZyqralOS {
                     
                     // Detect value type and reset accordingly
                     const timeMatch = content.match(/^\d{1,2}:\d{2}$/);
-                    const percentMatch = content.match(/^(\d+)%$/);
-                    const intMatch = content.match(/^-?\d+$/);
-                    const floatMatch = content.match(/^-?\d+\.\d+$/);
+                    const percentMatch = content.match(/^(\d+(?:\.\d+)?)%$/);
+                    const numMatch = content.match(/^-?\d+(?:\.\d+)?$/);
                     
                     // For formulas: only reset if it's a simple =number, not a math expression
                     if (content.startsWith('=')) {
@@ -791,7 +790,7 @@ class ZyqralOS {
                     } else if (percentMatch) {
                         obj[k] = metaPrefix + '0%';
                         count++;
-                    } else if (intMatch || floatMatch) {
+                    } else if (numMatch) {
                         obj[k] = metaPrefix + '0';
                         count++;
                     } else {
@@ -1818,9 +1817,8 @@ class ZyqralOS {
                             
                             // Detect value type and reset accordingly
                             const timeMatch = content.match(/^\d{1,2}:\d{2}$/);
-                            const percentMatch = content.match(/^(\d+)%$/);
-                            const intMatch = content.match(/^-?\d+$/);
-                            const floatMatch = content.match(/^-?\d+\.\d+$/);
+                            const percentMatch = content.match(/^(\d+(?:\.\d+)?)%$/);
+                            const numMatch = content.match(/^-?\d+(?:\.\d+)?$/);
                             
                             // For formulas: only reset if it's a simple =number, not a math expression
                             if (content.startsWith('=')) {
@@ -1835,7 +1833,7 @@ class ZyqralOS {
                             } else if (percentMatch) {
                                 obj[k] = metaPrefix + '0%';
                                 count++;
-                            } else if (intMatch || floatMatch) {
+                            } else if (numMatch) {
                                 obj[k] = metaPrefix + '0';
                                 count++;
                             } else {
@@ -2201,13 +2199,17 @@ class ZyqralOS {
         const oldValue = parent[key];
         const metaPrefix = this.getMetaPrefix(oldValue);
         const content = this.stripMetaTags(oldValue);
-        const match = String(content).match(/^(\d{1,3})%$/);
+        const match = String(content).match(/^(\d+(?:\.\d+)?)%$/);
         if (match) {
-            let val = parseInt(match[1]);
+            let val = parseFloat(match[1]);
             val += amount;
             if (val < 0) val = 0;
             if (val > 100) val = 100;
-            parent[key] = `${metaPrefix}${val}%`;
+            // Round to avoid floating point errors, keep decimal if needed
+            val = Math.round(val * 1000) / 1000;
+            // Format: remove trailing zeros after decimal
+            const formatted = val % 1 === 0 ? val.toString() : val.toString();
+            parent[key] = `${metaPrefix}${formatted}%`;
             this.logGranular('MATH', pathStr, oldValue, parent[key]);
             this.recalculateAllSkillXP();
             this.save();
@@ -2240,10 +2242,12 @@ class ZyqralOS {
         const oldValue = parent[key];
         const metaPrefix = this.getMetaPrefix(oldValue);
         const content = this.stripMetaTags(oldValue);
-        const intMatch = String(content).match(/^-?\d+$/);
-        if (intMatch) {
-            let val = parseInt(content);
+        const numMatch = String(content).match(/^-?\d+(?:\.\d+)?$/);
+        if (numMatch) {
+            let val = parseFloat(content);
             val += amount;
+            // Round to avoid floating point errors
+            val = Math.round(val * 1000) / 1000;
             parent[key] = `${metaPrefix}${val}`;
             this.logGranular('MATH', pathStr, oldValue, parent[key]);
             this.recalculateAllSkillXP();
@@ -2841,7 +2845,7 @@ class ZyqralOS {
         const checkVal = hasMeta ? displayVal : val;
         const checkStr = String(checkVal);
         
-        const percentMatch = checkStr.match(/^(\d{1,3})%$/);
+        const percentMatch = checkStr.match(/^(\d+(?:\.\d+)?)%$/);
         if (percentMatch) {
             const stepperConfig = this.parseStepperConfig(val);
             if (stepperConfig) {
@@ -2887,9 +2891,9 @@ class ZyqralOS {
             }
             return `<span class="val-display mono text-blue-400 hover:underline" onclick="app.setEdit('${path}')">${checkVal}</span>`;
         }
-        // String that looks like an integer (including metadata-tagged)
-        const intMatch = checkStr.match(/^-?\d+$/);
-        if (intMatch) {
+        // String that looks like a number (integer or float, including metadata-tagged)
+        const numMatch = checkStr.match(/^-?\d+(?:\.\d+)?$/);
+        if (numMatch) {
             // Check for <pom> tag - show timer controls instead of steppers
             if (this.hasMetaTag(val, 'pom')) {
                 const isRunning = this.isPomRunning(path);
