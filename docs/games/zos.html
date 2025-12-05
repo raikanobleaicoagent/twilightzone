@@ -2690,21 +2690,93 @@ class ZyqralOS {
     // Strip metadata tags from value for display
     stripMetaTags(val) {
         if (typeof val !== 'string') return val;
-        return val.replace(/<([a-zA-Z_][a-zA-Z0-9_]*)>/g, '').trim();
+        // First strip stepper tags (with content), then regular tags
+        return val.replace(/<stepper:[^>]+>/gi, '').replace(/<([a-zA-Z_][a-zA-Z0-9_]*)>/g, '').trim();
     }
     
-    // Get just the metadata prefix from a value
+    // Get just the metadata prefix from a value (including stepper tags)
     getMetaPrefix(val) {
         if (typeof val !== 'string') return '';
-        const tagRegex = /<([a-zA-Z_][a-zA-Z0-9_]*)>/g;
-        const matches = val.match(tagRegex);
-        return matches ? matches.join('') : '';
+        // Match both regular tags and stepper tags
+        const regularTags = val.match(/<([a-zA-Z_][a-zA-Z0-9_]*)>/g) || [];
+        const stepperTags = val.match(/<stepper:[^>]+>/gi) || [];
+        return [...regularTags, ...stepperTags].join('');
     }
     
     // Check if value has a specific tag
     hasMetaTag(val, tagName) {
         const { tags } = this.extractMetaTags(val);
         return tags.includes(tagName.toLowerCase());
+    }
+
+    // Parse stepper configuration from <stepper:...> tag
+    // Format: <stepper:-5@--,-1@-,+1@+,+5@++>
+    parseStepperConfig(val) {
+        if (typeof val !== 'string') return null;
+        const stepperMatch = val.match(/<stepper:([^>]+)>/i);
+        if (!stepperMatch) return null;
+        
+        const configStr = stepperMatch[1];
+        const buttons = [];
+        const parts = configStr.split(',');
+        
+        for (const part of parts) {
+            const [deltaStr, symbol] = part.trim().split('@');
+            if (deltaStr && symbol) {
+                const delta = parseFloat(deltaStr);
+                if (!isNaN(delta)) {
+                    buttons.push({ delta, symbol: symbol.trim() });
+                }
+            }
+        }
+        
+        // Sort by delta so negative values are on left, positive on right
+        buttons.sort((a, b) => a.delta - b.delta);
+        return buttons.length > 0 ? buttons : null;
+    }
+    
+    // Strip stepper tag (with content) from value
+    stripStepperTag(val) {
+        if (typeof val !== 'string') return val;
+        return val.replace(/<stepper:[^>]+>/gi, '').trim();
+    }
+    
+    // Get meta prefix excluding stepper tag
+    getMetaPrefixWithoutStepper(val) {
+        if (typeof val !== 'string') return '';
+        // First get all tags, then filter out stepper
+        const tagRegex = /<([a-zA-Z_][a-zA-Z0-9_]*)>/g;
+        const matches = val.match(tagRegex);
+        return matches ? matches.join('') : '';
+    }
+    
+    // Build stepper buttons from config
+    buildStepperButtons(path, stepperConfig, incrementFn, displayVal, colorClass) {
+        const leftButtons = stepperConfig.filter(b => b.delta < 0);
+        const rightButtons = stepperConfig.filter(b => b.delta >= 0);
+        
+        let html = '<div class="flex items-center">';
+        
+        // Left buttons (negative deltas)
+        for (const btn of leftButtons) {
+            html += `<button class="stepper-btn" onclick="app.${incrementFn}('${path}', ${btn.delta})">${this.escapeHtml(btn.symbol)}</button>`;
+        }
+        
+        // Value display
+        html += `<span class="val-display mono ${colorClass} hover:underline mx-0 whitespace-nowrap min-w-[3rem] text-center flex-shrink-0" onclick="app.setEdit('${path}')">${displayVal}</span>`;
+        
+        // Right buttons (positive deltas)
+        for (const btn of rightButtons) {
+            html += `<button class="stepper-btn" onclick="app.${incrementFn}('${path}', ${btn.delta})">${this.escapeHtml(btn.symbol)}</button>`;
+        }
+        
+        html += '</div>';
+        return html;
+    }
+    
+    // Helper to escape HTML in button symbols
+    escapeHtml(str) {
+        return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
     }
 
     buildPrimitive(val, path, keyName) {
@@ -2739,7 +2811,11 @@ class ZyqralOS {
         
         const percentMatch = checkStr.match(/^(\d{1,3})%$/);
         if (percentMatch) {
-            return `<div class="flex items-center"><button class="stepper-btn" onclick="app.incrementPercent('${path}', -25)"><i class="fa-solid fa-angles-left"></i></button><button class="stepper-btn" onclick="app.incrementPercent('${path}', -5)"><i class="fa-solid fa-minus"></i></button><span class="val-display mono text-[#00ff9d] hover:underline mx-0 whitespace-nowrap min-w-[3rem] text-center flex-shrink-0" onclick="app.setEdit('${path}')">${checkVal}</span><button class="stepper-btn" onclick="app.incrementPercent('${path}', 5)"><i class="fa-solid fa-plus"></i></button><button class="stepper-btn" onclick="app.incrementPercent('${path}', 25)"><i class="fa-solid fa-angles-right"></i></button></div>`;
+            const stepperConfig = this.parseStepperConfig(val);
+            if (stepperConfig) {
+                return this.buildStepperButtons(path, stepperConfig, 'incrementPercent', checkVal, 'text-[#00ff9d]');
+            }
+            return `<span class="val-display mono text-[#00ff9d] hover:underline" onclick="app.setEdit('${path}')">${checkVal}</span>`;
         }
         const vUpper = checkStr.toUpperCase();
         if (['PENDING', 'IN PROGRESS', 'COMPLETED', 'FAILED'].includes(vUpper)) {
@@ -2768,12 +2844,16 @@ class ZyqralOS {
         }
         // Native number type
         if (typeof val === 'number') {
-            return `<div class="flex items-center"><button class="stepper-btn" onclick="app.incrementValue('${path}', -10)"><i class="fa-solid fa-angles-left"></i></button><button class="stepper-btn" onclick="app.incrementValue('${path}', -1)"><i class="fa-solid fa-minus"></i></button><span class="val-display mono text-green-400 hover:underline mx-0 whitespace-nowrap min-w-[3rem] text-center flex-shrink-0" onclick="app.setEdit('${path}')">${val}</span><button class="stepper-btn" onclick="app.incrementValue('${path}', 1)"><i class="fa-solid fa-plus"></i></button><button class="stepper-btn" onclick="app.incrementValue('${path}', 10)"><i class="fa-solid fa-angles-right"></i></button></div>`;
+            return `<span class="val-display mono text-green-400 hover:underline" onclick="app.setEdit('${path}')">${val}</span>`;
         }
         // Time format HH:MM or H:MM
         const timeMatch = checkStr.match(/^\d{1,2}:\d{2}$/);
         if (timeMatch) {
-            return `<div class="flex items-center"><button class="stepper-btn" onclick="app.incrementTime('${path}', -10)"><i class="fa-solid fa-angles-left"></i></button><button class="stepper-btn" onclick="app.incrementTime('${path}', -1)"><i class="fa-solid fa-minus"></i></button><span class="val-display mono text-blue-400 hover:underline mx-0 whitespace-nowrap min-w-[3rem] text-center flex-shrink-0" onclick="app.setEdit('${path}')">${checkVal}</span><button class="stepper-btn" onclick="app.incrementTime('${path}', 1)"><i class="fa-solid fa-plus"></i></button><button class="stepper-btn" onclick="app.incrementTime('${path}', 10)"><i class="fa-solid fa-angles-right"></i></button></div>`;
+            const stepperConfig = this.parseStepperConfig(val);
+            if (stepperConfig) {
+                return this.buildStepperButtons(path, stepperConfig, 'incrementTime', checkVal, 'text-blue-400');
+            }
+            return `<span class="val-display mono text-blue-400 hover:underline" onclick="app.setEdit('${path}')">${checkVal}</span>`;
         }
         // String that looks like an integer (including metadata-tagged)
         const intMatch = checkStr.match(/^-?\d+$/);
@@ -2787,7 +2867,11 @@ class ZyqralOS {
                 const safeId = path.replace(/\|/g, '_');
                 return `<div class="flex items-center gap-1"><span id="pom-val-${safeId}" class="val-display mono ${valueColor} hover:underline mx-0 whitespace-nowrap min-w-[3rem] text-center flex-shrink-0" onclick="app.setEdit('${path}')">${checkVal}</span><button class="stepper-btn ${playPauseColor}" onclick="app.togglePomTimer('${path}')" title="${isRunning ? 'Pause' : 'Play'}"><i class="fa-solid ${playPauseIcon}"></i></button><button class="stepper-btn text-red-400" onclick="app.resetPomTimer('${path}')" title="Reset"><i class="fa-solid fa-rotate-left"></i></button></div>`;
             }
-            return `<div class="flex items-center"><button class="stepper-btn" onclick="app.incrementMetaValue('${path}', -10)"><i class="fa-solid fa-angles-left"></i></button><button class="stepper-btn" onclick="app.incrementMetaValue('${path}', -1)"><i class="fa-solid fa-minus"></i></button><span class="val-display mono text-green-400 hover:underline mx-0 whitespace-nowrap min-w-[3rem] text-center flex-shrink-0" onclick="app.setEdit('${path}')">${checkVal}</span><button class="stepper-btn" onclick="app.incrementMetaValue('${path}', 1)"><i class="fa-solid fa-plus"></i></button><button class="stepper-btn" onclick="app.incrementMetaValue('${path}', 10)"><i class="fa-solid fa-angles-right"></i></button></div>`;
+            const stepperConfig = this.parseStepperConfig(val);
+            if (stepperConfig) {
+                return this.buildStepperButtons(path, stepperConfig, 'incrementMetaValue', checkVal, 'text-green-400');
+            }
+            return `<span class="val-display mono text-green-400 hover:underline" onclick="app.setEdit('${path}')">${checkVal}</span>`;
         }
         if (vUpper === 'CRITICAL') return `<span class="badge badge-critical cursor-pointer" onclick="app.setEdit('${path}')">CRITICAL</span>`;
         if (vUpper === 'HIGH') return `<span class="badge badge-high cursor-pointer" onclick="app.setEdit('${path}')">HIGH</span>`;
