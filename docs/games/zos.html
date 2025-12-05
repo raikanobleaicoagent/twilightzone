@@ -2256,11 +2256,38 @@ class ZyqralOS {
         
         // Start new timer that ticks every second
         this._pomTimers[pathStr] = setInterval(() => {
-            this.incrementMetaValue(pathStr, 1);
+            this.pomTickSilent(pathStr);
         }, 1000);
         
         // Re-render to show pause button
         this.render();
+    }
+    
+    // Silent tick that doesn't disrupt text editing
+    pomTickSilent(pathStr) {
+        const { parent, key } = this.getParent(pathStr);
+        if (!parent) return;
+        
+        const oldValue = parent[key];
+        const metaPrefix = this.getMetaPrefix(oldValue);
+        const content = this.stripMetaTags(oldValue);
+        const intMatch = String(content).match(/^-?\d+$/);
+        
+        if (intMatch) {
+            let val = parseInt(content);
+            val += 1;
+            parent[key] = `${metaPrefix}${val}`;
+            
+            // Save to localStorage WITHOUT triggering render
+            localStorage.setItem(STORAGE_KEY, JSON.stringify(this.state));
+            
+            // Update just the pom display element directly
+            const safeId = pathStr.replace(/\|/g, '_');
+            const displayEl = document.getElementById(`pom-val-${safeId}`);
+            if (displayEl) {
+                displayEl.textContent = val;
+            }
+        }
     }
     
     stopPomTimer(pathStr) {
@@ -2730,7 +2757,8 @@ class ZyqralOS {
                 const playPauseIcon = isRunning ? 'fa-pause' : 'fa-play';
                 const playPauseColor = isRunning ? 'text-yellow-400' : 'text-green-400';
                 const valueColor = isRunning ? 'text-yellow-400' : 'text-green-400';
-                return `<div class="flex items-center gap-1"><span class="val-display mono ${valueColor} hover:underline mx-0 whitespace-nowrap min-w-[3rem] text-center flex-shrink-0" onclick="app.setEdit('${path}')">${checkVal}</span><button class="stepper-btn ${playPauseColor}" onclick="app.togglePomTimer('${path}')" title="${isRunning ? 'Pause' : 'Play'}"><i class="fa-solid ${playPauseIcon}"></i></button><button class="stepper-btn text-red-400" onclick="app.resetPomTimer('${path}')" title="Reset"><i class="fa-solid fa-rotate-left"></i></button></div>`;
+                const safeId = path.replace(/\|/g, '_');
+                return `<div class="flex items-center gap-1"><span id="pom-val-${safeId}" class="val-display mono ${valueColor} hover:underline mx-0 whitespace-nowrap min-w-[3rem] text-center flex-shrink-0" onclick="app.setEdit('${path}')">${checkVal}</span><button class="stepper-btn ${playPauseColor}" onclick="app.togglePomTimer('${path}')" title="${isRunning ? 'Pause' : 'Play'}"><i class="fa-solid ${playPauseIcon}"></i></button><button class="stepper-btn text-red-400" onclick="app.resetPomTimer('${path}')" title="Reset"><i class="fa-solid fa-rotate-left"></i></button></div>`;
             }
             return `<div class="flex items-center"><button class="stepper-btn" onclick="app.incrementMetaValue('${path}', -10)"><i class="fa-solid fa-angles-left"></i></button><button class="stepper-btn" onclick="app.incrementMetaValue('${path}', -1)"><i class="fa-solid fa-minus"></i></button><span class="val-display mono text-green-400 hover:underline mx-0 whitespace-nowrap min-w-[3rem] text-center flex-shrink-0" onclick="app.setEdit('${path}')">${checkVal}</span><button class="stepper-btn" onclick="app.incrementMetaValue('${path}', 1)"><i class="fa-solid fa-plus"></i></button><button class="stepper-btn" onclick="app.incrementMetaValue('${path}', 10)"><i class="fa-solid fa-angles-right"></i></button></div>`;
         }
