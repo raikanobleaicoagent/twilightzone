@@ -2806,7 +2806,7 @@ class ZyqralOS {
     }
     
     // Parse options configuration from <options:...> tag
-    // Format: <options:label1@value1,label2@value2,label3@value3>
+    // Format: <options:value1@label1,value2@label2,value3@label3>
     parseOptionsConfig(val) {
         if (typeof val !== 'string') return null;
         const optionsMatch = val.match(/<options:([^>]+)>/i);
@@ -2819,9 +2819,9 @@ class ZyqralOS {
         for (const part of parts) {
             const atIndex = part.indexOf('@');
             if (atIndex > 0) {
-                const label = part.substring(0, atIndex).trim();
-                const value = part.substring(atIndex + 1).trim();
-                if (label && value !== undefined) {
+                const value = part.substring(0, atIndex).trim();
+                const label = part.substring(atIndex + 1).trim();
+                if (value !== undefined && label) {
                     options.push({ label, value });
                 }
             }
