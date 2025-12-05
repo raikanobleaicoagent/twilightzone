@@ -2874,7 +2874,20 @@ class ZyqralOS {
         return `<span class="val-display mono text-green-400 hover:underline" onclick="app.setEdit('${path}')">${displayVal}</span>`;
     }
 
-    setEdit(path) { this.editingPath = path; this.render(); setTimeout(() => { const el = document.getElementById(`input-${path}`); if(el) { el.focus(); el.select(); } }, 50); }
+    setEdit(path) { 
+        this.editingPath = path; 
+        this.render(); 
+        setTimeout(() => { 
+            const el = document.getElementById(`input-${path}`); 
+            if(el) { 
+                el.focus(); 
+                // Calculate metadata prefix length to select only the value part
+                const fullVal = el.value;
+                const metaPrefixLen = this.getMetaPrefix(fullVal).length;
+                el.setSelectionRange(metaPrefixLen, fullVal.length);
+            } 
+        }, 50); 
+    }
     cancelEdit() { this.editingPath = null; this.render(); }
     
     toggleIO(mode) {
