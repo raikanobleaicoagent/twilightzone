@@ -1051,8 +1051,8 @@ class ZyqralOS {
             }
             
             // If there's a target path, write the value there (side effect)
-            // Skip if we're in edit mode to prevent interference with editing
-            if (targetPath && !this.editingPath) {
+            // Skip if we're in edit mode or exporting to prevent interference
+            if (targetPath && !this.editingPath && !this._exportingFormulas) {
                 try {
                     const { parent, key } = this.getParent(targetPath);
                     if (parent && key !== undefined) {
@@ -2658,10 +2658,17 @@ class ZyqralOS {
             if (typeof obj === 'string') {
                 const stripped = this.stripMetaTags(obj);
                 if (stripped.startsWith('=')) {
-                    const result = this.processFormula(stripped, 0, path);
-                    // Keep metadata prefix but replace formula with result
-                    const metaPrefix = this.getMetaPrefix(obj);
-                    return metaPrefix + String(result);
+                    // Temporarily set flag to prevent side effects during export calculation
+                    const wasExporting = this._exportingFormulas;
+                    this._exportingFormulas = true;
+                    try {
+                        const result = this.processFormula(stripped, 0, path);
+                        // Keep metadata prefix but replace formula with result
+                        const metaPrefix = this.getMetaPrefix(obj);
+                        return metaPrefix + String(result);
+                    } finally {
+                        this._exportingFormulas = wasExporting;
+                    }
                 }
             }
             return obj;
@@ -2680,6 +2687,7 @@ class ZyqralOS {
     }
 
     updateExportPreview() {
+        try {
         const ta = document.getElementById('raw-json');
         const visibleCheck = document.getElementById('export-visible-check');
         const logsCheck = document.getElementById('export-logs-check');
@@ -2691,7 +2699,7 @@ class ZyqralOS {
         const hourlyCheck = document.getElementById('export-hourly-check');
         
         let dataToExport;
-        if (visibleCheck.checked) {
+        if (visibleCheck && visibleCheck.checked) {
             dataToExport = this.filterVisible(this.state);
         } else {
             dataToExport = JSON.parse(JSON.stringify(this.state));
@@ -2699,17 +2707,22 @@ class ZyqralOS {
         
         // Calculate formulas if checkbox is unchecked (keep formulas raw if checked)
         if (formulasCheck && !formulasCheck.checked) {
-            dataToExport = this.calculateFormulasInObject(dataToExport);
+            try {
+                dataToExport = this.calculateFormulasInObject(dataToExport);
+            } catch (e) {
+                console.error('Formula calculation error:', e);
+            }
         }
 
         // Scrub metadata if checkbox is unchecked
-        if (!metadataCheck.checked) {
+        if (metadataCheck && !metadataCheck.checked) {
             dataToExport = this.scrubMetadataFromObject(dataToExport);
         }
 
-        if (logsCheck.checked) {
+        if (logsCheck && logsCheck.checked) {
             const fullLogs = this.state._meta_log || [];
             dataToExport._meta_log = fullLogs.map(log => {
+                if (!log || !log.a) return { t: log?.t || '', a: '' };
                 let cleanText = log.a.replace(/<br\s*\/?>/gi, '\n').replace(/<[^>]+>/g, '').replace(/\u81f3/g, '至');
                 return { t: log.t, a: cleanText };
             });
@@ -2734,6 +2747,7 @@ class ZyqralOS {
             
             Object.keys(dataToExport.SKILLS).forEach(skillName => {
                 const skill = dataToExport.SKILLS[skillName];
+                if (!skill) return;
                 
                 // Handle daily history
                 if (!includeDaily) {
@@ -2741,7 +2755,7 @@ class ZyqralOS {
                 }
                 
                 // Handle hourly data - format as labeled string
-                if (includeHourly && skill.HOURLY) {
+                if (includeHourly && skill.HOURLY && Array.isArray(skill.HOURLY)) {
                     const labeledHourly = skill.HOURLY.map((xp, hour) => `${hour}h ${xp}xp`).join(', ');
                     skill.HOURLY = labeledHourly;
                 } else if (!includeHourly) {
@@ -2760,6 +2774,11 @@ class ZyqralOS {
         if(dataToExport.log_config) delete dataToExport.log_config.chart_limit;
 
         ta.value = JSON.stringify(dataToExport, null, 2);
+        } catch (e) {
+            console.error('Export preview error:', e);
+            const ta = document.getElementById('raw-json');
+            if (ta) ta.value = '{"error": "Export preview failed"}';
+        }
     }
 
     render() {
