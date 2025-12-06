@@ -985,126 +985,132 @@ class ZyqralOS {
         if (depth > 10) return "ERR:LOOP";
         let expression = formula.startsWith('=') ? formula.substring(1) : formula;
         
-        // Handle IF/THEN/ELSE logic with optional @ pointing and AND display value
-        // Format: =IF<condition>THEN<value>[@{{target}}]ELSE<value>[@{{target}}][AND<displayValue>]
-        // The @ syntax writes the value to a target path
-        // The AND syntax specifies what to display (otherwise displays THEN/ELSE result)
-        const ifMatch = expression.match(/^IF(.+?)THEN(.+?)ELSE(.+)$/i);
-        if (ifMatch) {
+        // Handle multiple IF statements separated by semicolons
+        // Format: =IF<cond>THEN<val>[@{{target}}][ELSE<val>[@{{target}}]][AND<display>];IF...;...
+        // ELSE is optional, AND is optional
+        if (expression.toUpperCase().startsWith('IF')) {
             try {
-            const condition = ifMatch[1].trim();
-            let thenPart = ifMatch[2].trim();
-            let elsePart = ifMatch[3].trim();
-            let displayValue = null;
-            
-            // Check for AND at the end (for display value)
-            const andMatch = elsePart.match(/^(.+?)AND(.+)$/i);
-            if (andMatch) {
-                elsePart = andMatch[1].trim();
-                displayValue = andMatch[2].trim();
-            }
-            
-            // Parse THEN part for value and optional @target
-            let thenValue, thenTarget = null;
-            const thenPointMatch = thenPart.match(/^(.+?)@\{\{(.+?)\}\}$/);
-            if (thenPointMatch) {
-                thenValue = thenPointMatch[1].trim();
-                thenTarget = thenPointMatch[2].trim();
-            } else {
-                thenValue = thenPart;
-            }
-            
-            // Parse ELSE part for value and optional @target
-            let elseValue, elseTarget = null;
-            const elsePointMatch = elsePart.match(/^(.+?)@\{\{(.+?)\}\}$/);
-            if (elsePointMatch) {
-                elseValue = elsePointMatch[1].trim();
-                elseTarget = elsePointMatch[2].trim();
-            } else {
-                elseValue = elsePart;
-            }
-            
-            // Resolve relative paths (~) for targets
-            if (thenTarget && thenTarget.includes('~')) {
-                const parentPath = contextPath.includes('|') ? contextPath.substring(0, contextPath.lastIndexOf('|')) : '';
-                thenTarget = thenTarget.replace(/~/g, parentPath);
-                if (thenTarget.startsWith('|')) thenTarget = thenTarget.substring(1);
-            }
-            if (elseTarget && elseTarget.includes('~')) {
-                const parentPath = contextPath.includes('|') ? contextPath.substring(0, contextPath.lastIndexOf('|')) : '';
-                elseTarget = elseTarget.replace(/~/g, parentPath);
-                if (elseTarget.startsWith('|')) elseTarget = elseTarget.substring(1);
-            }
-            
-            // Evaluate the condition
-            const conditionResult = this.evaluateCondition(condition, depth, contextPath);
-            
-            // Get the appropriate value and target based on condition
-            const resultValue = conditionResult ? thenValue : elseValue;
-            const targetPath = conditionResult ? thenTarget : elseTarget;
-            
-            // Extract the actual value (strip quotes if string literal)
-            let actualValue = resultValue;
-            const stringLiteralMatch = resultValue.match(/^"(.*)"$/);
-            if (stringLiteralMatch) {
-                actualValue = stringLiteralMatch[1];
-            }
-            
-            // If there's a target path, write the value there (side effect)
-            // Skip if we're in edit mode or exporting to prevent interference
-            if (targetPath && !this.editingPath && !this._exportingFormulas) {
-                try {
-                    const { parent, key } = this.getParent(targetPath);
-                    if (parent && key !== undefined) {
-                        const currentValue = parent[key];
-                        // Only write if value is different to avoid infinite loops
-                        if (currentValue !== actualValue) {
-                            parent[key] = actualValue;
-                            // Schedule a save after render completes
-                            if (!this._pendingFormulaSave) {
-                                this._pendingFormulaSave = true;
-                                setTimeout(() => {
-                                    this._pendingFormulaSave = false;
-                                    this.save();
-                                    this.render();
-                                }, 100);
-                            }
+                // Split by semicolons to get individual statements
+                const statements = expression.split(';').filter(s => s.trim());
+                let displayResult = '';
+                let andDisplayValue = null;
+                
+                for (const stmt of statements) {
+                    const trimmedStmt = stmt.trim();
+                    if (!trimmedStmt.toUpperCase().startsWith('IF')) continue;
+                    
+                    // Check for AND at the end first (for final display value)
+                    // AND must be followed by " or {{ or a digit to avoid matching inside strings like "GRAND"
+                    let stmtToProcess = trimmedStmt;
+                    const andMatch = stmtToProcess.match(/^(.+)AND("|\{\{|-?\d)(.*)$/i);
+                    if (andMatch) {
+                        stmtToProcess = andMatch[1].trim();
+                        andDisplayValue = andMatch[2] + andMatch[3]; // Reconstruct the display value
+                    }
+                    
+                    // Parse IF...THEN...ELSE or IF...THEN
+                    const ifElseMatch = stmtToProcess.match(/^IF(.+?)THEN(.+?)ELSE(.+)$/i);
+                    const ifOnlyMatch = stmtToProcess.match(/^IF(.+?)THEN(.+)$/i);
+                    
+                    let condition, thenPart, elsePart = null;
+                    
+                    if (ifElseMatch) {
+                        condition = ifElseMatch[1].trim();
+                        thenPart = ifElseMatch[2].trim();
+                        elsePart = ifElseMatch[3].trim();
+                    } else if (ifOnlyMatch) {
+                        condition = ifOnlyMatch[1].trim();
+                        thenPart = ifOnlyMatch[2].trim();
+                    } else {
+                        continue; // Invalid statement, skip
+                    }
+                    
+                    // Parse THEN part for value and optional @target
+                    let thenValue, thenTarget = null;
+                    const thenPointMatch = thenPart.match(/^(.+?)@\{\{(.+?)\}\}$/);
+                    if (thenPointMatch) {
+                        thenValue = thenPointMatch[1].trim();
+                        thenTarget = thenPointMatch[2].trim();
+                    } else {
+                        thenValue = thenPart;
+                    }
+                    
+                    // Parse ELSE part for value and optional @target (if ELSE exists)
+                    let elseValue = null, elseTarget = null;
+                    if (elsePart !== null) {
+                        const elsePointMatch = elsePart.match(/^(.+?)@\{\{(.+?)\}\}$/);
+                        if (elsePointMatch) {
+                            elseValue = elsePointMatch[1].trim();
+                            elseTarget = elsePointMatch[2].trim();
+                        } else {
+                            elseValue = elsePart;
                         }
                     }
-                } catch (e) {
-                    // Ignore errors when writing to target
+                    
+                    // Resolve relative paths (~) and self keyword for targets
+                    const resolvePath = (p) => {
+                        if (!p) return p;
+                        // Handle {{self}} or {{self_key_name}} to target the formula's own key
+                        const pLower = p.toLowerCase();
+                        if (pLower === 'self' || pLower === 'self_key_name') {
+                            return contextPath;
+                        }
+                        if (p.includes('~')) {
+                            const parentPath = contextPath.includes('|') ? contextPath.substring(0, contextPath.lastIndexOf('|')) : '';
+                            p = p.replace(/~/g, parentPath);
+                            if (p.startsWith('|')) p = p.substring(1);
+                        }
+                        return p;
+                    };
+                    thenTarget = resolvePath(thenTarget);
+                    elseTarget = resolvePath(elseTarget);
+                    
+                    // Check if target is self (the formula's own path)
+                    const thenIsSelf = thenTarget === contextPath;
+                    const elseIsSelf = elseTarget === contextPath;
+                    
+                    // Evaluate the condition
+                    const conditionResult = this.evaluateCondition(condition, depth, contextPath);
+                    
+                    // Determine which branch to execute
+                    if (conditionResult) {
+                        // THEN branch
+                        const actualValue = this.extractValue(thenValue);
+                        
+                        if (thenIsSelf) {
+                            // Self-targeting: set as display value, don't write
+                            displayResult = actualValue;
+                        } else if (thenTarget && !this.editingPath && !this._exportingFormulas) {
+                            // External target: write to it
+                            this.writeToTarget(thenTarget, actualValue);
+                        } else if (!thenTarget) {
+                            // No target specified: use as display value
+                            displayResult = actualValue;
+                        }
+                    } else if (elsePart !== null) {
+                        // ELSE branch (only if ELSE exists)
+                        const actualValue = this.extractValue(elseValue);
+                        
+                        if (elseIsSelf) {
+                            // Self-targeting: set as display value, don't write
+                            displayResult = actualValue;
+                        } else if (elseTarget && !this.editingPath && !this._exportingFormulas) {
+                            // External target: write to it
+                            this.writeToTarget(elseTarget, actualValue);
+                        } else if (!elseTarget) {
+                            // No target specified: use as display value
+                            displayResult = actualValue;
+                        }
+                    }
+                    // If condition is false and no ELSE, just continue to next statement
                 }
-            }
-            
-            // Determine what to return/display
-            if (displayValue !== null) {
-                // AND value specified - use that for display
-                const displayLiteralMatch = displayValue.match(/^"(.*)"$/);
-                if (displayLiteralMatch) {
-                    return displayLiteralMatch[1];
+                
+                // Determine final display value
+                if (andDisplayValue !== null) {
+                    return this.extractValue(andDisplayValue);
                 }
-                // Check if display value is a path reference
-                const displayPathMatch = displayValue.match(/^\{\{(.+)\}\}$/);
-                if (displayPathMatch) {
-                    return this.getValueFromPath(displayPathMatch[1].trim(), depth);
-                }
-                return this.processFormula('=' + displayValue, depth + 1, contextPath);
-            }
-            
-            // No AND - return the THEN/ELSE result value
-            if (stringLiteralMatch) {
-                return actualValue;
-            }
-            
-            // Check if result is a path reference
-            const pathRefMatch = resultValue.match(/^\{\{(.+)\}\}$/);
-            if (pathRefMatch) {
-                const val = this.getValueFromPath(pathRefMatch[1].trim(), depth);
-                return val;
-            }
-            
-            // Otherwise try to evaluate as number/expression
-            return this.processFormula('=' + resultValue, depth + 1, contextPath);
+                
+                return displayResult;
             } catch (e) {
                 return "ERR:IF";
             }
@@ -1166,6 +1172,46 @@ class ZyqralOS {
             const result = this.safeEvaluate(replaced);
             return result;
         } catch (e) { return "ERR:SYNTAX"; }
+    }
+    
+    // Extract actual value from expression (strip quotes from string literals)
+    extractValue(expr) {
+        if (!expr) return '';
+        const stringLiteralMatch = expr.match(/^"(.*)"$/);
+        if (stringLiteralMatch) {
+            return stringLiteralMatch[1];
+        }
+        // Check if it's a path reference
+        const pathRefMatch = expr.match(/^\{\{(.+)\}\}$/);
+        if (pathRefMatch) {
+            return this.getValueFromPath(pathRefMatch[1].trim(), 0);
+        }
+        return expr;
+    }
+    
+    // Write a value to a target path with side effect handling
+    writeToTarget(targetPath, value) {
+        try {
+            const { parent, key } = this.getParent(targetPath);
+            if (parent && key !== undefined) {
+                const currentValue = parent[key];
+                // Only write if value is different to avoid infinite loops
+                if (currentValue !== value) {
+                    parent[key] = value;
+                    // Schedule a save after render completes
+                    if (!this._pendingFormulaSave) {
+                        this._pendingFormulaSave = true;
+                        setTimeout(() => {
+                            this._pendingFormulaSave = false;
+                            this.save();
+                            this.render();
+                        }, 100);
+                    }
+                }
+            }
+        } catch (e) {
+            // Ignore errors when writing to target
+        }
     }
     
     // Evaluate a condition for IF/THEN/ELSE
