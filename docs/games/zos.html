@@ -991,6 +991,7 @@ class ZyqralOS {
         // The AND syntax specifies what to display (otherwise displays THEN/ELSE result)
         const ifMatch = expression.match(/^IF(.+?)THEN(.+?)ELSE(.+)$/i);
         if (ifMatch) {
+            try {
             const condition = ifMatch[1].trim();
             let thenPart = ifMatch[2].trim();
             let elsePart = ifMatch[3].trim();
@@ -1023,6 +1024,18 @@ class ZyqralOS {
                 elseValue = elsePart;
             }
             
+            // Resolve relative paths (~) for targets
+            if (thenTarget && thenTarget.includes('~')) {
+                const parentPath = contextPath.includes('|') ? contextPath.substring(0, contextPath.lastIndexOf('|')) : '';
+                thenTarget = thenTarget.replace(/~/g, parentPath);
+                if (thenTarget.startsWith('|')) thenTarget = thenTarget.substring(1);
+            }
+            if (elseTarget && elseTarget.includes('~')) {
+                const parentPath = contextPath.includes('|') ? contextPath.substring(0, contextPath.lastIndexOf('|')) : '';
+                elseTarget = elseTarget.replace(/~/g, parentPath);
+                if (elseTarget.startsWith('|')) elseTarget = elseTarget.substring(1);
+            }
+            
             // Evaluate the condition
             const conditionResult = this.evaluateCondition(condition, depth, contextPath);
             
@@ -1038,22 +1051,28 @@ class ZyqralOS {
             }
             
             // If there's a target path, write the value there (side effect)
-            if (targetPath) {
-                const { parent, key } = this.getParent(targetPath);
-                if (parent && key) {
-                    const currentValue = parent[key];
-                    // Only write if value is different to avoid infinite loops
-                    if (currentValue !== actualValue) {
-                        parent[key] = actualValue;
-                        // Schedule a save after render completes
-                        if (!this._pendingFormulaSave) {
-                            this._pendingFormulaSave = true;
-                            setTimeout(() => {
-                                this._pendingFormulaSave = false;
-                                this.save();
-                            }, 100);
+            // Skip if we're in edit mode to prevent interference with editing
+            if (targetPath && !this.editingPath) {
+                try {
+                    const { parent, key } = this.getParent(targetPath);
+                    if (parent && key !== undefined) {
+                        const currentValue = parent[key];
+                        // Only write if value is different to avoid infinite loops
+                        if (currentValue !== actualValue) {
+                            parent[key] = actualValue;
+                            // Schedule a save after render completes
+                            if (!this._pendingFormulaSave) {
+                                this._pendingFormulaSave = true;
+                                setTimeout(() => {
+                                    this._pendingFormulaSave = false;
+                                    this.save();
+                                    this.render();
+                                }, 100);
+                            }
                         }
                     }
+                } catch (e) {
+                    // Ignore errors when writing to target
                 }
             }
             
@@ -1086,6 +1105,9 @@ class ZyqralOS {
             
             // Otherwise try to evaluate as number/expression
             return this.processFormula('=' + resultValue, depth + 1, contextPath);
+            } catch (e) {
+                return "ERR:IF";
+            }
         }
         
         // Match {{path}} references - using non-greedy match
@@ -3057,7 +3079,10 @@ class ZyqralOS {
             const lineCount = String(initialValue).split('\n').length;
             const rows = Math.max(3, lineCount + 1); 
             const showClock = /timestamp/i.test(keyName);
-            return `<div class="flex items-start w-full gap-1"><textarea id="input-${path}" class="edit-input" rows="${rows}" onkeydown="if(event.key==='Enter' && event.shiftKey) {event.preventDefault(); app.updateValue('${path}', this.value)}" >${initialValue}</textarea><div class="flex flex-col gap-1 mt-1"><div class="flex items-center gap-1"><button onclick="app.updateValue('${path}', document.getElementById('input-${path}').value)" class="text-green-500 hover:bg-green-900/50 large-control-btn"><i class="fa-solid fa-check"></i></button><button onclick="app.cancelEdit()" class="text-gray-500 hover:bg-gray-800 large-control-btn"><i class="fa-solid fa-ban"></i></button>${showClock ? `<button onclick="app.injectTime('${path}')" class="text-blue-400 hover:bg-blue-900/30 large-control-btn" title="Inject Timestamp"><i class="fa-solid fa-clock"></i></button>` : ''}</div><button onclick="app.deleteItem('${path}')" class="text-red-900 hover:text-red-500 text-[10px] p-1 mt-1 text-right"><i class="fa-solid fa-xmark"></i></button></div></div>`; 
+            const safep = this.safePath(path);
+            // Only escape </textarea to prevent breaking out, preserve other characters
+            const safeInitial = String(initialValue).replace(/<\/textarea/gi, '&lt;/textarea');
+            return `<div class="flex items-start w-full gap-1"><textarea id="input-${safep}" class="edit-input" rows="${rows}" onkeydown="if(event.key==='Enter' && event.shiftKey) {event.preventDefault(); app.updateValue('${safep}', this.value)}" >${safeInitial}</textarea><div class="flex flex-col gap-1 mt-1"><div class="flex items-center gap-1"><button onclick="app.updateValue('${safep}', document.getElementById('input-${safep}').value)" class="text-green-500 hover:bg-green-900/50 large-control-btn"><i class="fa-solid fa-check"></i></button><button onclick="app.cancelEdit()" class="text-gray-500 hover:bg-gray-800 large-control-btn"><i class="fa-solid fa-ban"></i></button>${showClock ? `<button onclick="app.injectTime('${safep}')" class="text-blue-400 hover:bg-blue-900/30 large-control-btn" title="Inject Timestamp"><i class="fa-solid fa-clock"></i></button>` : ''}</div><button onclick="app.deleteItem('${safep}')" class="text-red-900 hover:text-red-500 text-[10px] p-1 mt-1 text-right"><i class="fa-solid fa-xmark"></i></button></div></div>`; 
         }
         
         // Check for formula using displayVal (after metadata stripped)
