@@ -985,6 +985,109 @@ class ZyqralOS {
         if (depth > 10) return "ERR:LOOP";
         let expression = formula.startsWith('=') ? formula.substring(1) : formula;
         
+        // Handle IF/THEN/ELSE logic with optional @ pointing and AND display value
+        // Format: =IF<condition>THEN<value>[@{{target}}]ELSE<value>[@{{target}}][AND<displayValue>]
+        // The @ syntax writes the value to a target path
+        // The AND syntax specifies what to display (otherwise displays THEN/ELSE result)
+        const ifMatch = expression.match(/^IF(.+?)THEN(.+?)ELSE(.+)$/i);
+        if (ifMatch) {
+            const condition = ifMatch[1].trim();
+            let thenPart = ifMatch[2].trim();
+            let elsePart = ifMatch[3].trim();
+            let displayValue = null;
+            
+            // Check for AND at the end (for display value)
+            const andMatch = elsePart.match(/^(.+?)AND(.+)$/i);
+            if (andMatch) {
+                elsePart = andMatch[1].trim();
+                displayValue = andMatch[2].trim();
+            }
+            
+            // Parse THEN part for value and optional @target
+            let thenValue, thenTarget = null;
+            const thenPointMatch = thenPart.match(/^(.+?)@\{\{(.+?)\}\}$/);
+            if (thenPointMatch) {
+                thenValue = thenPointMatch[1].trim();
+                thenTarget = thenPointMatch[2].trim();
+            } else {
+                thenValue = thenPart;
+            }
+            
+            // Parse ELSE part for value and optional @target
+            let elseValue, elseTarget = null;
+            const elsePointMatch = elsePart.match(/^(.+?)@\{\{(.+?)\}\}$/);
+            if (elsePointMatch) {
+                elseValue = elsePointMatch[1].trim();
+                elseTarget = elsePointMatch[2].trim();
+            } else {
+                elseValue = elsePart;
+            }
+            
+            // Evaluate the condition
+            const conditionResult = this.evaluateCondition(condition, depth, contextPath);
+            
+            // Get the appropriate value and target based on condition
+            const resultValue = conditionResult ? thenValue : elseValue;
+            const targetPath = conditionResult ? thenTarget : elseTarget;
+            
+            // Extract the actual value (strip quotes if string literal)
+            let actualValue = resultValue;
+            const stringLiteralMatch = resultValue.match(/^"(.*)"$/);
+            if (stringLiteralMatch) {
+                actualValue = stringLiteralMatch[1];
+            }
+            
+            // If there's a target path, write the value there (side effect)
+            if (targetPath) {
+                const { parent, key } = this.getParent(targetPath);
+                if (parent && key) {
+                    const currentValue = parent[key];
+                    // Only write if value is different to avoid infinite loops
+                    if (currentValue !== actualValue) {
+                        parent[key] = actualValue;
+                        // Schedule a save after render completes
+                        if (!this._pendingFormulaSave) {
+                            this._pendingFormulaSave = true;
+                            setTimeout(() => {
+                                this._pendingFormulaSave = false;
+                                this.save();
+                            }, 100);
+                        }
+                    }
+                }
+            }
+            
+            // Determine what to return/display
+            if (displayValue !== null) {
+                // AND value specified - use that for display
+                const displayLiteralMatch = displayValue.match(/^"(.*)"$/);
+                if (displayLiteralMatch) {
+                    return displayLiteralMatch[1];
+                }
+                // Check if display value is a path reference
+                const displayPathMatch = displayValue.match(/^\{\{(.+)\}\}$/);
+                if (displayPathMatch) {
+                    return this.getValueFromPath(displayPathMatch[1].trim(), depth);
+                }
+                return this.processFormula('=' + displayValue, depth + 1, contextPath);
+            }
+            
+            // No AND - return the THEN/ELSE result value
+            if (stringLiteralMatch) {
+                return actualValue;
+            }
+            
+            // Check if result is a path reference
+            const pathRefMatch = resultValue.match(/^\{\{(.+)\}\}$/);
+            if (pathRefMatch) {
+                const val = this.getValueFromPath(pathRefMatch[1].trim(), depth);
+                return val;
+            }
+            
+            // Otherwise try to evaluate as number/expression
+            return this.processFormula('=' + resultValue, depth + 1, contextPath);
+        }
+        
         // Match {{path}} references - using non-greedy match
         const regex = /\{\{([^}]+)\}\}/g;
         
@@ -1041,6 +1144,104 @@ class ZyqralOS {
             const result = this.safeEvaluate(replaced);
             return result;
         } catch (e) { return "ERR:SYNTAX"; }
+    }
+    
+    // Evaluate a condition for IF/THEN/ELSE
+    evaluateCondition(condition, depth, contextPath) {
+        // Replace {{path}} references with values
+        const regex = /\{\{([^}]+)\}\}/g;
+        let processedCondition = condition.replace(regex, (match, path) => {
+            let targetPath = path.trim();
+            
+            // Handle [literal] syntax for literal values
+            if (targetPath.startsWith('[') && targetPath.endsWith(']')) {
+                const content = targetPath.slice(1, -1);
+                // Check if it's a skill property
+                const upperContent = content.toUpperCase();
+                const skillKeys = Object.keys(this.state.SKILLS || {});
+                for (let sKey of skillKeys) {
+                    if (upperContent.startsWith(sKey + '_SKILL_')) {
+                        const prop = upperContent.replace(sKey + '_SKILL_', '');
+                        const skill = this.state.SKILLS[sKey];
+                        if (prop === 'TOTAL_XP') return skill.CURRENT_XP || 0;
+                        if (prop === 'LEVEL') return skill.LEVEL || 1;
+                        if (prop === 'DAILY_XP') return skill.DAILY_XP || 0;
+                    }
+                }
+                // Otherwise treat as literal number
+                return content;
+            }
+            
+            // Handle ~ for relative paths
+            if (targetPath.includes('~')) {
+                const parentPath = contextPath.includes('|') ? contextPath.substring(0, contextPath.lastIndexOf('|')) : '';
+                targetPath = targetPath.replace(/~/g, parentPath);
+                if (targetPath.startsWith('|')) targetPath = targetPath.substring(1);
+            }
+            
+            const val = this.getValueFromPath(targetPath, depth);
+            const cleanVal = this.stripMetaTags(val);
+            
+            // Return as string for comparison (wrap non-numbers in quotes for string comparison)
+            if (typeof cleanVal === 'string' && !/^-?\d+(\.\d+)?$/.test(cleanVal)) {
+                return `"${cleanVal}"`;
+            }
+            return cleanVal;
+        });
+        
+        // Now evaluate the condition
+        // Support ==, !=, <, >, <=, >=
+        try {
+            // Handle string equality comparisons
+            const eqMatch = processedCondition.match(/^(.+)==(.+)$/);
+            if (eqMatch) {
+                const left = eqMatch[1].trim().replace(/^"|"$/g, '');
+                const right = eqMatch[2].trim().replace(/^"|"$/g, '');
+                return left == right;
+            }
+            
+            const neqMatch = processedCondition.match(/^(.+)!=(.+)$/);
+            if (neqMatch) {
+                const left = neqMatch[1].trim().replace(/^"|"$/g, '');
+                const right = neqMatch[2].trim().replace(/^"|"$/g, '');
+                return left != right;
+            }
+            
+            const gteMatch = processedCondition.match(/^(.+)>=(.+)$/);
+            if (gteMatch) {
+                const left = parseFloat(gteMatch[1].trim());
+                const right = parseFloat(gteMatch[2].trim());
+                return left >= right;
+            }
+            
+            const lteMatch = processedCondition.match(/^(.+)<=(.+)$/);
+            if (lteMatch) {
+                const left = parseFloat(lteMatch[1].trim());
+                const right = parseFloat(lteMatch[2].trim());
+                return left <= right;
+            }
+            
+            const gtMatch = processedCondition.match(/^(.+)>(.+)$/);
+            if (gtMatch) {
+                const left = parseFloat(gtMatch[1].trim());
+                const right = parseFloat(gtMatch[2].trim());
+                return left > right;
+            }
+            
+            const ltMatch = processedCondition.match(/^(.+)<(.+)$/);
+            if (ltMatch) {
+                const left = parseFloat(ltMatch[1].trim());
+                const right = parseFloat(ltMatch[2].trim());
+                return left < right;
+            }
+            
+            // If no comparison operator, treat as truthy check
+            const numVal = parseFloat(processedCondition);
+            if (!isNaN(numVal)) return numVal !== 0;
+            return processedCondition.replace(/"/g, '').length > 0;
+        } catch (e) {
+            return false;
+        }
     }
 
     parseNumberFromValue(val, contextPath = '') {
@@ -1659,7 +1860,7 @@ class ZyqralOS {
             }
         }
         else if (type === 'RESET_TASKS') {
-            if(confirm('MACRO EXECUTION: Reset Task Statuses and "OUTPUT_MINS" counters?')) {
+            if(confirm('MACRO EXECUTION: Reset Task Statuses?')) {
                 let count = 0;
                 const recursiveReset = (obj) => {
                     for (let k in obj) {
@@ -1678,24 +1879,10 @@ class ZyqralOS {
                                     count++;
                                 }
                             }
-                            
-                            // Reset "output_mins" Keys (Case-Insensitive)
-                            if (k.toLowerCase().includes('output_mins')) {
-                                // Preserve formula structure if it exists, otherwise set to 0
-                                if (typeof obj[k] === 'string' && obj[k].startsWith('=')) {
-                                    obj[k] = '=0';
-                                } else {
-                                    obj[k] = 0;
-                                }
-                                count++;
-                            }
                         }
                     }
                 };
                 recursiveReset(this.state);
-                
-                // Recalculate XP to reflect dropped minutes/counts
-                this.recalculateAllSkillXP();
                 
                 this.addLog(`MACRO EXECUTION <span class="log-hl">[RESET TASKS]</span><br> UPDATED ${count} NODES`);
                 this.save();
@@ -2876,13 +3063,29 @@ class ZyqralOS {
         // Check for formula using displayVal (after metadata stripped)
         if (typeof displayVal === 'string' && displayVal.startsWith('=')) {
             const processedVal = this.processFormula(displayVal, 0, path);
+            const processedStr = String(processedVal);
+            
+            // Check if the formula result contains a prio tag - render as badge
+            const resultPrioColor = this.parsePrioConfig(processedStr);
+            if (resultPrioColor) {
+                const resultDisplayVal = this.stripMetaTags(processedStr);
+                const escapedFormula = String(val).replace(/"/g, '&quot;').replace(/>/g, '&gt;').replace(/</g, '&lt;');
+                const textColor = resultPrioColor;
+                const bgColor = this.darkenColor(resultPrioColor, 0.8);
+                const borderColor = this.darkenColor(resultPrioColor, 0.6);
+                return `<span class="badge cursor-pointer" style="background: ${bgColor}; color: ${textColor}; border: 1px solid ${borderColor};" onclick="app.setEdit('${path}')" title="${escapedFormula}">${resultDisplayVal}</span>`;
+            }
+            
+            // Check if result has color tag
+            const resultColor = this.parseColorConfig(processedStr);
+            const resultDisplayVal = this.stripMetaTags(processedStr);
+            
             // Escape the formula for title attribute and prevent >= ligature by using HTML entities
             const escapedFormula = String(val).replace(/"/g, '&quot;').replace(/>/g, '&gt;').replace(/</g, '&lt;');
             // Also escape the processed value to prevent >= ligature in display
-            const escapedProcessed = String(processedVal).replace(/>/g, '&gt;').replace(/</g, '&lt;');
+            const escapedProcessed = String(resultDisplayVal).replace(/>/g, '&gt;').replace(/</g, '&lt;');
             const safePathAttr = path.replace(/"/g, '&quot;');
-            const customColor = this.parseColorConfig(val);
-            const colorStyle = customColor ? `style="color: ${customColor}"` : 'class="text-green-400"';
+            const customColor = resultColor || this.parseColorConfig(val);
             const colorClass = customColor ? '' : 'text-green-400';
             return `<span class="val-display mono hover:underline ${colorClass}" ${customColor ? `style="color: ${customColor}"` : ''} data-formula-path="${safePathAttr}" onclick="app.setEdit('${path}')" title="${escapedFormula}">${escapedProcessed}</span>`;
         }
