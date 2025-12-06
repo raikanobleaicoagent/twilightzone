@@ -357,10 +357,13 @@
 
 <!-- IO Modal -->
 <div id="io-modal" class="fixed inset-0 z-[60] hidden flex flex-col">
-    <div class="p-4 border-b border-gray-800 flex justify-between items-center bg-black">
-        <div class="flex items-center gap-4">
+    <div class="p-4 border-b border-gray-800 flex flex-col gap-2 bg-black">
+        <div class="flex justify-between items-center">
             <h2 id="modal-header" class="text-green-500 font-bold text-xs tracking-[0.2em]">DATA SYNCHRONIZATION</h2>
-            <div id="export-option-container" class="hidden flex items-center gap-4">
+            <button onclick="app.toggleIO()" class="text-gray-500 hover:text-white"><i class="fa-solid fa-xmark fa-lg"></i></button>
+        </div>
+        <div id="export-option-container" class="hidden flex flex-col gap-1">
+            <div class="flex items-center gap-4">
                 <label class="flex items-center gap-2 cursor-pointer group">
                     <input type="checkbox" id="export-visible-check" onchange="app.updateExportConfig()" class="accent-green-500 cursor-pointer w-3 h-3">
                     <span class="text-[10px] text-gray-500 font-bold tracking-wider group-hover:text-green-400">VISIBLE</span>
@@ -374,8 +377,17 @@
                     <span class="text-[10px] text-gray-500 font-bold tracking-wider group-hover:text-purple-400">METADATA</span>
                 </label>
             </div>
+            <div class="flex items-center gap-4">
+                <label class="flex items-center gap-2 cursor-pointer group">
+                    <input type="checkbox" id="export-formulas-check" onchange="app.updateExportConfig()" class="accent-yellow-500 cursor-pointer w-3 h-3">
+                    <span class="text-[10px] text-gray-500 font-bold tracking-wider group-hover:text-yellow-400">FORMULAS</span>
+                </label>
+                <label class="flex items-center gap-2 cursor-pointer group">
+                    <input type="checkbox" id="export-mood-check" onchange="app.updateExportConfig()" class="accent-cyan-500 cursor-pointer w-3 h-3">
+                    <span class="text-[10px] text-gray-500 font-bold tracking-wider group-hover:text-cyan-400">MOOD</span>
+                </label>
+            </div>
         </div>
-        <button onclick="app.toggleIO()" class="text-gray-500 hover:text-white"><i class="fa-solid fa-xmark fa-lg"></i></button>
     </div>
     <textarea id="raw-json" class="flex-grow bg-black text-green-400 p-4 text-xs mono resize-none focus:outline-none" spellcheck="false" placeholder="// PASTE WORLD MODEL HERE //"></textarea>
     <div class="flex border-t border-gray-800">
@@ -540,7 +552,7 @@ const NULL_STATE = {
     },
     "SKILLS": { "HANZI": { "LEVEL": 1, "CURRENT_XP": 0, "DAILY_XP": 0, "HISTORY": [], "HOURLY": new Array(24).fill(0), "SESSION_START": null } },
     "log_config": { "limit": 10, "enabled": true, "chart_limit": 10, "log_scratchpad": false },
-    "export_config": { "visible_only": false, "include_logs": true, "include_skills": true, "include_metadata": true },
+    "export_config": { "visible_only": false, "include_logs": true, "include_skills": true, "include_metadata": true, "include_formulas": false, "include_mood": false },
     "_meta_log": [],
     "_mood_history": [],
     "_hourly_date": null,
@@ -553,13 +565,13 @@ const LEGACY_KEY = 'zos_v7_7';
 class ZyqralOS {
     constructor() {
         this.searchTerm = '';
-        this.includeDV = false;
         this.skillExport = true;
         this.state = this.load();
         
         // Initialization checks
         if(!this.state.log_config) this.state.log_config = { "limit": 10, "enabled": true, "chart_limit": 10, "log_scratchpad": false };
-        if(!this.state.export_config) this.state.export_config = { "visible_only": false, "include_logs": true, "include_skills": true, "include_metadata": true };
+        if(!this.state.export_config) this.state.export_config = { "visible_only": false, "include_logs": true, "include_skills": true, "include_metadata": true, "include_formulas": false, "include_mood": false };
+        this.includeDV = this.state.export_config.include_mood || false;
         if(!this.state.log_config.chart_limit) this.state.log_config.chart_limit = 10;
         if(this.state.log_config.log_scratchpad === undefined) this.state.log_config.log_scratchpad = false;
         if(!this.state._meta_log) this.state._meta_log = [];
@@ -2403,10 +2415,15 @@ class ZyqralOS {
         const visibleCheck = document.getElementById('export-visible-check');
         const logsCheck = document.getElementById('export-logs-check');
         const metadataCheck = document.getElementById('export-metadata-check');
-        if(!this.state.export_config) this.state.export_config = { visible_only: false, include_logs: true, include_skills: true, include_metadata: true };
+        const formulasCheck = document.getElementById('export-formulas-check');
+        const moodCheck = document.getElementById('export-mood-check');
+        if(!this.state.export_config) this.state.export_config = { visible_only: false, include_logs: true, include_skills: true, include_metadata: true, include_formulas: false, include_mood: false };
         this.state.export_config.visible_only = visibleCheck.checked;
         this.state.export_config.include_logs = logsCheck.checked;
         this.state.export_config.include_metadata = metadataCheck.checked;
+        this.state.export_config.include_formulas = formulasCheck.checked;
+        this.state.export_config.include_mood = moodCheck.checked;
+        this.includeDV = moodCheck.checked;
         this.save();
         this.updateExportPreview();
     }
@@ -2430,12 +2447,41 @@ class ZyqralOS {
         }
         return result;
     }
+    
+    // Recursively calculate all formulas in an object
+    calculateFormulasInObject(obj, path = '') {
+        if (typeof obj !== 'object' || obj === null) {
+            if (typeof obj === 'string') {
+                const stripped = this.stripMetaTags(obj);
+                if (stripped.startsWith('=')) {
+                    const result = this.processFormula(stripped, 0, path);
+                    // Keep metadata prefix but replace formula with result
+                    const metaPrefix = this.getMetaPrefix(obj);
+                    return metaPrefix + String(result);
+                }
+            }
+            return obj;
+        }
+        
+        if (Array.isArray(obj)) {
+            return obj.map((item, idx) => this.calculateFormulasInObject(item, path ? `${path}|${idx}` : String(idx)));
+        }
+        
+        const result = {};
+        for (const key of Object.keys(obj)) {
+            const currentPath = path ? `${path}|${key}` : key;
+            result[key] = this.calculateFormulasInObject(obj[key], currentPath);
+        }
+        return result;
+    }
 
     updateExportPreview() {
         const ta = document.getElementById('raw-json');
         const visibleCheck = document.getElementById('export-visible-check');
         const logsCheck = document.getElementById('export-logs-check');
         const metadataCheck = document.getElementById('export-metadata-check');
+        const formulasCheck = document.getElementById('export-formulas-check');
+        const moodCheck = document.getElementById('export-mood-check');
         const skillsCheck = document.getElementById('export-skills-check');
         const dailyCheck = document.getElementById('export-daily-check');
         const hourlyCheck = document.getElementById('export-hourly-check');
@@ -2445,6 +2491,11 @@ class ZyqralOS {
             dataToExport = this.filterVisible(this.state);
         } else {
             dataToExport = JSON.parse(JSON.stringify(this.state));
+        }
+        
+        // Calculate formulas if checkbox is checked
+        if (formulasCheck && formulasCheck.checked) {
+            dataToExport = this.calculateFormulasInObject(dataToExport);
         }
 
         // Scrub metadata if checkbox is unchecked
@@ -2462,7 +2513,7 @@ class ZyqralOS {
             delete dataToExport._meta_log;
         }
 
-        if (!this.includeDV) {
+        if (!moodCheck || !moodCheck.checked) {
             delete dataToExport._mood_history;
         } else {
             dataToExport._mood_history = this.state._mood_history || [];
@@ -2909,6 +2960,8 @@ class ZyqralOS {
         const exportCheck = document.getElementById('export-visible-check');
         const logsCheck = document.getElementById('export-logs-check');
         const metadataCheck = document.getElementById('export-metadata-check');
+        const formulasCheck = document.getElementById('export-formulas-check');
+        const moodCheck = document.getElementById('export-mood-check');
 
         if (modal.classList.contains('hidden')) {
             if (mode === 'export') { 
@@ -2918,8 +2971,13 @@ class ZyqralOS {
                     exportCheck.checked = this.state.export_config.visible_only;
                     logsCheck.checked = this.state.export_config.include_logs;
                     metadataCheck.checked = this.state.export_config.include_metadata !== false;
+                    formulasCheck.checked = this.state.export_config.include_formulas || false;
+                    moodCheck.checked = this.state.export_config.include_mood || false;
+                    this.includeDV = moodCheck.checked;
                 } else {
                     metadataCheck.checked = true;
+                    formulasCheck.checked = false;
+                    moodCheck.checked = false;
                 }
 
                 this.updateExportPreview(); 
@@ -2954,7 +3012,7 @@ class ZyqralOS {
             let newState = JSON.parse(ta.value); 
             newState._meta_log = []; 
             if (!newState.log_config) newState.log_config = { "limit": 10, "enabled": true, "chart_limit": 10, "log_scratchpad": false };
-            if (!newState.export_config) newState.export_config = { "visible_only": false, "include_logs": true, "include_skills": true, "include_metadata": true };
+            if (!newState.export_config) newState.export_config = { "visible_only": false, "include_logs": true, "include_skills": true, "include_metadata": true, "include_formulas": false, "include_mood": false };
             if (!newState._mood_history) newState._mood_history = [];
             if (!newState._dly_reset_date) newState._dly_reset_date = null;
             if(!newState.SKILLS) newState.SKILLS = {};
@@ -2995,6 +3053,9 @@ class ZyqralOS {
     toggleDVExport() {
         const el = document.getElementById('dv-export-toggle');
         this.includeDV = el.checked;
+        if(!this.state.export_config) this.state.export_config = { "visible_only": false, "include_logs": true, "include_skills": true, "include_metadata": true, "include_formulas": false, "include_mood": false };
+        this.state.export_config.include_mood = el.checked;
+        this.save();
     }
 
     stringToColor(str) {
