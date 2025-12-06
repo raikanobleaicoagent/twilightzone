@@ -992,10 +992,19 @@ class ZyqralOS {
                     const skillKeys = Object.keys(this.state.SKILLS || {});
                     for (let sKey of skillKeys) {
                         if (content.startsWith(sKey + '_SKILL_')) {
-                            const prop = content.replace(sKey + '_SKILL_', ''); 
-                            if (prop === 'TOTAL_XP') foundVal = this.state.SKILLS[sKey].CURRENT_XP || 0;
-                            if (prop === 'LEVEL') foundVal = this.state.SKILLS[sKey].LEVEL || 1;
-                            if (prop === 'DAILY_XP') foundVal = this.state.SKILLS[sKey].DAILY_XP || 0;
+                            const prop = content.replace(sKey + '_SKILL_', '');
+                            const skill = this.state.SKILLS[sKey];
+                            const currentLevel = skill.LEVEL || 1;
+                            const currentXP = skill.CURRENT_XP || 0;
+                            const xpStart = 100 * Math.pow(currentLevel - 1, 2);
+                            const xpNext = 100 * Math.pow(currentLevel, 2);
+                            
+                            if (prop === 'TOTAL_XP') foundVal = currentXP;
+                            if (prop === 'LEVEL') foundVal = currentLevel;
+                            if (prop === 'DAILY_XP') foundVal = skill.DAILY_XP || 0;
+                            if (prop === 'XP_TO_NEXT') foundVal = Math.floor(xpNext - currentXP);
+                            if (prop === 'XP_IN_LEVEL') foundVal = Math.floor(currentXP - xpStart);
+                            if (prop === 'XP_LEVEL_SIZE') foundVal = Math.floor(xpNext - xpStart);
                             break;
                         }
                     }
