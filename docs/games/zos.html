@@ -18,7 +18,6 @@
             --danger-color: #ff0055;
             --warn-color: #ffbb00;
             --process-color: #00aaff;
-            --calc-color: #a855f7;
         }
 
         body {
@@ -149,7 +148,6 @@
             position: relative; z-index: 10;
         }
         .val-display:hover { background: #111; }
-        .val-calc { color: var(--calc-color); font-weight: bold; }
 
         .state-switch { display: flex; border: 1px solid #222; border-radius: 4px; overflow: hidden; position: relative; z-index: 10; }
         .state-btn { 
@@ -2649,20 +2647,21 @@ class ZyqralOS {
     // Strip metadata tags from value for display
     stripMetaTags(val) {
         if (typeof val !== 'string') return val;
-        // Strip stepper tags, options tags, rst tags, prio tags, then regular tags
-        return val.replace(/<stepper:[^>]+>/gi, '').replace(/<options:[^>]+>/gi, '').replace(/<rst:[^>]+>/gi, '').replace(/<prio:[^>]+>/gi, '').replace(/<([a-zA-Z_][a-zA-Z0-9_]*)>/g, '').trim();
+        // Strip stepper tags, options tags, rst tags, prio tags, color tags, then regular tags
+        return val.replace(/<stepper:[^>]+>/gi, '').replace(/<options:[^>]+>/gi, '').replace(/<rst:[^>]+>/gi, '').replace(/<prio:[^>]+>/gi, '').replace(/<color:[^>]+>/gi, '').replace(/<([a-zA-Z_][a-zA-Z0-9_]*)>/g, '').trim();
     }
     
-    // Get just the metadata prefix from a value (including stepper, options, rst, and prio tags)
+    // Get just the metadata prefix from a value (including stepper, options, rst, prio, and color tags)
     getMetaPrefix(val) {
         if (typeof val !== 'string') return '';
-        // Match regular tags, stepper tags, options tags, rst tags, and prio tags
+        // Match regular tags, stepper tags, options tags, rst tags, prio tags, and color tags
         const regularTags = val.match(/<([a-zA-Z_][a-zA-Z0-9_]*)>/g) || [];
         const stepperTags = val.match(/<stepper:[^>]+>/gi) || [];
         const optionsTags = val.match(/<options:[^>]+>/gi) || [];
         const rstTags = val.match(/<rst:[^>]+>/gi) || [];
         const prioTags = val.match(/<prio:[^>]+>/gi) || [];
-        return [...regularTags, ...stepperTags, ...optionsTags, ...rstTags, ...prioTags].join('');
+        const colorTags = val.match(/<color:[^>]+>/gi) || [];
+        return [...regularTags, ...stepperTags, ...optionsTags, ...rstTags, ...prioTags, ...colorTags].join('');
     }
     
     // Check if value has a specific tag
@@ -2781,7 +2780,7 @@ class ZyqralOS {
         const resetValue = this.parseRstConfig(val);
         if (resetValue === null) return '';
         const escapedValue = resetValue.replace(/'/g, "\\'").replace(/"/g, '&quot;');
-        return `<button class="stepper-btn text-white ml-0.5" onclick="app.resetToValue('${path}', '${escapedValue}')" title="Reset to ${this.escapeHtml(resetValue)}"><i class="fa-solid fa-rotate-left"></i></button>`;
+        return `<button class="stepper-btn ml-0.5" onclick="app.resetToValue('${path}', '${escapedValue}')" title="Reset to ${this.escapeHtml(resetValue)}"><i class="fa-solid fa-rotate-left"></i></button>`;
     }
     
     // Parse priority configuration from <prio:#hexcolor> tag
@@ -2804,6 +2803,15 @@ class ZyqralOS {
         return `rgb(${r}, ${g}, ${b})`;
     }
     
+    // Parse color configuration from <color:#hexcolor> tag
+    // Format: <color:#ff0055> or <color:#00aaff>
+    parseColorConfig(val) {
+        if (typeof val !== 'string') return null;
+        const colorMatch = val.match(/<color:(#[0-9a-fA-F]{6})>/i);
+        if (!colorMatch) return null;
+        return colorMatch[1]; // Return the hex color
+    }
+    
     // Build priority badge with dynamic colors
     buildPrioBadge(path, displayVal, hexColor) {
         const textColor = hexColor;
@@ -2813,7 +2821,7 @@ class ZyqralOS {
     }
     
     // Build stepper buttons from config
-    buildStepperButtons(path, stepperConfig, incrementFn, displayVal, colorClass, originalVal) {
+    buildStepperButtons(path, stepperConfig, incrementFn, displayVal, colorStyle, originalVal) {
         const leftButtons = stepperConfig.filter(b => b.delta < 0);
         const rightButtons = stepperConfig.filter(b => b.delta >= 0);
         
@@ -2824,8 +2832,14 @@ class ZyqralOS {
             html += `<button class="stepper-btn" onclick="app.${incrementFn}('${path}', ${btn.delta})">${this.escapeHtml(btn.symbol)}</button>`;
         }
         
-        // Value display
-        html += `<span class="val-display mono ${colorClass} hover:underline mx-0 whitespace-nowrap min-w-[3rem] text-center flex-shrink-0" onclick="app.setEdit('${path}')">${displayVal}</span>`;
+        // Value display - colorStyle can be a class or inline style
+        const styleAttr = colorStyle.startsWith('#') ? `style="color: ${colorStyle}"` : `class="val-display mono ${colorStyle} hover:underline mx-0 whitespace-nowrap min-w-[3rem] text-center flex-shrink-0"`;
+        const classAttr = colorStyle.startsWith('#') ? 'class="val-display mono hover:underline mx-0 whitespace-nowrap min-w-[3rem] text-center flex-shrink-0"' : '';
+        if (colorStyle.startsWith('#')) {
+            html += `<span class="val-display mono hover:underline mx-0 whitespace-nowrap min-w-[3rem] text-center flex-shrink-0" style="color: ${colorStyle}" onclick="app.setEdit('${path}')">${displayVal}</span>`;
+        } else {
+            html += `<span class="val-display mono ${colorStyle} hover:underline mx-0 whitespace-nowrap min-w-[3rem] text-center flex-shrink-0" onclick="app.setEdit('${path}')">${displayVal}</span>`;
+        }
         
         // Right buttons (positive deltas)
         for (const btn of rightButtons) {
@@ -2867,7 +2881,10 @@ class ZyqralOS {
             // Also escape the processed value to prevent >= ligature in display
             const escapedProcessed = String(processedVal).replace(/>/g, '&gt;').replace(/</g, '&lt;');
             const safePathAttr = path.replace(/"/g, '&quot;');
-            return `<span class="val-display mono val-calc hover:underline" data-formula-path="${safePathAttr}" onclick="app.setEdit('${path}')" title="${escapedFormula}">${escapedProcessed}</span>`;
+            const customColor = this.parseColorConfig(val);
+            const colorStyle = customColor ? `style="color: ${customColor}"` : 'class="text-green-400"';
+            const colorClass = customColor ? '' : 'text-green-400';
+            return `<span class="val-display mono hover:underline ${colorClass}" ${customColor ? `style="color: ${customColor}"` : ''} data-formula-path="${safePathAttr}" onclick="app.setEdit('${path}')" title="${escapedFormula}">${escapedProcessed}</span>`;
         }
         
         // Check for custom options toggle <options:label@value,...>
@@ -2882,11 +2899,15 @@ class ZyqralOS {
         
         const percentMatch = checkStr.match(/^(\d+(?:\.\d+)?)%$/);
         if (percentMatch) {
+            const percentColor = this.parseColorConfig(val);
             const stepperConfig = this.parseStepperConfig(val);
             if (stepperConfig) {
-                return this.buildStepperButtons(path, stepperConfig, 'incrementPercent', checkVal, 'text-[#00ff9d]', val);
+                return this.buildStepperButtons(path, stepperConfig, 'incrementPercent', checkVal, percentColor || 'text-[#00ff9d]', val);
             }
             const resetBtn = this.buildResetButton(path, val);
+            if (percentColor) {
+                return `<div class="flex items-center"><span class="val-display mono hover:underline" style="color: ${percentColor}" onclick="app.setEdit('${path}')">${checkVal}</span>${resetBtn}</div>`;
+            }
             return `<div class="flex items-center"><span class="val-display mono text-[#00ff9d] hover:underline" onclick="app.setEdit('${path}')">${checkVal}</span>${resetBtn}</div>`;
         }
         const vUpper = checkStr.toUpperCase();
@@ -2916,17 +2937,30 @@ class ZyqralOS {
         }
         // Native number type
         if (typeof val === 'number') {
+            const customColor = this.parseColorConfig(val);
+            if (customColor) {
+                return `<span class="val-display mono hover:underline" style="color: ${customColor}" onclick="app.setEdit('${path}')">${val}</span>`;
+            }
             return `<span class="val-display mono text-green-400 hover:underline" onclick="app.setEdit('${path}')">${val}</span>`;
         }
+        
+        // Get custom color if specified
+        const customColor = this.parseColorConfig(val);
+        const valueColor = customColor || '#4ade80'; // green-400 default
+        const valueColorClass = customColor ? '' : 'text-green-400';
+        
         // Time format HH:MM or H:MM
         const timeMatch = checkStr.match(/^\d{1,2}:\d{2}$/);
         if (timeMatch) {
             const stepperConfig = this.parseStepperConfig(val);
             if (stepperConfig) {
-                return this.buildStepperButtons(path, stepperConfig, 'incrementTime', checkVal, 'text-blue-400', val);
+                return this.buildStepperButtons(path, stepperConfig, 'incrementTime', checkVal, customColor || 'text-green-400', val);
             }
             const resetBtn = this.buildResetButton(path, val);
-            return `<div class="flex items-center"><span class="val-display mono text-blue-400 hover:underline" onclick="app.setEdit('${path}')">${checkVal}</span>${resetBtn}</div>`;
+            if (customColor) {
+                return `<div class="flex items-center"><span class="val-display mono hover:underline" style="color: ${customColor}" onclick="app.setEdit('${path}')">${checkVal}</span>${resetBtn}</div>`;
+            }
+            return `<div class="flex items-center"><span class="val-display mono text-green-400 hover:underline" onclick="app.setEdit('${path}')">${checkVal}</span>${resetBtn}</div>`;
         }
         // String that looks like a number (integer or float, including metadata-tagged)
         const numMatch = checkStr.match(/^-?\d+(?:\.\d+)?$/);
@@ -2936,15 +2970,18 @@ class ZyqralOS {
                 const isRunning = this.isPomRunning(path);
                 const playPauseIcon = isRunning ? 'fa-pause' : 'fa-play';
                 const playPauseColor = isRunning ? 'text-yellow-400' : 'text-green-400';
-                const valueColor = isRunning ? 'text-yellow-400' : 'text-green-400';
+                const pomValueColor = isRunning ? 'text-yellow-400' : 'text-green-400';
                 const safeId = path.replace(/\|/g, '_');
-                return `<div class="flex items-center gap-1"><span id="pom-val-${safeId}" class="val-display mono ${valueColor} hover:underline mx-0 whitespace-nowrap min-w-[3rem] text-center flex-shrink-0" onclick="app.setEdit('${path}')">${checkVal}</span><button class="stepper-btn ${playPauseColor}" onclick="app.togglePomTimer('${path}')" title="${isRunning ? 'Pause' : 'Play'}"><i class="fa-solid ${playPauseIcon}"></i></button><button class="stepper-btn text-red-400" onclick="app.resetPomTimer('${path}')" title="Reset"><i class="fa-solid fa-rotate-left"></i></button></div>`;
+                return `<div class="flex items-center gap-1"><span id="pom-val-${safeId}" class="val-display mono ${pomValueColor} hover:underline mx-0 whitespace-nowrap min-w-[3rem] text-center flex-shrink-0" onclick="app.setEdit('${path}')">${checkVal}</span><button class="stepper-btn ${playPauseColor}" onclick="app.togglePomTimer('${path}')" title="${isRunning ? 'Pause' : 'Play'}"><i class="fa-solid ${playPauseIcon}"></i></button><button class="stepper-btn text-red-400" onclick="app.resetPomTimer('${path}')" title="Reset"><i class="fa-solid fa-rotate-left"></i></button></div>`;
             }
             const stepperConfig = this.parseStepperConfig(val);
             if (stepperConfig) {
-                return this.buildStepperButtons(path, stepperConfig, 'incrementMetaValue', checkVal, 'text-green-400', val);
+                return this.buildStepperButtons(path, stepperConfig, 'incrementMetaValue', checkVal, customColor || 'text-green-400', val);
             }
             const resetBtn = this.buildResetButton(path, val);
+            if (customColor) {
+                return `<div class="flex items-center"><span class="val-display mono hover:underline" style="color: ${customColor}" onclick="app.setEdit('${path}')">${checkVal}</span>${resetBtn}</div>`;
+            }
             return `<div class="flex items-center"><span class="val-display mono text-green-400 hover:underline" onclick="app.setEdit('${path}')">${checkVal}</span>${resetBtn}</div>`;
         }
         
@@ -2954,8 +2991,14 @@ class ZyqralOS {
             return this.buildPrioBadge(path, displayVal, prioColor);
         }
         
-        // Default string display - check for rst tag
+        // Default string display - check for rst tag and color tag
         const resetBtn = this.buildResetButton(path, val);
+        if (customColor) {
+            if (resetBtn) {
+                return `<div class="flex items-center"><span class="val-display mono hover:underline" style="color: ${customColor}" onclick="app.setEdit('${path}')">${displayVal}</span>${resetBtn}</div>`;
+            }
+            return `<span class="val-display mono hover:underline" style="color: ${customColor}" onclick="app.setEdit('${path}')">${displayVal}</span>`;
+        }
         if (resetBtn) {
             return `<div class="flex items-center"><span class="val-display mono text-green-400 hover:underline" onclick="app.setEdit('${path}')">${displayVal}</span>${resetBtn}</div>`;
         }
