@@ -1260,56 +1260,91 @@ class ZyqralOS {
             return cleanVal;
         });
         
+        // Helper: Parse a value, handling quoted strings and numbers
+        const parseValue = (str) => {
+            const trimmed = str.trim();
+            // Check if it's a quoted string
+            if ((trimmed.startsWith('"') && trimmed.endsWith('"')) || 
+                (trimmed.startsWith("'") && trimmed.endsWith("'"))) {
+                return { type: 'string', value: trimmed.slice(1, -1) };
+            }
+            // Try to parse as number
+            const num = parseFloat(trimmed);
+            if (!isNaN(num) && isFinite(num)) {
+                return { type: 'number', value: num };
+            }
+            // Treat as string
+            return { type: 'string', value: trimmed };
+        };
+        
+        // Helper: Compare two values (supports both string and number)
+        const compareValues = (leftStr, rightStr, operator) => {
+            const left = parseValue(leftStr);
+            const right = parseValue(rightStr);
+            
+            // If both are numbers, do numeric comparison
+            if (left.type === 'number' && right.type === 'number') {
+                switch (operator) {
+                    case '==': return left.value == right.value;
+                    case '!=': return left.value != right.value;
+                    case '>=': return left.value >= right.value;
+                    case '<=': return left.value <= right.value;
+                    case '>': return left.value > right.value;
+                    case '<': return left.value < right.value;
+                }
+            }
+            
+            // Otherwise do string comparison
+            const leftVal = String(left.value).toUpperCase();
+            const rightVal = String(right.value).toUpperCase();
+            switch (operator) {
+                case '==': return leftVal === rightVal;
+                case '!=': return leftVal !== rightVal;
+                case '>=': return leftVal.localeCompare(rightVal) >= 0;
+                case '<=': return leftVal.localeCompare(rightVal) <= 0;
+                case '>': return leftVal.localeCompare(rightVal) > 0;
+                case '<': return leftVal.localeCompare(rightVal) < 0;
+            }
+            return false;
+        };
+        
         // Now evaluate the condition
-        // Support ==, !=, <, >, <=, >=
+        // Support ==, !=, <, >, <=, >= (check multi-char operators first)
         try {
-            // Handle string equality comparisons
-            const eqMatch = processedCondition.match(/^(.+)==(.+)$/);
-            if (eqMatch) {
-                const left = eqMatch[1].trim().replace(/^"|"$/g, '');
-                const right = eqMatch[2].trim().replace(/^"|"$/g, '');
-                return left == right;
-            }
-            
-            const neqMatch = processedCondition.match(/^(.+)!=(.+)$/);
-            if (neqMatch) {
-                const left = neqMatch[1].trim().replace(/^"|"$/g, '');
-                const right = neqMatch[2].trim().replace(/^"|"$/g, '');
-                return left != right;
-            }
-            
             const gteMatch = processedCondition.match(/^(.+)>=(.+)$/);
             if (gteMatch) {
-                const left = parseFloat(gteMatch[1].trim());
-                const right = parseFloat(gteMatch[2].trim());
-                return left >= right;
+                return compareValues(gteMatch[1], gteMatch[2], '>=');
             }
             
             const lteMatch = processedCondition.match(/^(.+)<=(.+)$/);
             if (lteMatch) {
-                const left = parseFloat(lteMatch[1].trim());
-                const right = parseFloat(lteMatch[2].trim());
-                return left <= right;
+                return compareValues(lteMatch[1], lteMatch[2], '<=');
+            }
+            
+            const eqMatch = processedCondition.match(/^(.+)==(.+)$/);
+            if (eqMatch) {
+                return compareValues(eqMatch[1], eqMatch[2], '==');
+            }
+            
+            const neqMatch = processedCondition.match(/^(.+)!=(.+)$/);
+            if (neqMatch) {
+                return compareValues(neqMatch[1], neqMatch[2], '!=');
             }
             
             const gtMatch = processedCondition.match(/^(.+)>(.+)$/);
             if (gtMatch) {
-                const left = parseFloat(gtMatch[1].trim());
-                const right = parseFloat(gtMatch[2].trim());
-                return left > right;
+                return compareValues(gtMatch[1], gtMatch[2], '>');
             }
             
             const ltMatch = processedCondition.match(/^(.+)<(.+)$/);
             if (ltMatch) {
-                const left = parseFloat(ltMatch[1].trim());
-                const right = parseFloat(ltMatch[2].trim());
-                return left < right;
+                return compareValues(ltMatch[1], ltMatch[2], '<');
             }
             
             // If no comparison operator, treat as truthy check
-            const numVal = parseFloat(processedCondition);
-            if (!isNaN(numVal)) return numVal !== 0;
-            return processedCondition.replace(/"/g, '').length > 0;
+            const parsed = parseValue(processedCondition);
+            if (parsed.type === 'number') return parsed.value !== 0;
+            return parsed.value.length > 0 && parsed.value.toUpperCase() !== 'FALSE';
         } catch (e) {
             return false;
         }
@@ -1888,12 +1923,13 @@ class ZyqralOS {
                     return `${metaPrefix}${valueStr}`;
                 };
                 
-                // Only create/update: TOTAL_CARDS, AGAIN_COUNT, WRITTEN_REPS_10X
-                tParent[tKey] = {
-                    "TOTAL_CARDS": ensureDlyTag(getMetaFor('TOTAL_CARDS'), `=${totalCards}`),
-                    "AGAIN_COUNT": ensureDlyTag(getMetaFor('AGAIN_COUNT'), `=${againCount}`),
-                    "WRITTEN_REPS_10X": ensureDlyTag(getMetaFor('WRITTEN_REPS_10X'), `=${writingReps}`)
-                };
+                // Only update: TOTAL_CARDS, AGAIN_COUNT, WRITTEN_REPS_10X
+                // Preserve all other existing keys in the object
+                existingSession["TOTAL_CARDS"] = ensureDlyTag(getMetaFor('TOTAL_CARDS'), `=${totalCards}`);
+                existingSession["AGAIN_COUNT"] = ensureDlyTag(getMetaFor('AGAIN_COUNT'), `=${againCount}`);
+                existingSession["WRITTEN_REPS_10X"] = ensureDlyTag(getMetaFor('WRITTEN_REPS_10X'), `=${writingReps}`);
+                
+                tParent[tKey] = existingSession;
 
                 this.updateValue(scratchpadPath, ""); 
                 
