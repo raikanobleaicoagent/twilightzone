@@ -924,6 +924,9 @@ class ZyqralOS {
         // Remove all <...> metadata tags (including nested content)
         let cleaned = val.replace(/<[^>]*>/g, '').trim();
         
+        // Check if the cleaned value is a formula (metadata was before the =)
+        if (cleaned.startsWith('=')) return cleaned;
+        
         // Handle percentage values
         if (cleaned.includes('%')) {
             const match = cleaned.match(/-?[\d.]+/);
@@ -1845,33 +1848,11 @@ class ZyqralOS {
             if(!rawData || typeof rawData !== 'string' || rawData.length < 10) { alert("ERROR: PASTE ANKI STATS IN SCRATCHPAD."); return; }
 
             const totalCardsMatch = rawData.match(/Studied[^\d]*(\d+)/i);
-            
-            // FIX: Allow 'hours' as a valid time unit
-            const timeMatch = rawData.match(/in[^\d]*([\d.]+)[^\d]*(minutes|seconds|hours)/i);
-            
-            const speedMatch = rawData.match(/\([^\d]*([\d.]+)[^\d]*s\/card/i);
             const againMatch = rawData.match(/Again count:[^\d]*(\d+)/i);
-            const breakdownMatch = rawData.match(/Learn:[^\d]*(\d+)[^\d]*Review:[^\d]*(\d+)[^\d]*Relearn:[^\d]*(\d+)/i);
 
-            if(totalCardsMatch && timeMatch && againMatch && breakdownMatch) {
+            if(totalCardsMatch && againMatch) {
                 const totalCards = parseInt(totalCardsMatch[1]);
-                
-                let timeVal = parseFloat(timeMatch[1]);
-                const timeUnit = timeMatch[2].toLowerCase();
-                
-                // FIX: Calculate minutes correctly based on parsed unit
-                let timeMin = timeVal;
-                if (timeUnit.includes('second')) {
-                    timeMin = timeVal / 60;
-                } else if (timeUnit.includes('hour')) {
-                    timeMin = timeVal * 60;
-                }
-
-                const speed = speedMatch ? parseFloat(speedMatch[1]) : 0;
                 const againCount = parseInt(againMatch[1]);
-                const learnCount = parseInt(breakdownMatch[1]);
-                const reviewCount = parseInt(breakdownMatch[2]);
-                const relearnCount = parseInt(breakdownMatch[3]);
 
                 const repInput = prompt("INPUT: Number of Hanzi characters written (10x Reps)?", "0");
                 const writingReps = parseInt(repInput) || 0;
@@ -1898,17 +1879,20 @@ class ZyqralOS {
                 };
                 
                 // Build new session object, preserving metadata tags from existing keys
+                // Auto-insert <dly> before = statements if not already present
+                const ensureDlyTag = (metaPrefix, valueStr) => {
+                    // If value starts with =, ensure <dly> is in the prefix
+                    if (valueStr.startsWith('=') && !metaPrefix.toLowerCase().includes('<dly>')) {
+                        return `<dly>${metaPrefix}${valueStr}`;
+                    }
+                    return `${metaPrefix}${valueStr}`;
+                };
+                
+                // Only create/update: TOTAL_CARDS, AGAIN_COUNT, WRITTEN_REPS_10X
                 tParent[tKey] = {
-                    "TOTAL_CARDS": `${getMetaFor('TOTAL_CARDS')}=${totalCards}`,
-                    "TIME_MINUTES": `${getMetaFor('TIME_MINUTES')}=${timeMin.toFixed(2)}`,
-                    "SPEED_S_PER_CARD": `${getMetaFor('SPEED_S_PER_CARD')}=${speed}`,
-                    "AGAIN_COUNT": `${getMetaFor('AGAIN_COUNT')}=${againCount}`,
-                    "LEARN_COUNT": `${getMetaFor('LEARN_COUNT')}=${learnCount}`,
-                    "REVIEW_COUNT": `${getMetaFor('REVIEW_COUNT')}=${reviewCount}`,
-                    "RELEARN_COUNT": `${getMetaFor('RELEARN_COUNT')}=${relearnCount}`,
-                    "WRITTEN_REPS_10X": `${getMetaFor('WRITTEN_REPS_10X')}=${writingReps}`,
-                    "SESSION_XP_GAIN": getExistingWithMeta('SESSION_XP_GAIN') || "=0",
-                    "SESSION_XP_DAILY_DECAY": getExistingWithMeta('SESSION_XP_DAILY_DECAY') || "0"
+                    "TOTAL_CARDS": ensureDlyTag(getMetaFor('TOTAL_CARDS'), `=${totalCards}`),
+                    "AGAIN_COUNT": ensureDlyTag(getMetaFor('AGAIN_COUNT'), `=${againCount}`),
+                    "WRITTEN_REPS_10X": ensureDlyTag(getMetaFor('WRITTEN_REPS_10X'), `=${writingReps}`)
                 };
 
                 this.updateValue(scratchpadPath, ""); 
@@ -1921,9 +1905,7 @@ class ZyqralOS {
             } else {
                 let missing = [];
                 if (!totalCardsMatch) missing.push("Total Cards");
-                if (!timeMatch) missing.push("Time/Unit");
                 if (!againMatch) missing.push("Again Count");
-                if (!breakdownMatch) missing.push("Breakdown");
                 alert("PARSE ERROR. Missing: " + missing.join(", "));
             }
         }
