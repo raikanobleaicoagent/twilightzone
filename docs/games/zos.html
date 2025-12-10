@@ -256,7 +256,7 @@
         .skill-bar-container { background: #111; height: 6px; width: 100%; border-radius: 3px; overflow: hidden; margin-top: 4px; }
         .skill-bar { height: 100%; transition: width 0.3s ease; }
         
-        #macro-menu {
+        #action-menu {
             position: absolute;
             top: 100%;
             right: 0;
@@ -269,7 +269,7 @@
             z-index: 60;
             display: none;
         }
-        .macro-item {
+        .action-item {
             display: block;
             width: 100%;
             text-align: left;
@@ -281,9 +281,130 @@
             cursor: pointer;
             transition: all 0.2s;
         }
-        .macro-item:last-child { border-bottom: none; }
-        .macro-item:hover { background: #111; color: var(--accent-color); }
-        .macro-item i { margin-right: 8px; width: 14px; text-align: center; }
+        .action-item:last-child { border-bottom: none; }
+        .action-item:hover { background: #111; color: var(--accent-color); }
+        .action-item i { margin-right: 8px; width: 14px; text-align: center; }
+        .action-divider {
+            border-top: 1px solid #333;
+            margin: 4px 0;
+            padding-top: 4px;
+        }
+        .action-divider-label {
+            font-size: 8px;
+            color: #555;
+            padding: 2px 12px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        /* === LIGHT MODE THEME === */
+        body.theme-light {
+            --bg-color: #e8e8e8;
+            --panel-color: #f5f5f5;
+            --border-color: #ccc;
+            --accent-color: #0066cc;
+            --text-color: #333;
+            --danger-color: #cc0033;
+            --warn-color: #cc8800;
+            --process-color: #0088cc;
+        }
+        body.theme-light { background-color: var(--bg-color); color: var(--text-color); }
+        body.theme-light header { background: #f0f0f0 !important; border-color: #bbb !important; box-shadow: 0 2px 8px rgba(0,0,0,0.1) !important; }
+        body.theme-light header .text-green-500 { color: #0066cc !important; }
+        body.theme-light header .text-white { color: #333 !important; }
+        body.theme-light .search-input { background: #fff; border-color: #bbb; color: #0066cc; }
+        body.theme-light .search-input::placeholder { color: #999; }
+        body.theme-light footer { background: #f0f0f0 !important; border-color: #bbb !important; }
+        body.theme-light .footer-btn { background: #fff; border-color: #bbb; color: #555; }
+        body.theme-light .footer-btn:hover { color: #0066cc; border-color: #0066cc; background: rgba(0, 102, 204, 0.05); }
+        body.theme-light #action-menu { background: #f5f5f5; border-color: #bbb; }
+        body.theme-light .action-item { color: #555; border-color: #ddd; }
+        body.theme-light .action-item:hover { background: #e8e8e8; }
+        body.theme-light .tree-line { border-color: #bbb; }
+        body.theme-light .node-row { border-color: #ddd; }
+        body.theme-light .node-row:hover { background: #f8f8f8 !important; }
+        body.theme-light textarea.edit-input { background: #fff; border-color: #bbb; color: #0066cc; }
+        body.theme-light .val-display:hover { background: #f0f0f0; }
+        body.theme-light .val-display.text-green-400 { color: #0066cc !important; }
+        body.theme-light .mono.text-green-400 { color: #0066cc !important; }
+        body.theme-light .state-btn { background: #f8f8f8; color: #666; border-color: #ccc; }
+        body.theme-light .stepper-btn { background: #fff; border-color: #bbb; color: #666; }
+        body.theme-light .stepper-btn:hover { color: #333; border-color: #888; }
+        body.theme-light .key-display { color: #666; }
+        body.theme-light #io-modal, body.theme-light #log-modal, body.theme-light #chart-modal, body.theme-light #skill-modal { background: rgba(240,240,240,0.98); }
+        body.theme-light .bg-black { background: #f5f5f5 !important; }
+        body.theme-light .bg-\[\#0a0a0a\] { background: #e8e8e8 !important; }
+        body.theme-light .bg-\[\#050505\] { background: #f0f0f0 !important; }
+        body.theme-light .bg-\[\#030303\] { background: #f5f5f5 !important; }
+        body.theme-light .bg-\[\#111\] { background: #fff !important; }
+        body.theme-light .border-gray-800 { border-color: #ccc !important; }
+        body.theme-light .border-gray-900 { border-color: #ddd !important; }
+        body.theme-light .text-gray-400, body.theme-light .text-gray-500, body.theme-light .text-gray-600 { color: #666 !important; }
+        body.theme-light .text-yellow-500 { color: #cc8800 !important; }
+        body.theme-light .text-yellow-400 { color: #cc8800 !important; }
+
+        /* === POMNI CIRCUS THEME === */
+        body.theme-pomni {
+            --bg-color: #1a0a2e;
+            --panel-color: #2d1b4e;
+            --border-color: #ff3366;
+            --accent-color: #ffdd00;
+            --text-color: #fff;
+            --danger-color: #ff3366;
+            --warn-color: #ffdd00;
+            --process-color: #00aaff;
+        }
+        body.theme-pomni { background: linear-gradient(135deg, #1a0a2e 0%, #0d1b3e 50%, #2d1b4e 100%); color: var(--text-color); }
+        body.theme-pomni header { background: linear-gradient(90deg, #ff3366 0%, #ffdd00 50%, #00aaff 100%) !important; border: none !important; box-shadow: 0 4px 20px rgba(255,51,102,0.5) !important; }
+        body.theme-pomni header * { color: #1a0a2e !important; text-shadow: none; }
+        body.theme-pomni header .text-green-500 { color: #1a0a2e !important; }
+        body.theme-pomni header button { background: rgba(26,10,46,0.3) !important; border-color: #1a0a2e !important; color: #1a0a2e !important; }
+        body.theme-pomni .search-input { background: rgba(26,10,46,0.5); border-color: #ffdd00; color: #ffdd00; }
+        body.theme-pomni .search-input::placeholder { color: rgba(255,221,0,0.5); }
+        body.theme-pomni footer { background: linear-gradient(90deg, #00aaff 0%, #ffdd00 50%, #ff3366 100%) !important; border: none !important; }
+        body.theme-pomni .footer-btn { background: rgba(26,10,46,0.5); border-color: #1a0a2e; color: #1a0a2e; font-weight: bold; }
+        body.theme-pomni .footer-btn:hover { background: rgba(26,10,46,0.8); color: #fff; }
+        body.theme-pomni #action-menu { background: #2d1b4e; border: 2px solid #ffdd00; box-shadow: 0 4px 20px rgba(255,221,0,0.3); }
+        body.theme-pomni .action-item { color: #fff; border-color: #ff3366; }
+        body.theme-pomni .action-item:hover { background: rgba(255,221,0,0.2); color: #ffdd00; }
+        body.theme-pomni .tree-line { border-color: #ff3366; }
+        body.theme-pomni .node-row { border-color: rgba(255,51,102,0.3); }
+        body.theme-pomni .node-row:hover { background: rgba(255,221,0,0.1) !important; }
+        body.theme-pomni textarea.edit-input { background: #1a0a2e; border-color: #ffdd00; color: #ffdd00; }
+        body.theme-pomni .val-display:hover { background: rgba(255,51,102,0.2); }
+        body.theme-pomni .val-display.text-green-400, body.theme-pomni .mono.text-green-400 { color: #ffdd00 !important; }
+        body.theme-pomni .state-btn { background: #1a0a2e; color: #fff; border-color: #ff3366; }
+        body.theme-pomni .state-btn:hover { color: #ffdd00; }
+        body.theme-pomni .state-btn-active-pend { background: rgba(255,221,0,0.3) !important; color: #ffdd00 !important; border-color: #ffdd00 !important; }
+        body.theme-pomni .state-btn-active-prog { background: rgba(0,170,255,0.3) !important; color: #00aaff !important; border-color: #00aaff !important; }
+        body.theme-pomni .state-btn-active-comp { background: rgba(255,221,0,0.3) !important; color: #ffdd00 !important; border-color: #ffdd00 !important; }
+        body.theme-pomni .state-btn-active-fail { background: rgba(255,51,102,0.3) !important; color: #ff3366 !important; border-color: #ff3366 !important; }
+        body.theme-pomni .state-btn-active-on { background: rgba(255,221,0,0.3) !important; color: #ffdd00 !important; }
+        body.theme-pomni .state-btn-active-off { background: rgba(255,51,102,0.2) !important; color: #ff3366 !important; }
+        body.theme-pomni .stepper-btn { background: #1a0a2e; border-color: #00aaff; color: #00aaff; }
+        body.theme-pomni .stepper-btn:hover { color: #ffdd00; border-color: #ffdd00; }
+        body.theme-pomni .key-display { color: #00aaff; }
+        body.theme-pomni #io-modal, body.theme-pomni #log-modal, body.theme-pomni #chart-modal, body.theme-pomni #skill-modal { background: rgba(26,10,46,0.98); }
+        body.theme-pomni .bg-black { background: #1a0a2e !important; }
+        body.theme-pomni .bg-\[\#0a0a0a\], body.theme-pomni .bg-\[\#050505\], body.theme-pomni .bg-\[\#030303\] { background: #2d1b4e !important; }
+        body.theme-pomni .bg-\[\#111\] { background: #1a0a2e !important; }
+        body.theme-pomni .border-gray-800, body.theme-pomni .border-gray-900 { border-color: #ff3366 !important; }
+        body.theme-pomni .text-gray-400, body.theme-pomni .text-gray-500, body.theme-pomni .text-gray-600 { color: #00aaff !important; }
+        body.theme-pomni .text-yellow-500, body.theme-pomni .text-yellow-400 { color: #ffdd00 !important; }
+        body.theme-pomni .chart-axis { stroke: #ff3366; }
+        body.theme-pomni .chart-grid { stroke: rgba(255,51,102,0.3); }
+        body.theme-pomni .skill-bar-container { background: #1a0a2e; }
+        body.theme-pomni:before {
+            content: '🎪';
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            font-size: 200px;
+            opacity: 0.03;
+            pointer-events: none;
+            z-index: 0;
+        }
     </style>
 </head>
 <body class="flex flex-col h-screen">
@@ -311,24 +432,36 @@
         </button>
 
         <div class="relative">
-            <button onclick="app.toggleMacros()" class="bg-purple-900/20 text-purple-400 border border-purple-800 px-3 py-1 text-[10px] font-bold rounded hover:bg-purple-900/40 tracking-wider flex items-center gap-2">
-                <i class="fa-solid fa-bolt"></i> MACROS
+            <button onclick="app.toggleActions()" class="bg-purple-900/20 text-purple-400 border border-purple-800 px-3 py-1 text-[10px] font-bold rounded hover:bg-purple-900/40 tracking-wider flex items-center gap-2">
+                <i class="fa-solid fa-bolt"></i> ACTIONS
             </button>
-            <div id="macro-menu">
-                <button class="macro-item text-orange-500 hover:text-orange-400" onclick="app.executeMacro('HANZI_SESSION')">
+            <div id="action-menu">
+                <button class="action-item text-orange-500 hover:text-orange-400" onclick="app.executeAction('HANZI_SESSION')">
                     <i class="fa-solid fa-language"></i> HANZI PARSE
                 </button>
-                <button class="macro-item text-blue-500 hover:text-blue-400" onclick="app.executeMacro('QUICK_NOTE')">
+                <button class="action-item text-blue-500 hover:text-blue-400" onclick="app.executeAction('QUICK_NOTE')">
                     <i class="fa-solid fa-pen-to-square"></i> QUICK NOTE
                 </button>
-                <button class="macro-item text-green-500 hover:text-green-400" onclick="app.executeMacro('UPDATE_TIME')">
+                <button class="action-item text-green-500 hover:text-green-400" onclick="app.executeAction('UPDATE_TIME')">
                     <i class="fa-solid fa-clock"></i> UPDATE TIME
                 </button>
-                <button class="macro-item text-yellow-500 hover:text-yellow-400" onclick="app.executeMacro('RESET_TASKS')">
+                <button class="action-item text-yellow-500 hover:text-yellow-400" onclick="app.executeAction('RESET_TASKS')">
                     <i class="fa-solid fa-rotate-left"></i> RESET TASKS
                 </button>
-                <button class="macro-item text-red-500 hover:text-red-400" onclick="app.executeMacro('CLEAR_PRESENCE')">
+                <button class="action-item text-red-500 hover:text-red-400" onclick="app.executeAction('CLEAR_PRESENCE')">
                     <i class="fa-solid fa-ghost"></i> CLEAR PRESENCE
+                </button>
+                <div class="action-divider">
+                    <div class="action-divider-label">THEMES</div>
+                </div>
+                <button class="action-item text-gray-400 hover:text-white" onclick="app.setTheme('dark')">
+                    <i class="fa-solid fa-moon"></i> DARK MODE
+                </button>
+                <button class="action-item text-slate-400 hover:text-slate-200" onclick="app.setTheme('light')">
+                    <i class="fa-solid fa-sun"></i> LIGHT MODE
+                </button>
+                <button class="action-item text-pink-400 hover:text-yellow-300" onclick="app.setTheme('pomni')">
+                    <i class="fa-solid fa-masks-theater"></i> POMNI MODE
                 </button>
             </div>
         </div>
@@ -616,10 +749,13 @@ class ZyqralOS {
         // Pomodoro timer tracking
         this._pomTimers = {};
 
+        // Load saved theme
+        this.loadTheme();
+
         document.addEventListener('click', (e) => {
-            const menu = document.getElementById('macro-menu');
+            const menu = document.getElementById('action-menu');
             const btn = e.target.closest('button');
-            if (menu.style.display === 'block' && (!btn || !btn.onclick || !btn.onclick.toString().includes('toggleMacros'))) {
+            if (menu.style.display === 'block' && (!btn || !btn.onclick || !btn.onclick.toString().includes('toggleActions'))) {
                 menu.style.display = 'none';
             }
         });
@@ -1867,14 +2003,42 @@ class ZyqralOS {
         }
     }
 
-    // --- MACRO SYSTEM ---
-    toggleMacros() {
-        const menu = document.getElementById('macro-menu');
+    // --- ACTION SYSTEM ---
+    toggleActions() {
+        const menu = document.getElementById('action-menu');
         if (menu.style.display === 'block') menu.style.display = 'none';
         else menu.style.display = 'block';
     }
 
-    executeMacro(type) {
+    setTheme(theme) {
+        // Remove all theme classes
+        document.body.classList.remove('theme-light', 'theme-pomni');
+        
+        // Apply new theme
+        if (theme === 'light') {
+            document.body.classList.add('theme-light');
+        } else if (theme === 'pomni') {
+            document.body.classList.add('theme-pomni');
+        }
+        // 'dark' is default (no class needed)
+        
+        // Save theme preference
+        localStorage.setItem(STORAGE_KEY + '_theme', theme);
+        
+        this.addLog(`THEME <span class="log-hl">[${theme.toUpperCase()}]</span> ACTIVATED`);
+        this.toggleActions();
+    }
+
+    loadTheme() {
+        const savedTheme = localStorage.getItem(STORAGE_KEY + '_theme');
+        if (savedTheme === 'light') {
+            document.body.classList.add('theme-light');
+        } else if (savedTheme === 'pomni') {
+            document.body.classList.add('theme-pomni');
+        }
+    }
+
+    executeAction(type) {
         if (type === 'HANZI_SESSION') {
             const scratchpadPath = this.findPathByKey(this.state, 'SCRATCHPAD');
             if (!scratchpadPath) { alert("SYSTEM ERROR: 'SCRATCHPAD' KEY NOT FOUND."); return; }
@@ -1935,9 +2099,9 @@ class ZyqralOS {
                 
                 this.recalculateAllSkillXP();
 
-                this.addLog(`MACRO EXECUTION <span class="log-hl">[HANZI PARSE]</span> COMPLETED`);
+                this.addLog(`ACTION <span class="log-hl">[HANZI PARSE]</span> COMPLETED`);
                 this.save();
-                this.toggleMacros();
+                this.toggleActions();
             } else {
                 let missing = [];
                 if (!totalCardsMatch) missing.push("Total Cards");
@@ -1946,7 +2110,7 @@ class ZyqralOS {
             }
         }
         else if (type === 'RESET_TASKS') {
-            if(confirm('MACRO EXECUTION: Reset Task Statuses?')) {
+            if(confirm('ACTION: Reset Task Statuses?')) {
                 let count = 0;
                 const recursiveReset = (obj) => {
                     for (let k in obj) {
@@ -1970,12 +2134,12 @@ class ZyqralOS {
                 };
                 recursiveReset(this.state);
                 
-                this.addLog(`MACRO EXECUTION <span class="log-hl">[RESET TASKS]</span><br> UPDATED ${count} NODES`);
+                this.addLog(`ACTION <span class="log-hl">[RESET TASKS]</span><br> UPDATED ${count} NODES`);
                 this.save();
-                this.toggleMacros();
+                this.toggleActions();
             }
         } else if (type === 'CLEAR_PRESENCE') {
-            if(confirm('MACRO EXECUTION: Clear all ACTIVITY logs and reset Rick\'s location status?')) {
+            if(confirm('ACTION: Clear all ACTIVITY logs and reset Rick\'s location status?')) {
                 let count = 0;
                 const recursiveClear = (obj) => {
                     for (let k in obj) {
@@ -1992,15 +2156,15 @@ class ZyqralOS {
                     }
                 };
                 recursiveClear(this.state);
-                this.addLog(`MACRO EXECUTION <span class="log-hl">[CLEAR PRESENCE]</span><br> UPDATED ${count} NODES`);
+                this.addLog(`ACTION <span class="log-hl">[CLEAR PRESENCE]</span><br> UPDATED ${count} NODES`);
                 this.save();
-                this.toggleMacros();
+                this.toggleActions();
             }
         } else if (type === 'QUICK_NOTE') {
             const path = this.findPathByKey(this.state, 'SCRATCHPAD');
             if (path) {
                 // Close menu first
-                this.toggleMacros();
+                this.toggleActions();
                 
                 // Set value directly (avoid updateValue which clears editingPath)
                 const { parent, key } = this.getParent(path);
@@ -2027,7 +2191,7 @@ class ZyqralOS {
             } else { alert("SYSTEM ERROR: 'SCRATCHPAD' KEY NOT FOUND."); }
         } else if (type === 'UPDATE_TIME') {
             const path = this.findPathByKey(this.state, 'timestamp');
-            if (path) { this.injectTime(path); this.addLog(`MACRO EXECUTION <span class="log-hl">[UPDATE TIME]</span>`); this.toggleMacros(); } 
+            if (path) { this.injectTime(path); this.addLog(`ACTION <span class="log-hl">[UPDATE TIME]</span>`); this.toggleActions(); } 
             else { alert("SYSTEM ERROR: 'timestamp' KEY NOT FOUND."); }
         }
     }
