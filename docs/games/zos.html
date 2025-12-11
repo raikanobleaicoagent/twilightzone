@@ -376,6 +376,8 @@
         body.theme-light .reorder-arrows button:hover { color: #555; }
         body.theme-light .reorder-arrows button:disabled { color: #ddd; }
         body.theme-light .badge { background: #ddd !important; color: #444 !important; border-color: #bbb !important; }
+        body.theme-light .text-yellow-600 { color: #666 !important; }
+        body.theme-light .text-gray-700 { color: #bbb !important; }
     </style>
 </head>
 <body class="flex flex-col h-screen">
@@ -698,6 +700,7 @@ class ZyqralOS {
         }, 60000);
 
         this.collapsed = this.loadUI(); 
+        this.lockedPaths = this.loadLockedPaths();
         this.editingPath = null;
         this.pendingEdits = {}; 
         
@@ -918,11 +921,39 @@ class ZyqralOS {
         localStorage.setItem(STORAGE_KEY + '_ui', JSON.stringify(Array.from(this.collapsed)));
     }
 
+    loadLockedPaths() {
+        const stored = localStorage.getItem(STORAGE_KEY + '_locked');
+        if (stored) {
+            try { return new Set(JSON.parse(stored)); } catch (e) { return new Set(); }
+        }
+        return new Set();
+    }
+
+    saveLockedPaths() {
+        localStorage.setItem(STORAGE_KEY + '_locked', JSON.stringify(Array.from(this.lockedPaths)));
+    }
+
+    toggleLock(path) {
+        if (this.lockedPaths.has(path)) {
+            this.lockedPaths.delete(path);
+        } else {
+            this.lockedPaths.add(path);
+        }
+        this.saveLockedPaths();
+        this.render();
+    }
+
+    isLocked(path) {
+        return this.lockedPaths.has(path);
+    }
+
     reset() {
         if(confirm('FACTORY RESET: Purge all local data?')) {
             this.state = JSON.parse(JSON.stringify(NULL_STATE));
             this.collapsed.clear();
-            this.saveUI(); 
+            this.lockedPaths.clear();
+            this.saveUI();
+            this.saveLockedPaths();
             this.pendingEdits = {};
             this._lastSkillEvaluations = {};
             this.searchTerm = '';
@@ -2498,11 +2529,10 @@ class ZyqralOS {
             val += amount;
             // Round to avoid floating point errors
             val = Math.round(val * 1000) / 1000;
-            // Apply clamp if present
+            // Apply clamp if present (preserves decimals, only clamps at boundaries)
             const clampConfig = this.parseClampConfig(oldValue);
             if (clampConfig) {
                 val = Math.max(clampConfig.min, Math.min(clampConfig.max, val));
-                if (clampConfig.round) val = Math.round(val);
             }
             parent[key] = `${metaPrefix}${val}%`;
             this.logGranular('MATH', pathStr, oldValue, parent[key]);
@@ -2518,11 +2548,10 @@ class ZyqralOS {
             val += amount;
             // Round to avoid floating point errors
             val = Math.round(val * 1000) / 1000;
-            // Apply clamp if present
+            // Apply clamp if present (preserves decimals, only clamps at boundaries)
             const clampConfig = this.parseClampConfig(oldValue);
             if (clampConfig) {
                 val = Math.max(clampConfig.min, Math.min(clampConfig.max, val));
-                if (clampConfig.round) val = Math.round(val);
             }
             parent[key] = `${metaPrefix}${val}`;
             this.logGranular('MATH', pathStr, oldValue, parent[key]);
@@ -3040,7 +3069,11 @@ class ZyqralOS {
         if (isSwitch || hasOptions) {
                 return `<div class="flex items-center gap-2 ml-2"><button onclick="app.deleteItem('${safeP}')" class="btn-action text-red-900 hover:text-red-500"><i class="fa-solid fa-xmark"></i></button></div>`;
         }
-        return ''; 
+        // Show lock icon for non-switch values
+        const isLocked = this.isLocked(safeP);
+        const lockIcon = isLocked ? 'fa-lock' : 'fa-lock-open';
+        const lockColor = isLocked ? 'text-yellow-600 hover:text-yellow-400' : 'text-gray-700 hover:text-gray-400';
+        return `<div class="flex items-center gap-2 ml-2"><button onclick="app.toggleLock('${safeP}')" class="btn-action ${lockColor}" title="${isLocked ? 'Unlock' : 'Lock'}"><i class="fa-solid ${lockIcon}"></i></button></div>`;
     }
 
     // --- METADATA TAG SYSTEM ---
@@ -3255,17 +3288,16 @@ class ZyqralOS {
     }
     
     // Parse clamp configuration from <clamp:min:max> tag
-    // Format: <clamp:-10:10> or <clamp:0:100>
-    // Clamps value between min and max, rounds to integer
-    // Returns { min, max, round: true } or null
+    // Format: <clamp:-10:10> or <clamp:0:100> or <clamp:0:99.9>
+    // Clamps value between min and max, preserves decimals until boundary
+    // Returns { min, max } or null
     parseClampConfig(val) {
         if (typeof val !== 'string') return null;
         const clampMatch = val.match(/<clamp:(-?\d+(?:\.\d+)?):(-?\d+(?:\.\d+)?)>/i);
         if (!clampMatch) return null;
         return { 
             min: parseFloat(clampMatch[1]), 
-            max: parseFloat(clampMatch[2]),
-            round: true
+            max: parseFloat(clampMatch[2])
         };
     }
     
@@ -3652,6 +3684,9 @@ class ZyqralOS {
     }
 
     setEdit(path) { 
+        // Don't allow editing locked paths
+        if (this.isLocked(path)) return;
+        
         this.editingPath = path; 
         this.render(); 
         setTimeout(() => { 
