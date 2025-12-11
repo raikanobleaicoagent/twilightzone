@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Z-OS | AGENCY PROTOCOL (v7.8)</title>
+    <title>Z-OS | AGENCY PROTOCOL (v7.9)</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
@@ -384,7 +384,7 @@
     <div class="flex items-center gap-3">
         <div class="flex items-center gap-2">
             <i class="fa-solid fa-network-wired text-green-500 text-sm"></i>
-            <span class="text-green-500 font-bold tracking-widest text-sm">Z-OS <span class="text-white text-xs">v7.7</span></span>
+            <span class="text-green-500 font-bold tracking-widest text-sm">Z-OS <span class="text-white text-xs">v7.9</span></span>
         </div>
         <div class="relative mr-2">
             <input type="text" id="tree-search" class="search-input" placeholder="FILTER" onkeyup="app.updateSearch(this.value)">
@@ -655,8 +655,8 @@ const NULL_STATE = {
     "_dly_reset_date": null
 };
 
-const STORAGE_KEY = 'zos_v7_8';
-const LEGACY_KEY = 'zos_v7_7';
+const STORAGE_KEY = 'zos_v7_9';
+const LEGACY_KEY = 'zos_v7_8';
 
 class ZyqralOS {
     constructor() {
@@ -2490,12 +2490,40 @@ class ZyqralOS {
         const oldValue = parent[key];
         const metaPrefix = this.getMetaPrefix(oldValue);
         const content = this.stripMetaTags(oldValue);
+        
+        // Check for percentage value (e.g., "50%")
+        const percentMatch = String(content).match(/^(-?\d+(?:\.\d+)?)%$/);
+        if (percentMatch) {
+            let val = parseFloat(percentMatch[1]);
+            val += amount;
+            // Round to avoid floating point errors
+            val = Math.round(val * 1000) / 1000;
+            // Apply clamp if present
+            const clampConfig = this.parseClampConfig(oldValue);
+            if (clampConfig) {
+                val = Math.max(clampConfig.min, Math.min(clampConfig.max, val));
+                if (clampConfig.round) val = Math.round(val);
+            }
+            parent[key] = `${metaPrefix}${val}%`;
+            this.logGranular('MATH', pathStr, oldValue, parent[key]);
+            this.recalculateAllSkillXP();
+            this.save();
+            return;
+        }
+        
+        // Check for plain number
         const numMatch = String(content).match(/^-?\d+(?:\.\d+)?$/);
         if (numMatch) {
             let val = parseFloat(content);
             val += amount;
             // Round to avoid floating point errors
             val = Math.round(val * 1000) / 1000;
+            // Apply clamp if present
+            const clampConfig = this.parseClampConfig(oldValue);
+            if (clampConfig) {
+                val = Math.max(clampConfig.min, Math.min(clampConfig.max, val));
+                if (clampConfig.round) val = Math.round(val);
+            }
             parent[key] = `${metaPrefix}${val}`;
             this.logGranular('MATH', pathStr, oldValue, parent[key]);
             this.recalculateAllSkillXP();
@@ -2979,13 +3007,6 @@ class ZyqralOS {
             const safeP = this.safePath(currentPath);
             const isPrimitive = typeof value !== 'object' || value === null;
             let rowStyle = '';
-            if (typeof value === 'string') {
-                const match = value.match(/^(\d{1,3})%$/);
-                if (match) {
-                    const pct = parseInt(match[1]);
-                    rowStyle = `style="background: linear-gradient(to right, rgba(128,128,128,0.15) ${pct}%, transparent ${pct}%)"`;
-                }
-            }
             if (isPrimitive) {
                 html += `<div class="node-row group hover:bg-[#0a0a0a]" ${rowStyle}><div class="flex-grow flex items-center mr-2"> ${this.buildReorderArrows(currentPath, key, data.length)}${this.buildKeyDisplay(key, safeP, isArray)}${this.buildPrimitive(value, safeP, key)}</div>${this.buildPrimitiveControls(safeP, isArray, key, data.length, value)}</div>`;
             } else {
@@ -3039,14 +3060,14 @@ class ZyqralOS {
     // Strip metadata tags from value for display
     stripMetaTags(val) {
         if (typeof val !== 'string') return val;
-        // Strip stepper tags, options tags, rst tags, prio tags, color tags, pct tags, pctinv tags, then regular tags
-        return val.replace(/<stepper:[^>]+>/gi, '').replace(/<options:[^>]+>/gi, '').replace(/<rst:[^>]+>/gi, '').replace(/<prio:[^>]+>/gi, '').replace(/<color:[^>]+>/gi, '').replace(/<pct:[^>]+>/gi, '').replace(/<pctinv:[^>]+>/gi, '').replace(/<([a-zA-Z_][a-zA-Z0-9_]*)>/g, '').trim();
+        // Strip stepper tags, options tags, rst tags, prio tags, color tags, pct tags, pctinv tags, clamp tags, then regular tags
+        return val.replace(/<stepper:[^>]+>/gi, '').replace(/<options:[^>]+>/gi, '').replace(/<rst:[^>]+>/gi, '').replace(/<prio:[^>]+>/gi, '').replace(/<color:[^>]+>/gi, '').replace(/<pct:[^>]+>/gi, '').replace(/<pctinv:[^>]+>/gi, '').replace(/<clamp:[^>]+>/gi, '').replace(/<([a-zA-Z_][a-zA-Z0-9_]*)>/g, '').trim();
     }
     
-    // Get just the metadata prefix from a value (including stepper, options, rst, prio, color, pct, and pctinv tags)
+    // Get just the metadata prefix from a value (including stepper, options, rst, prio, color, pct, pctinv, and clamp tags)
     getMetaPrefix(val) {
         if (typeof val !== 'string') return '';
-        // Match regular tags, stepper tags, options tags, rst tags, prio tags, color tags, pct tags, and pctinv tags
+        // Match regular tags, stepper tags, options tags, rst tags, prio tags, color tags, pct tags, pctinv tags, and clamp tags
         const regularTags = val.match(/<([a-zA-Z_][a-zA-Z0-9_]*)>/g) || [];
         const stepperTags = val.match(/<stepper:[^>]+>/gi) || [];
         const optionsTags = val.match(/<options:[^>]+>/gi) || [];
@@ -3055,7 +3076,8 @@ class ZyqralOS {
         const colorTags = val.match(/<color:[^>]+>/gi) || [];
         const pctTags = val.match(/<pct:[^>]+>/gi) || [];
         const pctInvTags = val.match(/<pctinv:[^>]+>/gi) || [];
-        return [...regularTags, ...stepperTags, ...optionsTags, ...rstTags, ...prioTags, ...colorTags, ...pctTags, ...pctInvTags].join('');
+        const clampTags = val.match(/<clamp:[^>]+>/gi) || [];
+        return [...regularTags, ...stepperTags, ...optionsTags, ...rstTags, ...prioTags, ...colorTags, ...pctTags, ...pctInvTags, ...clampTags].join('');
     }
     
     // Check if value has a specific tag
@@ -3229,6 +3251,21 @@ class ZyqralOS {
         return { 
             min: parseFloat(pctMatch[1]), 
             max: parseFloat(pctMatch[2]) 
+        };
+    }
+    
+    // Parse clamp configuration from <clamp:min:max> tag
+    // Format: <clamp:-10:10> or <clamp:0:100>
+    // Clamps value between min and max, rounds to integer
+    // Returns { min, max, round: true } or null
+    parseClampConfig(val) {
+        if (typeof val !== 'string') return null;
+        const clampMatch = val.match(/<clamp:(-?\d+(?:\.\d+)?):(-?\d+(?:\.\d+)?)>/i);
+        if (!clampMatch) return null;
+        return { 
+            min: parseFloat(clampMatch[1]), 
+            max: parseFloat(clampMatch[2]),
+            round: true
         };
     }
     
@@ -3514,6 +3551,34 @@ class ZyqralOS {
         const customColor = this.parseColorConfig(val);
         const valueColor = customColor || '#4ade80'; // green-400 default
         const valueColorClass = customColor ? '' : 'text-green-400';
+        
+        // Percentage format (e.g., "50%")
+        const percentMatch = checkStr.match(/^(-?\d+(?:\.\d+)?)%$/);
+        if (percentMatch) {
+            const numericVal = parseFloat(percentMatch[1]);
+            
+            // Check for <pct:min:max> tag - show percentage bar background
+            const pctConfig = this.parsePctConfig(val);
+            if (pctConfig) {
+                return this.buildPctBar(path, numericVal, pctConfig, checkVal, customColor || 'text-[#00ff9d]', val, false);
+            }
+            
+            // Check for <pctinv:min:max> tag - show inverted percentage bar (green at low, red at high)
+            const pctInvConfig = this.parsePctInvConfig(val);
+            if (pctInvConfig) {
+                return this.buildPctBar(path, numericVal, pctInvConfig, checkVal, customColor || 'text-[#00ff9d]', val, true);
+            }
+            
+            const stepperConfig = this.parseStepperConfig(val);
+            if (stepperConfig) {
+                return this.buildStepperButtons(path, stepperConfig, 'incrementMetaValue', checkVal, customColor || 'text-[#00ff9d]', val);
+            }
+            const resetBtn = this.buildResetButton(path, val);
+            if (customColor) {
+                return `<div class="flex items-center"><span class="val-display mono hover:underline" style="color: ${customColor}" onclick="app.setEdit('${path}')">${checkVal}</span>${resetBtn}</div>`;
+            }
+            return `<div class="flex items-center"><span class="val-display mono text-[#00ff9d] hover:underline" onclick="app.setEdit('${path}')">${checkVal}</span>${resetBtn}</div>`;
+        }
         
         // Time format HH:MM or H:MM
         const timeMatch = checkStr.match(/^\d{1,2}:\d{2}$/);
