@@ -6,7 +6,7 @@
     <title>Zyqral Spatial IDE</title>
     <style>
         :root {
-            /* DARK MODE (Default) */
+            /* DARK MODE (Neon / High Contrast) */
             --bg: #121212;
             --panel: #1e1e1e;
             --text: #e0e0e0;
@@ -26,23 +26,23 @@
         }
 
         body.light-mode {
-            /* LIGHT MODE */
+            /* LIGHT MODE (Strict Monochrome / Blueprint) */
             --bg: #e0e0e0;
             --panel: #d0d0d0;
-            --text: #333333;
-            --accent: #444444;
-            --object: #666666;
-            --link: #000000;
-            --solid: #880000;
-            --merge: #cc6600;
+            --text: #111111;
+            --accent: #444444; /* Spaces */
+            --object: #777777; /* Objects */
+            --link: #000000;   /* Links */
+            --solid: #222222;  /* Walls - Dark Grey */
+            --merge: #666666;  /* Merge Selection - Mid Grey */
             --grid-major: #bbbbbb;
             --grid-minor: #cccccc;
             --btn-bg: #f0f0f0;
             --btn-border: #999;
             --btn-hover: #ffffff;
-            --modal-overlay: rgba(255,255,255,0.85);
-            --shadow-color: rgba(0, 0, 0, 0.2);
-            --warn: #cc6600;
+            --modal-overlay: rgba(255,255,255,0.9);
+            --shadow-color: rgba(0, 0, 0, 0.15);
+            --warn: #000000;
         }
 
         body, html {
@@ -66,13 +66,13 @@
             pointer-events: auto; background: var(--panel);
             border-bottom: 1px solid var(--accent);
             display: flex; flex-direction: column; gap: 0;
-            box-shadow: 0 4px 10px rgba(0,0,0,0.3);
+            box-shadow: 0 4px 10px rgba(0,0,0,0.1);
         }
 
         .toolbar-row {
             display: flex; gap: 4px; padding: 4px; align-items: center;
             justify-content: flex-start; flex-wrap: nowrap; overflow-x: auto;
-            height: 32px;
+            height: 34px;
         }
         
         .toolbar-row::-webkit-scrollbar { display: none; } 
@@ -91,7 +91,7 @@
             color: var(--text); padding: 0 8px; font-weight: bold;
             font-size: 0.65rem; cursor: pointer; transition: all 0.1s;
             text-transform: uppercase; font-family: 'Courier New', Courier, monospace;
-            height: 24px; display: flex; align-items: center; justify-content: center;
+            height: 26px; display: flex; align-items: center; justify-content: center;
             white-space: nowrap; flex-shrink: 0;
         }
 
@@ -106,7 +106,7 @@
         
         .layer-controls {
             display: flex; align-items: center; gap: 2px; background: var(--bg);
-            padding: 0 2px; border: 1px solid var(--btn-border); height: 24px; flex-shrink: 0;
+            padding: 0 2px; border: 1px solid var(--btn-border); height: 26px; flex-shrink: 0;
         }
         .layer-display { font-weight: bold; color: var(--accent); min-width: 35px; text-align: center; font-size: 0.7rem; }
 
@@ -152,7 +152,7 @@
             text-align: center; border: 1px solid var(--text);
         }
         
-        .toast.warning { background: var(--warn); color: #000; border-color: #fff; }
+        .toast.warning { background: var(--warn); color: var(--bg); border-color: var(--text); }
         
         .spacer { flex-grow: 1; }
 
@@ -177,7 +177,7 @@
                 <button id="action-ascii" style="border-color: var(--text); color: var(--text);">Export</button>
             </div>
             <!-- Row 2 -->
-            <div class="toolbar-row" style="background: rgba(0,0,0,0.15);">
+            <div class="toolbar-row" style="background: rgba(0,0,0,0.05);">
                 <div class="layer-controls">
                     <button id="layer-down">▼</button>
                     <div class="layer-display">L:0</div>
@@ -235,7 +235,7 @@
     <div id="modal-output" class="modal-overlay">
         <div class="modal-content" style="max-width: 800px; width: 95%;">
             <div class="modal-header">TOPOLOGY & DATA</div>
-            <div class="checkbox-wrapper" style="background: rgba(0,0,0,0.2); padding: 5px; border-radius: 4px; margin-bottom: 10px;">
+            <div class="checkbox-wrapper" style="background: rgba(0,0,0,0.1); padding: 5px; border-radius: 4px; margin-bottom: 10px;">
                 <input type="checkbox" id="chk-include-raw" checked>
                 <label for="chk-include-raw" style="margin:0; color: var(--text); font-weight: bold; cursor: pointer;">Include Raw Topology Data (Backup)</label>
             </div>
@@ -266,8 +266,10 @@
 
     <script>
         /**
-         * ZYQRAL SPATIAL IDE KERNEL v2.9
-         * - Input Guard (Ghost Click Prevention)
+         * ZYQRAL SPATIAL IDE KERNEL v3.0
+         * - Monochrome Light Mode
+         * - Vertex Injection Merge
+         * - Key-Based Logic
          */
 
         const GRID = 20;
@@ -329,9 +331,9 @@
                 objStroke: isLight ? '#666666' : 'rgba(189, 147, 249, 1)',
                 objFill: isLight ? 'rgba(102, 102, 102, 0.1)' : 'rgba(189, 147, 249, 0.1)',
                 link: isLight ? '#000000' : 'rgba(0, 204, 255, 1)',
-                solid: isLight ? '#880000' : '#ff5555',
-                merge: isLight ? '#cc6600' : '#ffb86c',
-                text: isLight ? '#333333' : '#e0e0e0',
+                solid: isLight ? '#222222' : '#ff5555', // Monochrome Solid
+                merge: isLight ? '#666666' : '#ffb86c', // Monochrome Merge
+                text: isLight ? '#111111' : '#e0e0e0',
                 activePoly: isLight ? '#000' : '#fff'
             };
         }
@@ -356,7 +358,6 @@
             return { x: x / points.length, y: y / points.length };
         }
 
-        // -- DATA UTILS --
         function getNextKey() {
             const chars = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz";
             for(let i=0; i<chars.length; i++) {
@@ -426,7 +427,6 @@
             return { x: clientX - r.left, y: clientY - r.top };
         }
 
-        // INPUT LISTENERS
         canvas.addEventListener('mousedown', onDown);
         canvas.addEventListener('mousemove', onMove);
         window.addEventListener('mouseup', onUp); 
@@ -439,7 +439,6 @@
             if (state.tool === 'poly' && state.polyPoints.length > 2) finishPoly();
         });
 
-        // SAFETY: Eat ghost clicks on canvas
         canvas.addEventListener('click', (e) => { e.preventDefault(); e.stopPropagation(); });
 
         function onDown(e) {
@@ -522,7 +521,6 @@
             render();
         }
 
-        // -- LOGIC: MERGE --
         function performMerge(id1, id2) {
             const r1 = state.rooms.find(r => r.id === id1); const r2 = state.rooms.find(r => r.id === id2);
             if (!r1 || !r2) return;
@@ -568,7 +566,6 @@
             save(); render(); showToast("MERGE COMPLETE");
         }
 
-        // -- LOGIC: HELPERS --
         function finishPoly() {
             if (state.polyPoints.length > 2) createRoom([...state.polyPoints], 'space');
             state.polyPoints = []; render();
@@ -591,7 +588,6 @@
 
         function save() { localStorage.setItem('zyqral_v2_data', JSON.stringify({ rooms: state.rooms, links: state.links })); }
 
-        // -- UI HANDLERS --
         document.querySelectorAll('button[id^="tool-"]').forEach(btn => {
             btn.onclick = (e) => { const id = btn.id; setTool(id.replace('tool-', '')); };
         });
@@ -665,10 +661,7 @@
             document.getElementById('inp-solid').checked = r.isSolid || false;
             document.getElementById('inp-items').value = r.items || ''; document.getElementById('inp-desc').value = r.description || '';
             
-            // DELAY OPEN TO PREVENT INPUT FOCUS HIJACKING FROM TOUCH EVENT
-            setTimeout(() => {
-                modalEdit.style.display = 'flex';
-            }, 100);
+            setTimeout(() => { modalEdit.style.display = 'flex'; }, 100);
         }
         document.getElementById('btn-close-edit').onclick = () => modalEdit.style.display = 'none';
         document.getElementById('btn-save-edit').onclick = () => {
@@ -704,7 +697,6 @@
             const layerRooms = state.rooms.filter(r => r.layer === state.currentLayer);
             if (layerRooms.length === 0) return "NO DATA ON CURRENT LAYER";
             
-            // Create TRANSIENT copies to prevent duplicate children bug
             const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz123456789";
             const workRooms = layerRooms.map((r, i) => ({ 
                 ...r, 
