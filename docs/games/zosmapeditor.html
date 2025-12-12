@@ -167,7 +167,7 @@
 
     <div id="ui-layer">
         <div class="header-container">
-            <!-- Row 1: Tools -->
+            <!-- Row 1 -->
             <div class="toolbar-row">
                 <button id="tool-view" class="btn-view">View</button>
                 <div class="divider"></div>
@@ -179,7 +179,7 @@
                 <div class="divider"></div>
                 <button id="tool-link" class="btn-link">Link</button>
             </div>
-            <!-- Row 2: Controls & IO -->
+            <!-- Row 2 -->
             <div class="toolbar-row" style="background: rgba(0,0,0,0.05);">
                 <div class="layer-controls">
                     <button id="layer-down">▼</button>
@@ -227,6 +227,8 @@
             <textarea id="inp-items" rows="2"></textarea>
             <label>Description</label>
             <textarea id="inp-desc" rows="3"></textarea>
+            <label>Status / Condition</label>
+            <textarea id="inp-status" rows="2"></textarea>
             <div class="modal-buttons">
                 <button id="btn-delete" style="border-color: var(--solid); color: var(--solid);">Destroy</button>
                 <button id="btn-close-edit">Cancel</button>
@@ -270,8 +272,8 @@
 
     <script>
         /**
-         * ZYQRAL SPATIAL IDE KERNEL v3.2
-         * - Export relocated to Row 2
+         * ZYQRAL SPATIAL IDE KERNEL v3.4
+         * - Cleaned UI
          */
 
         const GRID = 20;
@@ -619,10 +621,12 @@
             }
             const combinedItems = [r1.items, r2.items].filter(x => x).join(', ');
             const combinedDesc = [r1.description, r2.description].filter(x => x).join(' | ');
+            const combinedStatus = [r1.status, r2.status].filter(x => x).join(' | ');
+
             state.rooms = state.rooms.filter(r => r.id !== id1 && r.id !== id2);
             createRoom(cleanedPoly, 'space');
             const newRoom = state.rooms[state.rooms.length-1];
-            newRoom.items = combinedItems; newRoom.description = combinedDesc;
+            newRoom.items = combinedItems; newRoom.description = combinedDesc; newRoom.status = combinedStatus;
             save(); render(); showToast("MERGE COMPLETE");
         }
 
@@ -636,7 +640,7 @@
             state.rooms.push({
                 id: Date.now().toString(36) + Math.random().toString(36).substr(2,5),
                 keyChar: getNextKey(), name: `${type.charAt(0).toUpperCase() + type.slice(1)} ${state.rooms.length+1}`,
-                type: type, layer: state.currentLayer, points: points, isSolid: false, items: '', description: ''
+                type: type, layer: state.currentLayer, points: points, isSolid: false, items: '', description: '', status: ''
             });
             sortRooms(); save();
         }
@@ -727,7 +731,9 @@
             document.getElementById('inp-name').value = r.name; document.getElementById('inp-key').value = r.keyChar || '';
             document.getElementById('inp-type').value = r.type;
             document.getElementById('inp-solid').checked = r.isSolid || false;
-            document.getElementById('inp-items').value = r.items || ''; document.getElementById('inp-desc').value = r.description || '';
+            document.getElementById('inp-items').value = r.items || ''; 
+            document.getElementById('inp-desc').value = r.description || '';
+            document.getElementById('inp-status').value = r.status || '';
             
             setTimeout(() => { modalEdit.style.display = 'flex'; }, 100);
         }
@@ -739,7 +745,9 @@
                 if (state.rooms.some(rm => rm.id !== editId && rm.keyChar === newKey)) showToast("KEY CONFLICT", true);
                 r.keyChar = newKey || r.keyChar; r.name = document.getElementById('inp-name').value; 
                 r.type = document.getElementById('inp-type').value; r.isSolid = document.getElementById('inp-solid').checked; 
-                r.items = document.getElementById('inp-items').value; r.description = document.getElementById('inp-desc').value; 
+                r.items = document.getElementById('inp-items').value; 
+                r.description = document.getElementById('inp-desc').value; 
+                r.status = document.getElementById('inp-status').value;
                 sortRooms(); save(); render();
             }
             modalEdit.style.display = 'none';
@@ -799,7 +807,15 @@
                 });
                 if (bestParent) { bestParent._children.push(child); } else roots.push(child);
             });
-            const clean = (n) => ({ key: n.char, name: n.name, type: n.type, description: n.description || "", items: n.items ? n.items.split(',').map(s=>s.trim()).filter(s=>s) : [], nested: (n._children||[]).map(clean) });
+            const clean = (n) => ({ 
+                key: n.char, 
+                name: n.name, 
+                type: n.type, 
+                description: n.description || "",
+                status: n.status || "", 
+                items: n.items ? n.items.split(',').map(s=>s.trim()).filter(s=>s) : [], 
+                nested: (n._children||[]).map(clean) 
+            });
             return grid + "\n\nLEGEND (JSON):\n--------------\n" + JSON.stringify(roots.map(clean), null, 2);
         }
 
@@ -808,7 +824,6 @@
             ctx.fillStyle = C.bg; ctx.fillRect(0, 0, canvas.width, canvas.height);
             
             ctx.strokeStyle = C.grid; ctx.lineWidth = 1; ctx.beginPath();
-            
             const startX = Math.floor(-state.camera.x / GRID) * GRID;
             const startY = Math.floor(-state.camera.y / GRID) * GRID;
             const endX = startX + canvas.width + GRID;
