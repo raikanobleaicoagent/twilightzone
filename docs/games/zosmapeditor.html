@@ -1,0 +1,875 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Zyqral Spatial IDE</title>
+    <style>
+        :root {
+            /* DARK MODE (Default) */
+            --bg: #121212;
+            --panel: #1e1e1e;
+            --text: #e0e0e0;
+            --accent: #00ff9d; /* Green */
+            --object: #bd93f9; /* Purple */
+            --link: #00ccff;   /* Blue */
+            --solid: #ff5555;  /* Red */
+            --merge: #ffb86c;  /* Orange */
+            --grid-major: #333;
+            --grid-minor: #222;
+            --btn-bg: #2a2a2a;
+            --btn-border: #444;
+            --btn-hover: #333;
+            --modal-overlay: rgba(0,0,0,0.85);
+            --shadow-color: rgba(0, 255, 157, 0.4);
+            --warn: #ffcc00;
+        }
+
+        body.light-mode {
+            /* LIGHT MODE */
+            --bg: #e0e0e0;
+            --panel: #d0d0d0;
+            --text: #333333;
+            --accent: #444444;
+            --object: #666666;
+            --link: #000000;
+            --solid: #880000;
+            --merge: #cc6600;
+            --grid-major: #bbbbbb;
+            --grid-minor: #cccccc;
+            --btn-bg: #f0f0f0;
+            --btn-border: #999;
+            --btn-hover: #ffffff;
+            --modal-overlay: rgba(255,255,255,0.85);
+            --shadow-color: rgba(0, 0, 0, 0.2);
+            --warn: #cc6600;
+        }
+
+        body, html {
+            margin: 0; padding: 0; width: 100%; height: 100%;
+            overflow: hidden; background-color: var(--bg);
+            font-family: 'Courier New', Courier, monospace;
+            color: var(--text); touch-action: none; user-select: none;
+            transition: background-color 0.3s, color 0.3s;
+        }
+
+        canvas { display: block; width: 100%; height: 100%; cursor: crosshair; }
+
+        #ui-layer {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            pointer-events: none; display: flex; flex-direction: column;
+            justify-content: space-between;
+        }
+
+        /* 2-Row Header for Mobile */
+        .header-container {
+            pointer-events: auto; background: var(--panel);
+            border-bottom: 1px solid var(--accent);
+            display: flex; flex-direction: column; gap: 0;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.3);
+        }
+
+        .toolbar-row {
+            display: flex; gap: 4px; padding: 4px; align-items: center;
+            justify-content: flex-start; flex-wrap: nowrap; overflow-x: auto;
+            height: 34px;
+        }
+        
+        .toolbar-row::-webkit-scrollbar { display: none; } 
+
+        .divider { width: 1px; height: 16px; background: var(--btn-border); margin: 0 2px; flex-shrink: 0; }
+
+        /* Footer */
+        .status-bar {
+            pointer-events: auto; background: var(--panel); padding: 4px 8px;
+            font-size: 0.7rem; display: flex; justify-content: space-between;
+            border-top: 1px solid var(--accent); transition: background 0.3s;
+        }
+
+        button {
+            background: var(--btn-bg); border: 1px solid var(--btn-border);
+            color: var(--text); padding: 0 8px; font-weight: bold;
+            font-size: 0.65rem; cursor: pointer; transition: all 0.1s;
+            text-transform: uppercase; font-family: 'Courier New', Courier, monospace;
+            height: 26px; display: flex; align-items: center; justify-content: center;
+            white-space: nowrap; flex-shrink: 0;
+        }
+
+        button:hover { background: var(--btn-hover); border-color: var(--accent); }
+        button.active {
+            background: var(--accent); color: var(--bg); border-color: var(--accent);
+            box-shadow: 0 0 8px var(--shadow-color);
+        }
+
+        button.btn-link.active { background: var(--link); color: var(--bg); border-color: var(--link); }
+        button.btn-merge.active { background: var(--merge); color: var(--bg); border-color: var(--merge); }
+        
+        .layer-controls {
+            display: flex; align-items: center; gap: 2px; background: var(--bg);
+            padding: 0 2px; border: 1px solid var(--btn-border); height: 26px; flex-shrink: 0;
+        }
+        .layer-display { font-weight: bold; color: var(--accent); min-width: 35px; text-align: center; font-size: 0.7rem; }
+
+        /* Modals */
+        .modal-overlay {
+            display: none; position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            background: var(--modal-overlay); pointer-events: auto; z-index: 100;
+            align-items: center; justify-content: center; backdrop-filter: blur(2px);
+        }
+
+        .modal-content {
+            background: var(--bg); border: 1px solid var(--accent); padding: 20px;
+            width: 85%; max-width: 600px; max-height: 90vh; display: flex; flex-direction: column;
+            box-shadow: 0 0 30px var(--shadow-color); overflow-y: auto;
+        }
+
+        .modal-header {
+            margin-bottom: 15px; border-bottom: 1px solid var(--btn-border); padding-bottom: 10px;
+            font-size: 1.1rem; color: var(--accent); font-weight: bold;
+        }
+
+        label { font-size: 0.7rem; color: #888; margin-bottom: 4px; display: block; margin-top: 10px;}
+        input, textarea, select {
+            width: 100%; background: var(--panel); border: 1px solid var(--btn-border); color: var(--text);
+            padding: 8px; box-sizing: border-box; font-family: 'Courier New', monospace; font-size: 0.85rem;
+        }
+        input:focus, textarea:focus, select:focus { outline: none; border-color: var(--accent); }
+        
+        .checkbox-wrapper { display: flex; align-items: center; gap: 10px; margin-top: 10px; }
+        .checkbox-wrapper input { width: auto; margin: 0; }
+        .modal-buttons { display: flex; justify-content: flex-end; gap: 10px; margin-top: 20px; }
+
+        .code-preview {
+            background: #000; color: #0f0; font-family: 'Courier New', monospace;
+            font-size: 11px; line-height: 12px; white-space: pre; overflow: auto;
+            border: 1px solid #333; padding: 10px; margin-bottom: 10px; flex-grow: 1; min-height: 200px;
+        }
+        
+        .toast {
+            position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
+            background: var(--accent); color: var(--bg); padding: 12px 24px; font-weight: bold;
+            display: none; pointer-events: none; z-index: 200; box-shadow: 0 0 20px rgba(0,0,0,0.5);
+            text-align: center; border: 1px solid var(--text);
+        }
+        
+        .toast.warning {
+            background: var(--warn); color: #000; border-color: #fff;
+        }
+        
+        .spacer { flex-grow: 1; }
+
+    </style>
+</head>
+<body>
+
+    <input type="file" id="file-import" style="display:none" accept=".json">
+
+    <div id="ui-layer">
+        <div class="header-container">
+            <!-- Row 1: Tools -->
+            <div class="toolbar-row">
+                <button id="tool-select" class="active">Interact</button>
+                <div class="divider"></div>
+                <button id="tool-poly">Poly</button>
+                <button id="tool-rect">Box</button>
+                <button id="tool-merge" class="btn-merge">Merge</button>
+                <div class="divider"></div>
+                <button id="tool-link" class="btn-link">Link</button>
+                <div class="spacer"></div>
+                <button id="action-ascii" style="border-color: var(--text); color: var(--text);">Export</button>
+            </div>
+            <!-- Row 2: Controls & IO -->
+            <div class="toolbar-row" style="background: rgba(0,0,0,0.15);">
+                <div class="layer-controls">
+                    <button id="layer-down">▼</button>
+                    <div class="layer-display">L:0</div>
+                    <button id="layer-up">▲</button>
+                </div>
+                <div class="divider"></div>
+                <button id="action-theme">Theme ◐</button>
+                <div class="spacer"></div>
+                <button id="action-import" style="border-color: var(--text); color: var(--text);">Import</button>
+            </div>
+        </div>
+
+        <div class="status-bar">
+            <span id="status-text">SYSTEM READY</span>
+            <span id="coord-text">0, 0</span>
+        </div>
+    </div>
+
+    <!-- Edit Modal -->
+    <div id="modal-edit" class="modal-overlay">
+        <div class="modal-content">
+            <div class="modal-header">ENTITY CONFIGURATION</div>
+            
+            <div style="display:flex; gap:10px;">
+                <div style="flex-grow:1;">
+                    <label>Designation</label>
+                    <input type="text" id="inp-name">
+                </div>
+                <div style="width:80px;">
+                    <label>Sort Key</label>
+                    <input type="text" id="inp-key" maxlength="1" style="text-align:center; font-weight:bold; color:var(--accent);">
+                </div>
+            </div>
+            
+            <label>Classification</label>
+            <select id="inp-type">
+                <option value="space">Space (Territory)</option>
+                <option value="object">Object (Asset)</option>
+            </select>
+
+            <div class="checkbox-wrapper">
+                <input type="checkbox" id="inp-solid">
+                <label style="margin:0; color: var(--text);">Solid Structure (Wall)</label>
+            </div>
+
+            <label>Manifest (CSV)</label>
+            <textarea id="inp-items" rows="2"></textarea>
+            
+            <label>Description</label>
+            <textarea id="inp-desc" rows="3"></textarea>
+            
+            <div class="modal-buttons">
+                <button id="btn-delete" style="border-color: var(--solid); color: var(--solid);">Destroy</button>
+                <button id="btn-close-edit">Cancel</button>
+                <button id="btn-save-edit" class="active">Update</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Export Modal -->
+    <div id="modal-output" class="modal-overlay">
+        <div class="modal-content" style="max-width: 800px; width: 95%;">
+            <div class="modal-header">TOPOLOGY & DATA</div>
+            
+            <div class="checkbox-wrapper" style="background: rgba(0,0,0,0.2); padding: 5px; border-radius: 4px; margin-bottom: 10px;">
+                <input type="checkbox" id="chk-include-raw" checked>
+                <label for="chk-include-raw" style="margin:0; color: var(--text); font-weight: bold; cursor: pointer;">Include Raw Topology Data (Backup)</label>
+            </div>
+
+            <div id="output-preview" class="code-preview"></div>
+            <div class="modal-buttons">
+                <button id="btn-close-output">Close</button>
+                <button id="btn-copy-output" class="active">Copy All</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Import Modal -->
+    <div id="modal-import" class="modal-overlay">
+        <div class="modal-content" style="max-width: 600px;">
+            <div class="modal-header">DATA INGESTION</div>
+            <label>Paste Export Text (ASCII or Raw JSON)</label>
+            <textarea id="inp-import-data" class="code-preview" style="background: var(--panel); color: var(--text); min-height: 300px;" placeholder="Paste text here..."></textarea>
+            <div class="modal-buttons">
+                <button id="btn-close-import">Cancel</button>
+                <button id="btn-load-import" class="active">Load Data</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="toast" class="toast">OPERATIONAL SUCCESS</div>
+
+    <canvas id="canvas"></canvas>
+
+    <script>
+        /**
+         * ZYQRAL SPATIAL IDE KERNEL v2.7
+         * - Export Control (Topology Toggle)
+         * - Key-Based Stratification
+         * - Robust Geometry
+         */
+
+        const GRID = 20;
+        const SNAP = 20;
+        
+        const state = {
+            rooms: [], 
+            links: [], 
+            currentLayer: 0,
+            tool: 'select', 
+            theme: 'dark',
+            
+            inputDown: false,
+            dragStart: {x:0, y:0},
+            currPos: {x:0, y:0},
+            
+            polyPoints: [],
+            selectedId: null,
+            dragOffset: {x:0, y:0},
+            linkStartId: null,
+            mergeQueue: []
+        };
+
+        // Storage Load
+        const savedData = localStorage.getItem('zyqral_v2_data');
+        if (savedData) {
+            try {
+                const data = JSON.parse(savedData);
+                state.rooms = data.rooms || [];
+                state.links = data.links || [];
+                normalizeKeys();
+            } catch(e) {}
+        }
+        const savedTheme = localStorage.getItem('zyqral_theme');
+        if (savedTheme) {
+            state.theme = savedTheme;
+            if (state.theme === 'light') document.body.classList.add('light-mode');
+        }
+
+        const canvas = document.getElementById('canvas');
+        const ctx = canvas.getContext('2d');
+        const statusText = document.getElementById('status-text');
+        const coordText = document.getElementById('coord-text');
+        const fileInput = document.getElementById('file-import');
+        
+        function resize() {
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+            render();
+        }
+        window.addEventListener('resize', resize);
+
+        function getThemeColors() {
+            const isLight = state.theme === 'light';
+            return {
+                bg: isLight ? '#e0e0e0' : '#121212',
+                grid: isLight ? '#cccccc' : '#222222',
+                spaceStroke: isLight ? '#444444' : 'rgba(0, 255, 157, 1)',
+                spaceFill: isLight ? 'rgba(68, 68, 68, 0.1)' : 'rgba(0, 255, 157, 0.1)',
+                objStroke: isLight ? '#666666' : 'rgba(189, 147, 249, 1)',
+                objFill: isLight ? 'rgba(102, 102, 102, 0.1)' : 'rgba(189, 147, 249, 0.1)',
+                link: isLight ? '#000000' : 'rgba(0, 204, 255, 1)',
+                solid: isLight ? '#880000' : '#ff5555',
+                merge: isLight ? '#cc6600' : '#ffb86c',
+                text: isLight ? '#333333' : '#e0e0e0',
+                activePoly: isLight ? '#000' : '#fff'
+            };
+        }
+
+        function snap(v) { return Math.round(v / SNAP) * SNAP; }
+        function dist(p1, p2) { return Math.hypot(p2.x - p1.x, p2.y - p1.y); }
+
+        function pointInPoly(p, points) {
+            let inside = false;
+            for (let i = 0, j = points.length - 1; i < points.length; j = i++) {
+                const xi = points[i].x, yi = points[i].y;
+                const xj = points[j].x, yj = points[j].y;
+                const intersect = ((yi > p.y) != (yj > p.y)) && (p.x < (xj - xi) * (p.y - yi) / (yj - yi) + xi);
+                if (intersect) inside = !inside;
+            }
+            return inside;
+        }
+
+        function getCentroid(points) {
+            let x = 0, y = 0;
+            points.forEach(p => { x += p.x; y += p.y; });
+            return { x: x / points.length, y: y / points.length };
+        }
+
+        // -- DATA UTILS --
+        function getNextKey() {
+            const chars = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz";
+            for(let i=0; i<chars.length; i++) {
+                if(!state.rooms.some(r => r.keyChar === chars[i])) return chars[i];
+            }
+            return '?';
+        }
+
+        function normalizeKeys() {
+            state.rooms.forEach(r => { if(!r.keyChar) r.keyChar = getNextKey(); });
+            sortRooms();
+        }
+
+        function sortRooms() {
+            state.rooms.sort((a, b) => {
+                if (a.layer !== b.layer) return a.layer - b.layer;
+                const ka = a.keyChar || ''; const kb = b.keyChar || '';
+                return ka.localeCompare(kb);
+            });
+        }
+
+        // -- GEOMETRY UTILS FOR MERGE --
+        function getSignedArea(points) {
+            let area = 0;
+            for(let i=0; i<points.length; i++) {
+                const j = (i+1) % points.length;
+                area += (points[j].x - points[i].x) * (points[j].y + points[i].y);
+            }
+            return area;
+        }
+
+        function ensureClockwise(points) {
+            if (getSignedArea(points) < 0) return [...points].reverse();
+            return [...points];
+        }
+
+        function ptsEqual(p1, p2) { return Math.abs(p1.x - p2.x) < 0.5 && Math.abs(p1.y - p2.y) < 0.5; }
+
+        function collinear(p1, p2, p3) {
+            const val = (p2.y - p1.y) * (p3.x - p2.x) - (p2.x - p1.x) * (p3.y - p2.y);
+            return Math.abs(val) < 1.0;
+        }
+
+        function subdividePoly(poly, referencePts) {
+            let newPoly = [];
+            for (let i = 0; i < poly.length; i++) {
+                const p1 = poly[i];
+                const p2 = poly[(i + 1) % poly.length];
+                newPoly.push(p1);
+                const onSegment = [];
+                for (const rp of referencePts) {
+                    if (ptsEqual(rp, p1) || ptsEqual(rp, p2)) continue;
+                    const d = dist(p1, rp) + dist(rp, p2) - dist(p1, p2);
+                    if (Math.abs(d) < 0.1) onSegment.push(rp);
+                }
+                onSegment.sort((a, b) => dist(p1, a) - dist(p1, b));
+                for (const p of onSegment) {
+                    if (!ptsEqual(newPoly[newPoly.length-1], p)) newPoly.push({x: p.x, y: p.y});
+                }
+            }
+            return newPoly;
+        }
+
+        // -- INPUT HANDLING --
+        function getMousePos(e) {
+            const r = canvas.getBoundingClientRect();
+            const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+            const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+            return { x: clientX - r.left, y: clientY - r.top };
+        }
+
+        canvas.addEventListener('mousedown', onDown);
+        canvas.addEventListener('mousemove', onMove);
+        window.addEventListener('mouseup', onUp); 
+        canvas.addEventListener('touchstart', onDown, {passive:false});
+        canvas.addEventListener('touchmove', onMove, {passive:false});
+        window.addEventListener('touchend', onUp);
+
+        canvas.addEventListener('contextmenu', (e) => {
+            e.preventDefault();
+            if (state.tool === 'poly' && state.polyPoints.length > 2) finishPoly();
+        });
+
+        function onDown(e) {
+            if(e.target !== canvas) return;
+            const pos = getMousePos(e);
+            state.inputDown = true;
+            state.dragStart = pos;
+            state.currPos = pos;
+            const sx = snap(pos.x);
+            const sy = snap(pos.y);
+
+            let hit = null;
+            for(let i=state.rooms.length-1; i>=0; i--) {
+                const r = state.rooms[i];
+                if(r.layer === state.currentLayer && pointInPoly(pos, r.points)) {
+                    hit = r;
+                    break;
+                }
+            }
+
+            if (state.tool === 'select') {
+                if (hit) {
+                    state.selectedId = hit.id;
+                    state.dragOffset = { x: pos.x - hit.points[0].x, y: pos.y - hit.points[0].y }; 
+                } else {
+                    state.selectedId = null;
+                }
+            } else if (state.tool === 'poly') {
+                state.polyPoints.push({x: sx, y: sy});
+            } else if (state.tool === 'link') {
+                if (hit) state.linkStartId = hit.id;
+            } else if (state.tool === 'merge') {
+                if (hit) {
+                    if (!state.mergeQueue.includes(hit.id)) {
+                        state.mergeQueue.push(hit.id);
+                        if (state.mergeQueue.length === 2) {
+                            performMerge(state.mergeQueue[0], state.mergeQueue[1]);
+                            state.mergeQueue = [];
+                        }
+                    }
+                }
+            }
+            render();
+        }
+
+        function onMove(e) {
+            e.preventDefault();
+            const pos = getMousePos(e);
+            state.currPos = pos;
+            const sx = snap(pos.x);
+            const sy = snap(pos.y);
+            coordText.innerText = `${sx}, ${sy}`;
+
+            if (state.inputDown) {
+                if (state.tool === 'select' && state.selectedId) {
+                    const r = state.rooms.find(x => x.id === state.selectedId);
+                    if (r) {
+                        const dx = sx - snap(state.dragStart.x);
+                        const dy = sy - snap(state.dragStart.y);
+                        if (dx !== 0 || dy !== 0) {
+                            r.points.forEach(p => { p.x += dx; p.y += dy; });
+                            state.dragStart = pos; 
+                        }
+                    }
+                }
+            }
+            render();
+        }
+
+        function onUp(e) {
+            if (!state.inputDown) return;
+            state.inputDown = false;
+            const pos = state.currPos; 
+            const sx = snap(pos.x);
+            const sy = snap(pos.y);
+            const startSx = snap(state.dragStart.x);
+            const startSy = snap(state.dragStart.y);
+            const distMoved = dist(state.dragStart, pos);
+
+            if (state.tool === 'select') {
+                if (distMoved < 5 && state.selectedId) openEdit(state.selectedId);
+                else save();
+            } else if (state.tool === 'rect') {
+                if (Math.abs(sx - startSx) >= GRID && Math.abs(sy - startSy) >= GRID) {
+                    createRoom([
+                        {x: startSx, y: startSy},
+                        {x: sx, y: startSy},
+                        {x: sx, y: sy},
+                        {x: startSx, y: sy}
+                    ], 'space');
+                }
+            } else if (state.tool === 'link') {
+                if (state.linkStartId) {
+                    let hit = null;
+                    for(let i=state.rooms.length-1; i>=0; i--) {
+                        if(state.rooms[i].layer === state.currentLayer && pointInPoly(pos, state.rooms[i].points)) {
+                            hit = state.rooms[i];
+                            break;
+                        }
+                    }
+                    if (hit && hit.id !== state.linkStartId) createLink(state.linkStartId, hit.id);
+                    state.linkStartId = null;
+                }
+            }
+            render();
+        }
+
+        // -- LOGIC: MERGE --
+        function performMerge(id1, id2) {
+            const r1 = state.rooms.find(r => r.id === id1);
+            const r2 = state.rooms.find(r => r.id === id2);
+            if (!r1 || !r2) return;
+
+            let pts1 = ensureClockwise(r1.points);
+            let pts2 = ensureClockwise(r2.points);
+            pts1 = subdividePoly(pts1, pts2);
+            pts2 = subdividePoly(pts2, pts1);
+
+            const getEdges = (pts) => {
+                const arr = [];
+                for(let i=0; i<pts.length; i++) arr.push({ p1: pts[i], p2: pts[(i+1)%pts.length], used: false });
+                return arr;
+            };
+
+            const edges1 = getEdges(pts1);
+            const edges2 = getEdges(pts2);
+            
+            let sharedCount = 0;
+            for (let e1 of edges1) {
+                for (let e2 of edges2) {
+                    if (ptsEqual(e1.p1, e2.p2) && ptsEqual(e1.p2, e2.p1)) {
+                        e1.used = true; e2.used = true; sharedCount++;
+                    }
+                }
+            }
+
+            if (sharedCount === 0) { showToast("FAILED: NOT ADJACENT", true); return; }
+
+            const allEdges = [...edges1, ...edges2].filter(e => !e.used);
+            if (allEdges.length < 3) return;
+
+            const newPoly = [];
+            let currentEdge = allEdges[0];
+            const startEdge = currentEdge;
+            let safety = 0;
+
+            while (safety < 2000) {
+                newPoly.push(currentEdge.p1);
+                const next = allEdges.find(e => e !== currentEdge && ptsEqual(e.p1, currentEdge.p2));
+                if (!next) { showToast("ERROR: GEOMETRY GAP", true); return; }
+                if (next === startEdge) break;
+                currentEdge = next;
+                safety++;
+            }
+
+            const cleanedPoly = [];
+            for (let i=0; i<newPoly.length; i++) {
+                const prev = newPoly[(i - 1 + newPoly.length) % newPoly.length];
+                const curr = newPoly[i];
+                const next = newPoly[(i + 1) % newPoly.length];
+                if (!collinear(prev, curr, next)) cleanedPoly.push(curr);
+            }
+
+            const combinedItems = [r1.items, r2.items].filter(x => x).join(', ');
+            const combinedDesc = [r1.description, r2.description].filter(x => x).join(' | ');
+
+            state.rooms = state.rooms.filter(r => r.id !== id1 && r.id !== id2);
+            createRoom(cleanedPoly, 'space');
+            
+            const newRoom = state.rooms[state.rooms.length-1];
+            newRoom.items = combinedItems;
+            newRoom.description = combinedDesc;
+            
+            save(); render(); showToast("MERGE COMPLETE");
+        }
+
+        // -- LOGIC: HELPERS --
+        function finishPoly() {
+            if (state.polyPoints.length > 2) createRoom([...state.polyPoints], 'space');
+            state.polyPoints = [];
+            render();
+        }
+
+        function createRoom(points, type) {
+            state.rooms.push({
+                id: Date.now().toString(36) + Math.random().toString(36).substr(2,5),
+                keyChar: getNextKey(),
+                name: `${type.charAt(0).toUpperCase() + type.slice(1)} ${state.rooms.length+1}`,
+                type: type, layer: state.currentLayer, points: points, isSolid: false, items: '', description: ''
+            });
+            sortRooms();
+            save();
+        }
+
+        function createLink(from, to) {
+            if (state.links.some(l => (l.from === from && l.to === to) || (l.from === to && l.to === from))) return;
+            state.links.push({ id: Date.now().toString(36), from, to, layer: state.currentLayer });
+            save();
+        }
+
+        function save() {
+            localStorage.setItem('zyqral_v2_data', JSON.stringify({ rooms: state.rooms, links: state.links }));
+        }
+
+        // -- UI HANDLERS --
+        document.querySelectorAll('button[id^="tool-"]').forEach(btn => {
+            btn.onclick = (e) => { const id = btn.id; setTool(id.replace('tool-', '')); };
+        });
+
+        function setTool(t) {
+            state.tool = t; state.polyPoints = []; state.selectedId = null; state.linkStartId = null; state.mergeQueue = [];
+            document.querySelectorAll('button[id^="tool-"]').forEach(b => b.classList.remove('active'));
+            document.getElementById(`tool-${t}`).classList.add('active');
+            statusText.innerText = (t==='poly'?'CLICK VERTICES':(t==='merge'?'CLICK 2 SHAPES':'READY'));
+        }
+
+        document.getElementById('action-theme').onclick = () => {
+            state.theme = state.theme === 'dark' ? 'light' : 'dark';
+            document.body.classList.toggle('light-mode', state.theme === 'light');
+            localStorage.setItem('zyqral_theme', state.theme); render();
+        };
+
+        // IMPORT
+        const modalImport = document.getElementById('modal-import');
+        document.getElementById('action-import').onclick = () => {
+            document.getElementById('inp-import-data').value = '';
+            modalImport.style.display = 'flex';
+        };
+        document.getElementById('btn-close-import').onclick = () => modalImport.style.display = 'none';
+        
+        document.getElementById('btn-load-import').onclick = () => {
+            const text = document.getElementById('inp-import-data').value;
+            try {
+                let jsonStr = text;
+                if (text.includes('*** RAW TOPOLOGY DATA')) {
+                    const parts = text.split('*** RAW TOPOLOGY DATA (COPY THIS FOR BACKUP) ***');
+                    jsonStr = parts[1].trim();
+                }
+                const data = JSON.parse(jsonStr);
+                if (data.rooms) {
+                    state.rooms = data.rooms; state.links = data.links || [];
+                    normalizeKeys(); // Ensure consistency
+                    save(); render(); showToast("DATA LOADED");
+                    modalImport.style.display = 'none';
+                } else { alert("Invalid Format"); }
+            } catch(e) { alert("Parse Error"); }
+        };
+
+        // EXPORT LOGIC (Modified)
+        let exportAscii = "";
+        let exportRaw = "";
+
+        document.getElementById('action-ascii').onclick = () => {
+            sortRooms();
+            exportAscii = generateAscii();
+            exportRaw = JSON.stringify({ rooms: state.rooms, links: state.links });
+            updateExportDisplay();
+            document.getElementById('modal-output').style.display = 'flex';
+        };
+
+        function updateExportDisplay() {
+            const includeRaw = document.getElementById('chk-include-raw').checked;
+            const output = includeRaw 
+                ? `${exportAscii}\n\n*** RAW TOPOLOGY DATA (COPY THIS FOR BACKUP) ***\n${exportRaw}`
+                : exportAscii;
+            document.getElementById('output-preview').textContent = output;
+        }
+
+        document.getElementById('chk-include-raw').onchange = updateExportDisplay;
+
+        document.getElementById('btn-close-output').onclick = () => document.getElementById('modal-output').style.display = 'none';
+        
+        document.getElementById('btn-copy-output').onclick = () => {
+            const text = document.getElementById('output-preview').textContent;
+            const ta = document.createElement('textarea');
+            ta.value = text;
+            ta.style.position = 'fixed'; ta.style.left = '-9999px';
+            document.body.appendChild(ta);
+            ta.select();
+            try {
+                document.execCommand('copy');
+                showToast("COPIED TO CLIPBOARD");
+            } catch(e) {
+                showToast("COPY FAILED", true);
+            }
+            document.body.removeChild(ta);
+        };
+
+        document.getElementById('layer-up').onclick = () => { state.currentLayer++; updateLayerDisplay(); render(); };
+        document.getElementById('layer-down').onclick = () => { state.currentLayer--; updateLayerDisplay(); render(); };
+        function updateLayerDisplay() { document.querySelector('.layer-display').innerText = `L:${state.currentLayer}`; }
+
+        const modalEdit = document.getElementById('modal-edit');
+        let editId = null;
+        function openEdit(id) {
+            editId = id; const r = state.rooms.find(x => x.id === id); if (!r) return;
+            document.getElementById('inp-name').value = r.name; 
+            document.getElementById('inp-key').value = r.keyChar || '';
+            document.getElementById('inp-type').value = r.type;
+            document.getElementById('inp-solid').checked = r.isSolid || false;
+            document.getElementById('inp-items').value = r.items || ''; document.getElementById('inp-desc').value = r.description || '';
+            modalEdit.style.display = 'flex';
+        }
+        document.getElementById('btn-close-edit').onclick = () => modalEdit.style.display = 'none';
+        
+        document.getElementById('btn-save-edit').onclick = () => {
+            const r = state.rooms.find(x => x.id === editId);
+            if (r) {
+                const newKey = document.getElementById('inp-key').value.charAt(0);
+                if (state.rooms.some(rm => rm.id !== editId && rm.keyChar === newKey)) {
+                    showToast("KEY CONFLICT", true);
+                }
+                r.keyChar = newKey || r.keyChar;
+                r.name = document.getElementById('inp-name').value; 
+                r.type = document.getElementById('inp-type').value;
+                r.isSolid = document.getElementById('inp-solid').checked; r.items = document.getElementById('inp-items').value;
+                r.description = document.getElementById('inp-desc').value; 
+                sortRooms(); save(); render();
+            }
+            modalEdit.style.display = 'none';
+        };
+        document.getElementById('btn-delete').onclick = () => {
+            if (editId) {
+                state.rooms = state.rooms.filter(r => r.id !== editId);
+                state.links = state.links.filter(l => l.from !== editId && l.to !== editId);
+                save(); render();
+            }
+            modalEdit.style.display = 'none';
+        };
+
+        function showToast(msg, isWarn=false) {
+            const t = document.getElementById('toast'); 
+            t.innerText = msg; 
+            if(isWarn) t.classList.add('warning'); else t.classList.remove('warning');
+            t.style.display = 'block';
+            setTimeout(() => t.style.display = 'none', 2000);
+        }
+
+        // GENERATOR
+        function generateAscii() {
+            let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+            const layerRooms = state.rooms.filter(r => r.layer === state.currentLayer);
+            if (layerRooms.length === 0) return "NO DATA ON CURRENT LAYER";
+            layerRooms.forEach(r => { r.points.forEach(p => { if (p.x < minX) minX = p.x; if (p.y < minY) minY = p.y; if (p.x > maxX) maxX = p.x; if (p.y > maxY) maxY = p.y; }); });
+            const pad = GRID * 2; minX -= pad; minY -= pad; maxX += pad; maxY += pad;
+            const cols = Math.ceil((maxX - minX) / GRID); const rows = Math.ceil((maxY - minY) / GRID);
+            
+            let grid = "";
+            for (let r = 0; r < rows; r++) {
+                for (let c = 0; c < cols; c++) {
+                    const cx = minX + c * GRID + GRID/2; const cy = minY + r * GRID + GRID/2;
+                    let char = '.';
+                    for (let i = layerRooms.length - 1; i >= 0; i--) { 
+                        if (pointInPoly({x: cx, y: cy}, layerRooms[i].points)) { char = layerRooms[i].keyChar || '?'; break; } 
+                    }
+                    grid += char;
+                }
+                grid += "\n";
+            }
+            const contains = (p, c) => { const cp = getCentroid(c.points); const areaP = getSignedArea(p.points); const areaC = getSignedArea(c.points); return pointInPoly(cp, p.points) && Math.abs(areaP) > Math.abs(areaC); };
+            let roots = [];
+            layerRooms.forEach(child => {
+                let bestParent = null; let minParentArea = Infinity;
+                layerRooms.forEach(parent => {
+                    if (child === parent) return;
+                    if (contains(parent, child)) { let area = Math.abs(getSignedArea(parent.points)); if (area < minParentArea) { minParentArea = area; bestParent = parent; } }
+                });
+                if (bestParent) { if(!bestParent._children) bestParent._children=[]; bestParent._children.push(child); } else roots.push(child);
+            });
+            const clean = (n) => ({ key: n.keyChar, name: n.name, type: n.type, description: n.description || "", items: n.items ? n.items.split(',').map(s=>s.trim()).filter(s=>s) : [], nested: (n._children||[]).map(clean) });
+            return grid + "\n\nLEGEND (JSON):\n--------------\n" + JSON.stringify(roots.map(clean), null, 2);
+        }
+
+        function render() {
+            const C = getThemeColors();
+            ctx.fillStyle = C.bg; ctx.fillRect(0, 0, canvas.width, canvas.height);
+            ctx.strokeStyle = C.grid; ctx.lineWidth = 1; ctx.beginPath();
+            for(let x=0; x<canvas.width; x+=GRID) { ctx.moveTo(x,0); ctx.lineTo(x, canvas.height); }
+            for(let y=0; y<canvas.height; y+=GRID) { ctx.moveTo(0,y); ctx.lineTo(canvas.width, y); }
+            ctx.stroke();
+            const layersToDraw = [...new Set(state.rooms.map(r => r.layer).concat(state.currentLayer))].sort((a,b)=>a-b);
+            layersToDraw.forEach(layer => {
+                const isCurrent = layer === state.currentLayer; const alpha = isCurrent ? 1.0 : 0.1;
+                state.links.filter(l => l.layer === layer).forEach(l => {
+                    const r1 = state.rooms.find(r => r.id === l.from); const r2 = state.rooms.find(r => r.id === l.to);
+                    if (r1 && r2) { const c1 = getCentroid(r1.points); const c2 = getCentroid(r2.points); ctx.beginPath(); ctx.strokeStyle = C.link; ctx.globalAlpha = alpha; ctx.lineWidth = isCurrent ? 2 : 1; ctx.moveTo(c1.x, c1.y); ctx.lineTo(c2.x, c2.y); ctx.stroke(); ctx.globalAlpha = 1.0; }
+                });
+                const roomsInLayer = state.rooms.filter(r => r.layer === layer);
+                roomsInLayer.forEach(r => {
+                    let fill = (r.type === 'space') ? C.spaceFill : C.objFill; let stroke = (r.type === 'space') ? C.spaceStroke : C.objStroke;
+                    if (r.isSolid) { fill = C.solid; stroke = C.solid; }
+                    ctx.globalAlpha = alpha;
+                    if (state.selectedId === r.id && isCurrent) { ctx.shadowBlur = 10; ctx.shadowColor = stroke; } 
+                    else if (state.mergeQueue.includes(r.id) && isCurrent) { ctx.shadowBlur = 10; ctx.shadowColor = C.merge; }
+                    else ctx.shadowBlur = 0;
+                    ctx.beginPath();
+                    if (r.points.length > 0) { ctx.moveTo(r.points[0].x, r.points[0].y); for(let i=1; i<r.points.length; i++) ctx.lineTo(r.points[i].x, r.points[i].y); ctx.closePath(); }
+                    ctx.fillStyle = fill; ctx.fill(); ctx.strokeStyle = stroke; ctx.lineWidth = r.isSolid ? 3 : 2; ctx.stroke(); ctx.shadowBlur = 0;
+                    if (r.points.length > 0) { const c = getCentroid(r.points); ctx.fillStyle = C.text; ctx.font = 'bold 10px Courier New'; ctx.textAlign = 'center'; ctx.fillText(r.name, c.x, c.y); ctx.fillText(`(${r.keyChar})`, c.x, c.y + 10); }
+                    ctx.globalAlpha = 1.0;
+                });
+            });
+            if (state.tool === 'poly' && state.polyPoints.length > 0) {
+                ctx.strokeStyle = C.activePoly; ctx.lineWidth = 1; ctx.beginPath();
+                ctx.moveTo(state.polyPoints[0].x, state.polyPoints[0].y); for(let i=1; i<state.polyPoints.length; i++) ctx.lineTo(state.polyPoints[i].x, state.polyPoints[i].y); ctx.stroke();
+                ctx.beginPath(); ctx.moveTo(state.polyPoints[state.polyPoints.length-1].x, state.polyPoints[state.polyPoints.length-1].y); ctx.lineTo(state.currPos.x, state.currPos.y); ctx.setLineDash([5,5]); ctx.stroke(); ctx.setLineDash([]);
+            }
+            if (state.tool === 'rect' && state.inputDown) {
+                ctx.strokeStyle = C.activePoly; ctx.setLineDash([5,5]);
+                ctx.strokeRect(snap(state.dragStart.x), snap(state.dragStart.y), snap(state.currPos.x)-snap(state.dragStart.x), snap(state.currPos.y)-snap(state.dragStart.y)); ctx.setLineDash([]);
+            }
+            if (state.tool === 'link' && state.inputDown && state.linkStartId) {
+                const r = state.rooms.find(x => x.id === state.linkStartId);
+                if(r) { const c = getCentroid(r.points); ctx.strokeStyle = C.link; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(c.x, c.y); ctx.lineTo(state.currPos.x, state.currPos.y); ctx.stroke(); }
+            }
+        }
+        resize();
+    </script>
+</body>
+</html>
+
+
