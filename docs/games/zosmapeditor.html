@@ -6,7 +6,7 @@
     <title>Zyqral Spatial IDE</title>
     <style>
         :root {
-            /* DARK MODE (Neon / High Contrast) */
+            /* DARK MODE (Default) */
             --bg: #121212;
             --panel: #1e1e1e;
             --text: #e0e0e0;
@@ -15,6 +15,7 @@
             --link: #00ccff;   /* Blue */
             --solid: #ff5555;  /* Red */
             --merge: #ffb86c;  /* Orange */
+            --view: #ffffff;   /* White for View */
             --grid-major: #333;
             --grid-minor: #222;
             --btn-bg: #2a2a2a;
@@ -26,22 +27,23 @@
         }
 
         body.light-mode {
-            /* LIGHT MODE (Strict Monochrome / Blueprint) */
+            /* LIGHT MODE */
             --bg: #e0e0e0;
             --panel: #d0d0d0;
             --text: #111111;
-            --accent: #444444; /* Spaces */
-            --object: #777777; /* Objects */
-            --link: #000000;   /* Links */
-            --solid: #222222;  /* Walls - Dark Grey */
-            --merge: #666666;  /* Merge Selection - Mid Grey */
+            --accent: #444444;
+            --object: #777777;
+            --link: #000000;
+            --solid: #222222;
+            --merge: #666666;
+            --view: #000000;
             --grid-major: #bbbbbb;
             --grid-minor: #cccccc;
             --btn-bg: #f0f0f0;
             --btn-border: #999;
             --btn-hover: #ffffff;
-            --modal-overlay: rgba(255,255,255,0.9);
-            --shadow-color: rgba(0, 0, 0, 0.15);
+            --modal-overlay: rgba(255,255,255,0.85);
+            --shadow-color: rgba(0, 0, 0, 0.2);
             --warn: #000000;
         }
 
@@ -66,7 +68,7 @@
             pointer-events: auto; background: var(--panel);
             border-bottom: 1px solid var(--accent);
             display: flex; flex-direction: column; gap: 0;
-            box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+            box-shadow: 0 4px 10px rgba(0,0,0,0.3);
         }
 
         .toolbar-row {
@@ -103,6 +105,7 @@
 
         button.btn-link.active { background: var(--link); color: var(--bg); border-color: var(--link); }
         button.btn-merge.active { background: var(--merge); color: var(--bg); border-color: var(--merge); }
+        button.btn-view.active { background: var(--view); color: var(--bg) !important; border-color: var(--view); }
         
         .layer-controls {
             display: flex; align-items: center; gap: 2px; background: var(--bg);
@@ -164,8 +167,10 @@
 
     <div id="ui-layer">
         <div class="header-container">
-            <!-- Row 1 -->
+            <!-- Row 1: Tools -->
             <div class="toolbar-row">
+                <button id="tool-view" class="btn-view">View</button>
+                <div class="divider"></div>
                 <button id="tool-select" class="active">Interact</button>
                 <div class="divider"></div>
                 <button id="tool-poly">Poly</button>
@@ -173,10 +178,8 @@
                 <button id="tool-merge" class="btn-merge">Merge</button>
                 <div class="divider"></div>
                 <button id="tool-link" class="btn-link">Link</button>
-                <div class="spacer"></div>
-                <button id="action-ascii" style="border-color: var(--text); color: var(--text);">Export</button>
             </div>
-            <!-- Row 2 -->
+            <!-- Row 2: Controls & IO -->
             <div class="toolbar-row" style="background: rgba(0,0,0,0.05);">
                 <div class="layer-controls">
                     <button id="layer-down">▼</button>
@@ -187,6 +190,7 @@
                 <button id="action-theme">Theme ◐</button>
                 <div class="spacer"></div>
                 <button id="action-import" style="border-color: var(--text); color: var(--text);">Import</button>
+                <button id="action-ascii" style="border-color: var(--text); color: var(--text);">Export</button>
             </div>
         </div>
 
@@ -266,10 +270,8 @@
 
     <script>
         /**
-         * ZYQRAL SPATIAL IDE KERNEL v3.0
-         * - Monochrome Light Mode
-         * - Vertex Injection Merge
-         * - Key-Based Logic
+         * ZYQRAL SPATIAL IDE KERNEL v3.2
+         * - Export relocated to Row 2
          */
 
         const GRID = 20;
@@ -282,10 +284,16 @@
             tool: 'select', 
             theme: 'dark',
             
+            // Interaction
             inputDown: false,
-            dragStart: {x:0, y:0},
-            currPos: {x:0, y:0},
+            dragStart: {x:0, y:0}, // Screen coords
+            currScreenPos: {x:0, y:0},
             
+            // Camera
+            camera: {x: 0, y: 0},
+            lastCamPos: {x: 0, y: 0},
+            
+            // Tools
             polyPoints: [],
             selectedId: null,
             dragOffset: {x:0, y:0},
@@ -331,8 +339,8 @@
                 objStroke: isLight ? '#666666' : 'rgba(189, 147, 249, 1)',
                 objFill: isLight ? 'rgba(102, 102, 102, 0.1)' : 'rgba(189, 147, 249, 0.1)',
                 link: isLight ? '#000000' : 'rgba(0, 204, 255, 1)',
-                solid: isLight ? '#222222' : '#ff5555', // Monochrome Solid
-                merge: isLight ? '#666666' : '#ffb86c', // Monochrome Merge
+                solid: isLight ? '#222222' : '#ff5555',
+                merge: isLight ? '#666666' : '#ffb86c',
                 text: isLight ? '#111111' : '#e0e0e0',
                 activePoly: isLight ? '#000' : '#fff'
             };
@@ -358,6 +366,7 @@
             return { x: x / points.length, y: y / points.length };
         }
 
+        // -- DATA UTILS --
         function getNextKey() {
             const chars = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz";
             for(let i=0; i<chars.length; i++) {
@@ -379,6 +388,7 @@
             });
         }
 
+        // -- GEOMETRY UTILS FOR MERGE --
         function getSignedArea(points) {
             let area = 0;
             for(let i=0; i<points.length; i++) {
@@ -420,13 +430,22 @@
             return newPoly;
         }
 
-        function getMousePos(e) {
+        // -- COORDINATE SYSTEMS --
+        function getScreenPos(e) {
             const r = canvas.getBoundingClientRect();
             const clientX = e.touches ? e.touches[0].clientX : e.clientX;
             const clientY = e.touches ? e.touches[0].clientY : e.clientY;
             return { x: clientX - r.left, y: clientY - r.top };
         }
 
+        function getWorldPos(screenPos) {
+            return { 
+                x: screenPos.x - state.camera.x, 
+                y: screenPos.y - state.camera.y 
+            };
+        }
+
+        // -- INPUT LISTENERS --
         canvas.addEventListener('mousedown', onDown);
         canvas.addEventListener('mousemove', onMove);
         window.addEventListener('mouseup', onUp); 
@@ -443,21 +462,33 @@
 
         function onDown(e) {
             if(e.target !== canvas) return;
-            const pos = getMousePos(e);
-            state.inputDown = true; state.dragStart = pos; state.currPos = pos;
-            const sx = snap(pos.x); const sy = snap(pos.y);
+            const pos = getScreenPos(e);
+            state.inputDown = true; 
+            state.dragStart = pos; 
+            state.currScreenPos = pos;
+
+            if (state.tool === 'view') {
+                state.lastCamPos = { ...state.camera };
+                return;
+            }
+
+            const worldPos = getWorldPos(pos);
+            const sx = snap(worldPos.x); 
+            const sy = snap(worldPos.y);
 
             let hit = null;
             for(let i=state.rooms.length-1; i>=0; i--) {
                 const r = state.rooms[i];
-                if(r.layer === state.currentLayer && pointInPoly(pos, r.points)) {
+                if(r.layer === state.currentLayer && pointInPoly(worldPos, r.points)) {
                     hit = r; break;
                 }
             }
 
             if (state.tool === 'select') {
-                if (hit) { state.selectedId = hit.id; state.dragOffset = { x: pos.x - hit.points[0].x, y: pos.y - hit.points[0].y }; } 
-                else { state.selectedId = null; }
+                if (hit) { 
+                    state.selectedId = hit.id; 
+                    state.dragOffset = { x: worldPos.x - hit.points[0].x, y: worldPos.y - hit.points[0].y }; 
+                } else { state.selectedId = null; }
             } else if (state.tool === 'poly') {
                 state.polyPoints.push({x: sx, y: sy});
             } else if (state.tool === 'link') {
@@ -477,14 +508,35 @@
         }
 
         function onMove(e) {
-            e.preventDefault(); const pos = getMousePos(e); state.currPos = pos;
-            const sx = snap(pos.x); const sy = snap(pos.y); coordText.innerText = `${sx}, ${sy}`;
+            e.preventDefault(); 
+            const pos = getScreenPos(e); 
+            state.currScreenPos = pos;
+            
+            if (state.inputDown && state.tool === 'view') {
+                const dx = pos.x - state.dragStart.x;
+                const dy = pos.y - state.dragStart.y;
+                state.camera.x = state.lastCamPos.x + dx;
+                state.camera.y = state.lastCamPos.y + dy;
+                render();
+                return;
+            }
+
+            const worldPos = getWorldPos(pos);
+            const sx = snap(worldPos.x); 
+            const sy = snap(worldPos.y);
+            coordText.innerText = `${sx}, ${sy}`;
+
             if (state.inputDown) {
                 if (state.tool === 'select' && state.selectedId) {
                     const r = state.rooms.find(x => x.id === state.selectedId);
                     if (r) {
-                        const dx = sx - snap(state.dragStart.x); const dy = sy - snap(state.dragStart.y);
-                        if (dx !== 0 || dy !== 0) { r.points.forEach(p => { p.x += dx; p.y += dy; }); state.dragStart = pos; }
+                        const newP0x = sx - snap(state.dragOffset.x); 
+                        const newP0y = sy - snap(state.dragOffset.y);
+                        const diffX = newP0x - r.points[0].x;
+                        const diffY = newP0y - r.points[0].y;
+                        if (diffX !== 0 || diffY !== 0) {
+                            r.points.forEach(p => { p.x += diffX; p.y += diffY; });
+                        }
                     }
                 }
             }
@@ -494,9 +546,16 @@
         function onUp(e) {
             if (!state.inputDown) return;
             state.inputDown = false;
-            const pos = state.currPos; const sx = snap(pos.x); const sy = snap(pos.y);
-            const startSx = snap(state.dragStart.x); const startSy = snap(state.dragStart.y);
-            const distMoved = dist(state.dragStart, pos);
+            
+            if (state.tool === 'view') return;
+
+            const pos = state.currScreenPos; 
+            const worldPos = getWorldPos(pos);
+            const sx = snap(worldPos.x); const sy = snap(worldPos.y);
+            const startWorld = getWorldPos(state.dragStart);
+            const startSx = snap(startWorld.x); const startSy = snap(startWorld.y);
+            
+            const distMoved = dist(state.dragStart, pos); // Screen dist
 
             if (state.tool === 'select') {
                 if (distMoved < 5 && state.selectedId) {
@@ -510,7 +569,7 @@
                 if (state.linkStartId) {
                     let hit = null;
                     for(let i=state.rooms.length-1; i>=0; i--) {
-                        if(state.rooms[i].layer === state.currentLayer && pointInPoly(pos, state.rooms[i].points)) {
+                        if(state.rooms[i].layer === state.currentLayer && pointInPoly(worldPos, state.rooms[i].points)) {
                             hit = state.rooms[i]; break;
                         }
                     }
@@ -521,6 +580,7 @@
             render();
         }
 
+        // -- LOGIC: MERGE --
         function performMerge(id1, id2) {
             const r1 = state.rooms.find(r => r.id === id1); const r2 = state.rooms.find(r => r.id === id2);
             if (!r1 || !r2) return;
@@ -566,6 +626,7 @@
             save(); render(); showToast("MERGE COMPLETE");
         }
 
+        // -- LOGIC: HELPERS --
         function finishPoly() {
             if (state.polyPoints.length > 2) createRoom([...state.polyPoints], 'space');
             state.polyPoints = []; render();
@@ -588,6 +649,7 @@
 
         function save() { localStorage.setItem('zyqral_v2_data', JSON.stringify({ rooms: state.rooms, links: state.links })); }
 
+        // -- UI HANDLERS --
         document.querySelectorAll('button[id^="tool-"]').forEach(btn => {
             btn.onclick = (e) => { const id = btn.id; setTool(id.replace('tool-', '')); };
         });
@@ -596,7 +658,12 @@
             state.tool = t; state.polyPoints = []; state.selectedId = null; state.linkStartId = null; state.mergeQueue = [];
             document.querySelectorAll('button[id^="tool-"]').forEach(b => b.classList.remove('active'));
             document.getElementById(`tool-${t}`).classList.add('active');
-            statusText.innerText = (t==='poly'?'CLICK VERTICES':(t==='merge'?'CLICK 2 SHAPES':'READY'));
+            let status = 'READY';
+            if(t==='view') status = 'DRAG TO PAN CAMERA';
+            if(t==='poly') status = 'CLICK POINTS. RIGHT CLICK DONE.';
+            if(t==='rect') status = 'DRAG BOX.';
+            if(t==='merge') status = 'CLICK 2 SHAPES.';
+            statusText.innerText = status;
         }
 
         document.getElementById('action-theme').onclick = () => {
@@ -605,6 +672,7 @@
             localStorage.setItem('zyqral_theme', state.theme); render();
         };
 
+        // IMPORT
         const modalImport = document.getElementById('modal-import');
         document.getElementById('action-import').onclick = () => { document.getElementById('inp-import-data').value = ''; modalImport.style.display = 'flex'; };
         document.getElementById('btn-close-import').onclick = () => modalImport.style.display = 'none';
@@ -738,10 +806,21 @@
         function render() {
             const C = getThemeColors();
             ctx.fillStyle = C.bg; ctx.fillRect(0, 0, canvas.width, canvas.height);
+            
             ctx.strokeStyle = C.grid; ctx.lineWidth = 1; ctx.beginPath();
-            for(let x=0; x<canvas.width; x+=GRID) { ctx.moveTo(x,0); ctx.lineTo(x, canvas.height); }
-            for(let y=0; y<canvas.height; y+=GRID) { ctx.moveTo(0,y); ctx.lineTo(canvas.width, y); }
+            
+            const startX = Math.floor(-state.camera.x / GRID) * GRID;
+            const startY = Math.floor(-state.camera.y / GRID) * GRID;
+            const endX = startX + canvas.width + GRID;
+            const endY = startY + canvas.height + GRID;
+
+            ctx.save();
+            ctx.translate(state.camera.x, state.camera.y);
+
+            for(let x=startX; x<=endX; x+=GRID) { ctx.moveTo(x, startY); ctx.lineTo(x, endY); }
+            for(let y=startY; y<=endY; y+=GRID) { ctx.moveTo(startX, y); ctx.lineTo(endX, y); }
             ctx.stroke();
+
             const layersToDraw = [...new Set(state.rooms.map(r => r.layer).concat(state.currentLayer))].sort((a,b)=>a-b);
             layersToDraw.forEach(layer => {
                 const isCurrent = layer === state.currentLayer; const alpha = isCurrent ? 1.0 : 0.1;
@@ -764,19 +843,25 @@
                     ctx.globalAlpha = 1.0;
                 });
             });
+            
+            const m = getWorldPos(state.currScreenPos); 
+
             if (state.tool === 'poly' && state.polyPoints.length > 0) {
                 ctx.strokeStyle = C.activePoly; ctx.lineWidth = 1; ctx.beginPath();
                 ctx.moveTo(state.polyPoints[0].x, state.polyPoints[0].y); for(let i=1; i<state.polyPoints.length; i++) ctx.lineTo(state.polyPoints[i].x, state.polyPoints[i].y); ctx.stroke();
-                ctx.beginPath(); ctx.moveTo(state.polyPoints[state.polyPoints.length-1].x, state.polyPoints[state.polyPoints.length-1].y); ctx.lineTo(state.currPos.x, state.currPos.y); ctx.setLineDash([5,5]); ctx.stroke(); ctx.setLineDash([]);
+                ctx.beginPath(); ctx.moveTo(state.polyPoints[state.polyPoints.length-1].x, state.polyPoints[state.polyPoints.length-1].y); ctx.lineTo(m.x, m.y); ctx.setLineDash([5,5]); ctx.stroke(); ctx.setLineDash([]);
             }
             if (state.tool === 'rect' && state.inputDown) {
+                const s = getWorldPos(state.dragStart);
                 ctx.strokeStyle = C.activePoly; ctx.setLineDash([5,5]);
-                ctx.strokeRect(snap(state.dragStart.x), snap(state.dragStart.y), snap(state.currPos.x)-snap(state.dragStart.x), snap(state.currPos.y)-snap(state.dragStart.y)); ctx.setLineDash([]);
+                ctx.strokeRect(snap(s.x), snap(s.y), snap(m.x)-snap(s.x), snap(m.y)-snap(s.y)); ctx.setLineDash([]);
             }
             if (state.tool === 'link' && state.inputDown && state.linkStartId) {
                 const r = state.rooms.find(x => x.id === state.linkStartId);
-                if(r) { const c = getCentroid(r.points); ctx.strokeStyle = C.link; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(c.x, c.y); ctx.lineTo(state.currPos.x, state.currPos.y); ctx.stroke(); }
+                if(r) { const c = getCentroid(r.points); ctx.strokeStyle = C.link; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(c.x, c.y); ctx.lineTo(m.x, m.y); ctx.stroke(); }
             }
+
+            ctx.restore();
         }
         resize();
     </script>
