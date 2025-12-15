@@ -377,7 +377,12 @@
         body.theme-light .reorder-arrows button:disabled { color: #ddd; }
         body.theme-light .badge { background: #ddd !important; color: #444 !important; border-color: #bbb !important; }
         body.theme-light .text-yellow-600 { color: #666 !important; }
-        body.theme-light .text-gray-700 { color: #bbb !important; }
+        body.theme-light .text-gray-700 { color: #aaa !important; }
+        body.theme-light .text-gray-700:hover { color: #666 !important; }
+        body.theme-light #template-modal > div:nth-child(2) { background: #f5f5f5; border-color: #ccc; }
+        body.theme-light #template-name-input { background: #fff; border-color: #ccc; color: #333; }
+        body.theme-light #template-list > div { border-color: #ddd; }
+        body.theme-light #template-list > div:hover { background: #eee; }
     </style>
 </head>
 <body class="flex flex-col h-screen">
@@ -637,6 +642,37 @@
     </div>
 </div>
 
+<!-- Template Modal -->
+<div id="template-modal" class="fixed inset-0 z-[60] hidden flex flex-col">
+    <div class="absolute inset-0 bg-black/90" onclick="app.closeTemplatePanel()"></div>
+    <div class="relative z-10 m-auto w-full max-w-md bg-[#0a0a0a] border border-green-900/30 rounded-lg shadow-2xl flex flex-col max-h-[80vh]">
+        <div class="p-4 border-b border-green-900/30 flex justify-between items-center shrink-0">
+            <div>
+                <h2 class="text-green-500 font-bold tracking-widest text-sm">TEMPLATES</h2>
+                <div id="template-path-display" class="text-[10px] text-gray-500 font-mono mt-1">ROOT</div>
+            </div>
+            <button onclick="app.closeTemplatePanel()" class="text-gray-600 hover:text-white"><i class="fa-solid fa-xmark"></i></button>
+        </div>
+        
+        <!-- Save new template -->
+        <div class="p-3 border-b border-green-900/30 shrink-0">
+            <div class="text-[9px] text-gray-500 uppercase tracking-widest mb-2">Save Current as Template</div>
+            <div class="flex gap-2">
+                <input type="text" id="template-name-input" placeholder="TEMPLATE NAME" class="flex-grow bg-black border border-gray-800 rounded px-2 py-1 text-xs text-green-400 font-mono uppercase focus:border-green-500 outline-none">
+                <button onclick="app.saveAsTemplate()" class="bg-green-900/30 hover:bg-green-900/50 text-green-400 px-3 py-1 rounded text-xs font-bold"><i class="fa-solid fa-save mr-1"></i>SAVE</button>
+            </div>
+        </div>
+        
+        <!-- Template list -->
+        <div class="flex-grow overflow-y-auto">
+            <div class="text-[9px] text-gray-500 uppercase tracking-widest p-3 pb-1">Available Templates</div>
+            <div id="template-list" class="px-2 pb-2">
+                <!-- Templates rendered here -->
+            </div>
+        </div>
+    </div>
+</div>
+
 <!-- JavaScript -->
 <script>
 const NULL_STATE = { 
@@ -701,6 +737,8 @@ class ZyqralOS {
 
         this.collapsed = this.loadUI(); 
         this.lockedPaths = this.loadLockedPaths();
+        this.templates = this.loadTemplates();
+        this.templatePanelPath = null;
         this.editingPath = null;
         this.pendingEdits = {}; 
         
@@ -931,6 +969,145 @@ class ZyqralOS {
 
     saveLockedPaths() {
         localStorage.setItem(STORAGE_KEY + '_locked', JSON.stringify(Array.from(this.lockedPaths)));
+    }
+
+    loadTemplates() {
+        const stored = localStorage.getItem(STORAGE_KEY + '_templates');
+        if (stored) {
+            try { return JSON.parse(stored); } catch (e) { return {}; }
+        }
+        return {};
+    }
+
+    saveTemplates() {
+        localStorage.setItem(STORAGE_KEY + '_templates', JSON.stringify(this.templates));
+    }
+
+    openTemplatePanel(path) {
+        this.templatePanelPath = path;
+        this.renderTemplatePanel();
+        document.getElementById('template-modal').classList.remove('hidden');
+    }
+
+    closeTemplatePanel() {
+        this.templatePanelPath = null;
+        document.getElementById('template-modal').classList.add('hidden');
+    }
+
+    renderTemplatePanel() {
+        const container = document.getElementById('template-list');
+        const pathDisplay = document.getElementById('template-path-display');
+        const path = this.templatePanelPath;
+        
+        pathDisplay.textContent = path || 'ROOT';
+        
+        const templateNames = Object.keys(this.templates);
+        if (templateNames.length === 0) {
+            container.innerHTML = '<div class="text-gray-500 text-xs italic p-2">No templates saved yet</div>';
+        } else {
+            container.innerHTML = templateNames.map(name => {
+                // Escape for JS string in onclick
+                const safeName = name.replace(/\\/g, '\\\\').replace(/'/g, "\\'");
+                return `
+                <div class="flex justify-between items-center p-2 border-b border-[#222] hover:bg-[#111]">
+                    <span class="text-green-400 text-xs font-mono uppercase">${this.escapeHtml(name)}</span>
+                    <div class="flex gap-2">
+                        <button onclick="app.insertTemplate('${safeName}')" class="text-green-700 hover:text-green-400 text-xs" title="Insert"><i class="fa-solid fa-paste"></i></button>
+                        <button onclick="app.deleteTemplate('${safeName}')" class="text-red-900 hover:text-red-500 text-xs" title="Delete"><i class="fa-solid fa-trash"></i></button>
+                    </div>
+                </div>
+            `}).join('');
+        }
+    }
+
+    saveAsTemplate() {
+        const path = this.templatePanelPath;
+        const name = document.getElementById('template-name-input').value.trim().toUpperCase();
+        
+        if (!name) {
+            alert('Please enter a template name');
+            return;
+        }
+        
+        // Get the object at the path
+        const { parent, key } = this.getParent(path);
+        if (!parent || !parent[key]) {
+            alert('Could not find object at path');
+            return;
+        }
+        
+        const obj = parent[key];
+        if (typeof obj !== 'object' || obj === null) {
+            alert('Can only save objects/arrays as templates');
+            return;
+        }
+        
+        // Deep clone to avoid reference issues
+        this.templates[name] = JSON.parse(JSON.stringify(obj));
+        this.saveTemplates();
+        
+        document.getElementById('template-name-input').value = '';
+        this.renderTemplatePanel();
+        this.log(`TEMPLATE SAVED: ${name}`);
+    }
+
+    deleteTemplate(name) {
+        if (confirm(`Delete template "${name}"?`)) {
+            delete this.templates[name];
+            this.saveTemplates();
+            this.renderTemplatePanel();
+            this.log(`TEMPLATE DELETED: ${name}`);
+        }
+    }
+
+    insertTemplate(name) {
+        const path = this.templatePanelPath;
+        const template = this.templates[name];
+        
+        if (!template) {
+            alert('Template not found');
+            return;
+        }
+        
+        const { parent, key } = this.getParent(path);
+        if (!parent || !parent[key]) {
+            alert('Could not find target object');
+            return;
+        }
+        
+        const target = parent[key];
+        if (typeof target !== 'object' || target === null) {
+            alert('Can only insert into objects/arrays');
+            return;
+        }
+        
+        // Deep clone template
+        const templateCopy = JSON.parse(JSON.stringify(template));
+        
+        if (Array.isArray(target)) {
+            // For arrays, push the template
+            target.push(templateCopy);
+        } else {
+            // For objects, merge keys from template
+            Object.keys(templateCopy).forEach(k => {
+                if (target.hasOwnProperty(k)) {
+                    // Key already exists, add with suffix
+                    let newKey = k + '_1';
+                    let counter = 2;
+                    while (target.hasOwnProperty(newKey)) {
+                        newKey = k + '_' + counter;
+                        counter++;
+                    }
+                    target[newKey] = templateCopy[k];
+                } else {
+                    target[k] = templateCopy[k];
+                }
+            });
+        }
+        
+        this.closeTemplatePanel();
+        this.log(`TEMPLATE INSERTED: ${name} → ${path}`);
+        this.save();
     }
 
     toggleLock(path) {
@@ -2763,6 +2940,80 @@ class ZyqralOS {
         this.save();
     }
     
+    renameKey(pathStr) {
+        const { parent, key } = this.getParent(pathStr);
+        if (!parent) return;
+        
+        // Don't allow renaming array indices
+        if (Array.isArray(parent)) {
+            alert('Cannot rename array indices');
+            return;
+        }
+        
+        const newKey = prompt(`Rename "${key}" to:`, key);
+        if (!newKey || newKey === key) return;
+        
+        // Check if new key already exists
+        if (parent.hasOwnProperty(newKey)) {
+            alert(`Key "${newKey}" already exists`);
+            return;
+        }
+        
+        // Preserve key order by rebuilding the object
+        const value = parent[key];
+        const keys = Object.keys(parent);
+        const index = keys.indexOf(key);
+        
+        // Create new object with renamed key in same position
+        const newParent = {};
+        keys.forEach((k, i) => {
+            if (i === index) {
+                newParent[newKey] = value;
+            } else {
+                newParent[k] = parent[k];
+            }
+        });
+        
+        // Replace parent contents
+        Object.keys(parent).forEach(k => delete parent[k]);
+        Object.keys(newParent).forEach(k => parent[k] = newParent[k]);
+        
+        // Update collapsed paths that start with old path
+        const oldPath = pathStr;
+        const pathParts = pathStr.split('|');
+        pathParts[pathParts.length - 1] = newKey;
+        const newPath = pathParts.join('|');
+        
+        // Update collapsed set
+        const toUpdate = [];
+        this.collapsed.forEach(p => {
+            if (p === oldPath || p.startsWith(oldPath + '|')) {
+                toUpdate.push({ old: p, new: p.replace(oldPath, newPath) });
+            }
+        });
+        toUpdate.forEach(({ old: o, new: n }) => {
+            this.collapsed.delete(o);
+            this.collapsed.add(n);
+        });
+        this.saveUI();
+        
+        // Update locked paths
+        const lockedToUpdate = [];
+        this.lockedPaths.forEach(p => {
+            if (p === oldPath || p.startsWith(oldPath + '|')) {
+                lockedToUpdate.push({ old: p, new: p.replace(oldPath, newPath) });
+            }
+        });
+        lockedToUpdate.forEach(({ old: o, new: n }) => {
+            this.lockedPaths.delete(o);
+            this.lockedPaths.add(n);
+        });
+        this.saveLockedPaths();
+        
+        this.addLog(`RENAME <span class="log-hl">[${this.formatPath(oldPath)}]</span> → <span class="log-hl">${newKey}</span>`);
+        this.save();
+    }
+    
     safeEvaluate(input) {
         if (typeof input !== 'string') return input;
         
@@ -3040,7 +3291,7 @@ class ZyqralOS {
                 html += `<div class="node-row group hover:bg-[#0a0a0a]" ${rowStyle}><div class="flex-grow flex items-center mr-2"> ${this.buildReorderArrows(currentPath, key, data.length)}${this.buildKeyDisplay(key, safeP, isArray)}${this.buildPrimitive(value, safeP, key)}</div>${this.buildPrimitiveControls(safeP, isArray, key, data.length, value)}</div>`;
             } else {
                 const isCollapsed = this.searchTerm ? false : this.collapsed.has(currentPath);
-                html += `<div class="mt-2 mb-1"><div class="flex justify-between items-center bg-[#0a0a0a] px-2 py-1 border-b border-[#222] rounded-t"><div class="flex items-center"><button onclick="app.toggleCollapse('${safeP}')" class="mr-2 text-gray-500 hover:text-white w-4 text-center transition-transform"><i class="fa-solid fa-caret-${isCollapsed ? 'right' : 'down'}"></i></button>${this.buildReorderArrows(currentPath, key, data.length)}<div class="text-[10px] font-bold text-gray-400 uppercase tracking-widest transition cursor-pointer" onclick="app.toggleCollapse('${safeP}')">${this.buildKeyDisplay(key, safeP, isArray, true)}</div></div><div class="flex gap-2 items-center"><button onclick="app.addItem('${safeP}', ${Array.isArray(value)})" class="text-green-700 hover:text-green-400 text-[10px]"><i class="fa-solid fa-plus"></i></button><button onclick="app.deleteItem('${safeP}')" class="text-red-900 hover:text-red-500 text-[10px]"><i class="fa-solid fa-xmark"></i></button></div></div><div class="tree-line ${isCollapsed ? 'hidden' : ''}">${!isCollapsed ? this.buildTree(value, currentPath, nextForceShow) : ''}</div></div>`;
+                html += `<div class="mt-2 mb-1"><div class="flex justify-between items-center bg-[#0a0a0a] px-2 py-1 border-b border-[#222] rounded-t"><div class="flex items-center"><button onclick="app.toggleCollapse('${safeP}')" class="mr-2 text-gray-500 hover:text-white w-4 text-center transition-transform"><i class="fa-solid fa-caret-${isCollapsed ? 'right' : 'down'}"></i></button>${this.buildReorderArrows(currentPath, key, data.length)}<div class="text-[10px] font-bold text-gray-400 uppercase tracking-widest transition cursor-pointer" onclick="app.toggleCollapse('${safeP}')">${this.buildKeyDisplay(key, safeP, isArray, true)}</div></div><div class="flex gap-2 items-center"><button onclick="app.renameKey('${safeP}')" class="text-gray-700 hover:text-gray-400 text-[10px]" title="Rename"><i class="fa-solid fa-pen"></i></button><button onclick="app.openTemplatePanel('${safeP}')" class="text-gray-700 hover:text-gray-400 text-[10px]" title="Templates"><i class="fa-solid fa-bookmark"></i></button><button onclick="app.addItem('${safeP}', ${Array.isArray(value)})" class="text-green-700 hover:text-green-400 text-[10px]"><i class="fa-solid fa-plus"></i></button><button onclick="app.deleteItem('${safeP}')" class="text-red-900 hover:text-red-500 text-[10px]"><i class="fa-solid fa-xmark"></i></button></div></div><div class="tree-line ${isCollapsed ? 'hidden' : ''}">${!isCollapsed ? this.buildTree(value, currentPath, nextForceShow) : ''}</div></div>`;
             }
         });
         const visibleKeys = Object.keys(data).filter(k => k !== '_meta_log' && k !== 'log_config' && k !== '_mood_history' && k !== 'export_config' && k !== 'SKILLS' && k !== '_hourly_date' && k !== '_dly_reset_date' && k !== '_skill_archive_date');
