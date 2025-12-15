@@ -1048,7 +1048,8 @@ class ZyqralOS {
         
         document.getElementById('template-name-input').value = '';
         this.renderTemplatePanel();
-        this.log(`TEMPLATE SAVED: ${name}`);
+        this.addLog(`TEMPLATE <span class="log-hl">[${name}]</span> SAVED`);
+        this.render();
     }
 
     deleteTemplate(name) {
@@ -1056,7 +1057,8 @@ class ZyqralOS {
             delete this.templates[name];
             this.saveTemplates();
             this.renderTemplatePanel();
-            this.log(`TEMPLATE DELETED: ${name}`);
+            this.addLog(`TEMPLATE <span class="log-hl">[${name}]</span> DELETED`);
+            this.render();
         }
     }
 
@@ -1106,7 +1108,7 @@ class ZyqralOS {
         }
         
         this.closeTemplatePanel();
-        this.log(`TEMPLATE INSERTED: ${name} → ${path}`);
+        this.addLog(`TEMPLATE <span class="log-hl">[${name}]</span> → <span class="log-hl">[${this.formatPath(path)}]</span>`);
         this.save();
     }
 
