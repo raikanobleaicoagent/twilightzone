@@ -489,6 +489,10 @@
                     <input type="checkbox" id="export-mood-check" onchange="app.updateExportConfig()" class="accent-cyan-500 cursor-pointer w-3 h-3">
                     <span class="text-[10px] text-gray-500 font-bold tracking-wider group-hover:text-cyan-400">MOOD</span>
                 </label>
+                <label class="flex items-center gap-2 cursor-pointer group">
+                    <input type="checkbox" id="export-skills-modal-check" onchange="app.updateExportConfig()" class="accent-orange-500 cursor-pointer w-3 h-3">
+                    <span class="text-[10px] text-gray-500 font-bold tracking-wider group-hover:text-orange-400">SKILLS</span>
+                </label>
             </div>
         </div>
     </div>
@@ -3074,11 +3078,11 @@ class ZyqralOS {
             const currentPath = path ? `${path}|${key}` : key;
             const isCollapsed = this.collapsed.has(currentPath);
             const isSearchActive = this.searchTerm.length > 0;
+            // Completely exclude minimized objects/arrays when visible filter is on
             if (isCollapsed && !isSearchActive) {
-                if (Array.isArray(value)) {
-                    result[key] = `[ARRAY(${value.length}) - MINIMIZED]`;
-                } else if (typeof value === 'object' && value !== null) {
-                    result[key] = '{OBJECT - MINIMIZED}';
+                if (typeof value === 'object' && value !== null) {
+                    // Skip this key entirely - don't add to result
+                    return;
                 } else {
                     result[key] = value;
                 }
@@ -3095,12 +3099,14 @@ class ZyqralOS {
         const metadataCheck = document.getElementById('export-metadata-check');
         const formulasCheck = document.getElementById('export-formulas-check');
         const moodCheck = document.getElementById('export-mood-check');
+        const skillsModalCheck = document.getElementById('export-skills-modal-check');
         if(!this.state.export_config) this.state.export_config = { visible_only: false, include_logs: true, include_skills: true, include_metadata: true, include_formulas: false, include_mood: false };
         this.state.export_config.visible_only = visibleCheck.checked;
         this.state.export_config.include_logs = logsCheck.checked;
         this.state.export_config.include_metadata = metadataCheck.checked;
         this.state.export_config.include_formulas = formulasCheck.checked;
         this.state.export_config.include_mood = moodCheck.checked;
+        if (skillsModalCheck) this.state.export_config.include_skills = skillsModalCheck.checked;
         this.includeDV = moodCheck.checked;
         this.save();
         this.updateExportPreview();
@@ -3168,6 +3174,7 @@ class ZyqralOS {
         const metadataCheck = document.getElementById('export-metadata-check');
         const formulasCheck = document.getElementById('export-formulas-check');
         const moodCheck = document.getElementById('export-mood-check');
+        const skillsModalCheck = document.getElementById('export-skills-modal-check');
         const skillsCheck = document.getElementById('export-skills-check');
         const dailyCheck = document.getElementById('export-daily-check');
         const hourlyCheck = document.getElementById('export-hourly-check');
@@ -3210,8 +3217,8 @@ class ZyqralOS {
             dataToExport._mood_history = this.state._mood_history || [];
         }
         
-        // Handle SKILLS export - always from full state, independent of visible filter
-        const includeSkills = skillsCheck ? skillsCheck.checked : true;
+        // Handle SKILLS export - use modal checkbox if available, otherwise skill panel checkbox
+        const includeSkills = skillsModalCheck ? skillsModalCheck.checked : (skillsCheck ? skillsCheck.checked : true);
         if (includeSkills && this.state.SKILLS) {
             const includeDaily = dailyCheck ? dailyCheck.checked : true;
             const includeHourly = hourlyCheck ? hourlyCheck.checked : true;
@@ -3239,8 +3246,14 @@ class ZyqralOS {
                 // Remove SESSION_START from export (internal tracking only)
                 delete skill.SESSION_START;
             });
+            
+            // Include skill archive date when skills are included
+            if (this.state._skill_archive_date) {
+                dataToExport._skill_archive_date = this.state._skill_archive_date;
+            }
         } else {
             delete dataToExport.SKILLS;
+            delete dataToExport._skill_archive_date;
         }
         
         delete dataToExport.export_config; 
@@ -3967,6 +3980,7 @@ class ZyqralOS {
         const metadataCheck = document.getElementById('export-metadata-check');
         const formulasCheck = document.getElementById('export-formulas-check');
         const moodCheck = document.getElementById('export-mood-check');
+        const skillsModalCheck = document.getElementById('export-skills-modal-check');
 
         if (modal.classList.contains('hidden')) {
             if (mode === 'export') { 
@@ -3978,11 +3992,13 @@ class ZyqralOS {
                     metadataCheck.checked = this.state.export_config.include_metadata !== false;
                     formulasCheck.checked = this.state.export_config.include_formulas || false;
                     moodCheck.checked = this.state.export_config.include_mood || false;
+                    skillsModalCheck.checked = this.state.export_config.include_skills !== false;
                     this.includeDV = moodCheck.checked;
                 } else {
                     metadataCheck.checked = true;
                     formulasCheck.checked = false;
                     moodCheck.checked = false;
+                    skillsModalCheck.checked = true;
                 }
 
                 this.updateExportPreview(); 
