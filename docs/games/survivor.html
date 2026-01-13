@@ -3,527 +3,245 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Zyqral Survival Simulation</title>
+    <title>Zyqral: Territorial Consciousness</title>
     <style>
-        :root {
-            --bg-color: #1a1a1a;
-            --text-color: #00ffcc;
-            --panel-bg: rgba(0, 20, 20, 0.85);
-        }
-        body, html {
-            margin: 0;
-            padding: 0;
-            width: 100%;
-            height: 100%;
-            overflow: hidden;
-            background-color: var(--bg-color);
-            font-family: 'Courier New', Courier, monospace;
-            color: var(--text-color);
-            user-select: none;
-            -webkit-user-select: none;
-        }
-        canvas {
-            display: block;
-            touch-action: none;
-        }
-        #ui-layer {
-            position: absolute;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            pointer-events: none;
-        }
-        #controls {
-            position: absolute;
-            bottom: 0;
-            left: 0;
-            width: 100%;
-            background: var(--panel-bg);
-            padding: 10px;
-            box-sizing: border-box;
-            pointer-events: auto;
-            max-height: 30vh;
-            overflow-y: auto;
-            border-top: 1px solid var(--text-color);
-            display: flex;
-            flex-wrap: wrap;
-            justify-content: space-around;
-            font-size: 12px;
-        }
-        .control-group {
-            margin: 5px;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-        }
-        input[type=range] {
-            width: 100px;
-        }
-        #info-panel {
-            position: absolute;
-            top: 10px;
-            left: 10px;
-            background: var(--panel-bg);
-            padding: 10px;
-            border: 1px solid var(--text-color);
-            pointer-events: auto;
-            max-width: 300px;
-            font-size: 11px;
-            display: none; /* Hidden until something is clicked */
-        }
-        #info-panel h3 { margin: 0 0 5px 0; border-bottom: 1px solid white; }
-        .thought-bubble {
-            color: #fff;
-            font-style: italic;
-        }
-        #stats-overlay {
-            position: absolute;
-            top: 10px;
-            right: 10px;
-            text-align: right;
-            font-size: 10px;
-            color: rgba(255, 255, 255, 0.7);
-        }
+        :root { --bg: #050505; --ui: #00ffaa; --panel: rgba(0, 10, 10, 0.9); }
+        body, html { margin: 0; padding: 0; width: 100%; height: 100%; overflow: hidden; background: var(--bg); font-family: 'Courier New', monospace; color: var(--ui); }
+        canvas { display: block; touch-action: none; }
+        #ui-layer { position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; }
+        #controls { position: absolute; bottom: 0; left: 0; width: 100%; background: var(--panel); padding: 15px; pointer-events: auto; display: flex; flex-wrap: wrap; justify-content: space-around; font-size: 12px; border-top: 2px solid var(--ui); }
+        #info-panel { position: absolute; top: 10px; left: 10px; background: var(--panel); padding: 12px; border: 1px solid var(--ui); pointer-events: auto; width: 260px; font-size: 11px; display: none; box-shadow: 0 0 15px rgba(0,255,170,0.2); }
+        .thought-box { border-left: 2px solid #555; padding-left: 8px; margin-top: 8px; color: #fff; font-style: italic; min-height: 40px; }
+        .control-item { display: flex; flex-direction: column; align-items: center; margin: 5px; }
+        input[type=range] { width: 90px; accent-color: var(--ui); }
+        button { background: transparent; border: 1px solid var(--ui); color: var(--ui); padding: 5px 10px; cursor: pointer; }
+        button:hover { background: var(--ui); color: #000; }
     </style>
 </head>
 <body>
 
     <canvas id="simCanvas"></canvas>
-    
     <div id="ui-layer">
-        <div id="stats-overlay">
-            Day: <span id="day-display">0</span><br>
-            Time: <span id="time-display">00:00</span><br>
-            Animals: <span id="pop-animal">0</span><br>
-            Plants: <span id="pop-plant">0</span>
-        </div>
-
         <div id="info-panel">
-            <h3>Entity Analysis</h3>
-            <div id="entity-data">Select an entity</div>
-            <div id="brain-log" style="margin-top:5px; color:#aaa;"></div>
+            <h3 id="ent-name" style="margin:0 0 5px 0; color:var(--ui);">ENTITY</h3>
+            <div id="ent-stats"></div>
+            <div style="margin-top:10px; color:var(--ui); font-weight:bold;">CHAIN OF THOUGHT:</div>
+            <div id="ent-thought" class="thought-box"></div>
         </div>
-
         <div id="controls">
-            <div class="control-group">
-                <label>Time Speed</label>
-                <input type="range" id="speed-slider" min="0" max="10" step="1" value="1">
-            </div>
-            <div class="control-group">
-                <label>Mutation Rate</label>
-                <input type="range" id="mutation-slider" min="0" max="1" step="0.05" value="0.1">
-            </div>
-            <div class="control-group">
-                <label>Plant Growth</label>
-                <input type="range" id="growth-slider" min="0" max="5" step="0.1" value="1">
-            </div>
-            <div class="control-group">
-                <button onclick="resetSim()">RESET SIMULATION</button>
-            </div>
+            <div class="control-item"><label>Time Speed</label><input type="range" id="speed-slider" min="0" max="10" step="0.5" value="1"></div>
+            <div class="control-item"><label>Aggression</label><input type="range" id="aggro-slider" min="0" max="1" step="0.1" value="0.3"></div>
+            <div class="control-item"><button onclick="resetSim()">REBOOT WORLD</button></div>
         </div>
     </div>
 
 <script>
-/**
- * ZYQRAL SURVIVAL ENGINE
- * Concept: Awareness through simulation.
- */
-
-// --- CONFIGURATION & GLOBALS ---
 const canvas = document.getElementById('simCanvas');
 const ctx = canvas.getContext('2d', { alpha: false });
-let width, height;
+let width, height, timeSpeed = 1, globalAggro = 0.3, simTicks = 0, dayCount = 0;
+let animals = [], plants = [], eggs = [], particles = [];
 
-// Simulation Constants
-const TICKS_PER_DAY = 2000;
-const MAX_ANIMALS = 80; // Cap for mobile performance
-const MAX_PLANTS = 150;
-
-// State
-let simTime = 0;
-let timeSpeed = 1;
-let mutationRate = 0.1;
-let plantGrowthMult = 1;
-let dayCount = 0;
-let lightLevel = 1.0; // 1.0 = Day, 0.2 = Night
-
-// Entities
-let animals = [];
-let plants = [];
-let seeds = [];
-let particles = []; // Visual effects
-
-let selectedEntity = null;
-
-// --- UTILS ---
-const dist = (x1, y1, x2, y2) => Math.hypot(x2 - x1, y2 - y1);
-const rand = (min, max) => Math.random() * (max - min) + min;
-const randInt = (min, max) => Math.floor(rand(min, max));
-const clamp = (val, min, max) => Math.min(Math.max(val, min), max);
-function colorVar(base, variance) {
-    // Simple color shifter
-    return base; // Placeholder for optimization
-}
+const DNA_TYPES = { SOCIAL: 0, AGGRESSIVE: 1, CAUTIOUS: 2 };
+const THOUGHT_POOL = [
+    "I must secure the borders.", "Is there more to life than green leaves?",
+    "That entity looks suspicious.", "The sun is too bright today.",
+    "I should find a place to rest.", "My lineage must endure.",
+    "Hunger is a shadow that never leaves.", "What lies beyond the edge?"
+];
 
 // --- CLASSES ---
 
-class DNA {
-    constructor(parentDNA = null) {
-        if (parentDNA) {
-            this.speed = this.mutate(parentDNA.speed, 0.5, 3.0);
-            this.size = this.mutate(parentDNA.size, 3, 8);
-            this.senseRange = this.mutate(parentDNA.senseRange, 50, 150);
-            this.metabolism = this.mutate(parentDNA.metabolism, 0.5, 2.0); // Hunger rate
-            this.color = parentDNA.color; // Color usually stays similar
-            this.sociability = this.mutate(parentDNA.sociability, 0, 1); // 0=Loner, 1=Herder
-            this.aggression = this.mutate(parentDNA.aggression, 0, 1);
-        } else {
-            this.speed = rand(1, 2);
-            this.size = rand(4, 6);
-            this.senseRange = rand(80, 120);
-            this.metabolism = 1.0;
-            this.color = `hsl(${randInt(0, 360)}, 70%, 50%)`;
-            this.sociability = rand(0, 1);
-            this.aggression = rand(0, 1);
-        }
-    }
-
-    mutate(val, min, max) {
-        if (Math.random() < mutationRate) {
-            let change = (Math.random() - 0.5) * 0.2 * val;
-            return clamp(val + change, min, max);
-        }
-        return val;
-    }
-}
-
-class Seed {
-    constructor(x, y, plantDNA) {
-        this.x = x;
-        this.y = y;
-        this.dna = plantDNA;
-        this.timer = rand(200, 500); // Time to germinate
-        this.vx = rand(-1, 1);
-        this.vy = rand(-1, 1);
-    }
-
-    update() {
-        if (this.timer > 0) {
-            this.timer -= timeSpeed * plantGrowthMult;
-            this.x += this.vx * 0.1 * timeSpeed;
-            this.y += this.vy * 0.1 * timeSpeed;
-        } else {
-            // Germinate
-            if (plants.length < MAX_PLANTS) {
-                plants.push(new Plant(this.x, this.y, this.dna));
-            }
-            return false; // Remove seed
-        }
-        return true; // Keep seed
-    }
-
-    draw() {
-        ctx.fillStyle = '#888';
-        ctx.fillRect(this.x, this.y, 2, 2);
-    }
-}
-
-class Plant {
-    constructor(x, y, dna) {
-        this.x = x;
-        this.y = y;
-        this.dna = dna || { growthRate: rand(0.5, 1.5), maxSz: rand(5, 10), seeds: randInt(1, 3) };
-        this.size = 1;
-        this.age = 0;
-        this.maxAge = 3000 * (1/plantGrowthMult);
+class Egg {
+    constructor(x, y, dna, parentId) {
+        this.x = x; this.y = y; this.dna = dna; this.parentId = parentId;
+        this.hatchTimer = 500 / (timeSpeed || 1);
         this.alive = true;
     }
-
     update() {
-        // Grow
-        if (this.size < this.dna.maxSz) {
-            this.size += 0.01 * this.dna.growthRate * plantGrowthMult * timeSpeed * lightLevel; // Plants need light
-        }
-        
-        // Age
-        this.age += timeSpeed;
-        if (this.age > this.maxAge) {
-            this.reproduce();
+        this.hatchTimer -= timeSpeed;
+        if (this.hatchTimer <= 0) {
             this.alive = false;
+            animals.push(new Animal(this.x, this.y, this.dna));
         }
     }
-
-    reproduce() {
-        for(let i=0; i<this.dna.seeds; i++) {
-            seeds.push(new Seed(this.x, this.y, this.dna));
-        }
-    }
-
     draw() {
-        ctx.fillStyle = '#2d6';
+        ctx.fillStyle = "#eee";
         ctx.beginPath();
-        ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
+        ctx.ellipse(this.x, this.y, 4, 6, 0, 0, Math.PI*2);
         ctx.fill();
     }
 }
 
 class Animal {
     constructor(x, y, dna = null) {
-        this.x = x;
-        this.y = y;
-        this.dna = new DNA(dna);
-        this.angle = rand(0, Math.PI * 2);
+        this.x = x; this.y = y;
+        this.dna = dna || {
+            speed: Math.random() * 1.5 + 1,
+            size: Math.random() * 3 + 4,
+            metabolism: Math.random() * 0.5 + 0.5,
+            color: `hsl(${Math.random()*360}, 70%, 50%)`,
+            socialScore: Math.random(),
+            territoriality: Math.random(),
+            type: Math.floor(Math.random()*3)
+        };
+        this.id = Math.random().toString(36).substr(2, 4).toUpperCase();
+        this.angle = Math.random() * Math.PI * 2;
         this.energy = 100;
         this.age = 0;
-        this.maxAge = TICKS_PER_DAY * 7; // 7 Days
         this.alive = true;
-        this.id = Math.random().toString(36).substr(2, 5);
+        this.maxAge = 14000; // 7 days (2000 ticks per day)
         
-        // State Machine
-        this.state = 'WANDER'; // WANDER, SEEK_FOOD, EAT, FLEE, MATE, SLEEP
-        this.stateTimer = 0;
+        // Behavioral State
+        this.state = 'WANDER';
         this.target = null;
-        this.thought = "Born into the void.";
+        this.homeX = x; this.homeY = y; // Territory center
         
-        // "Memory" - simplified neural weights for interactions
-        // Key: Species/Group ID, Value: -1 (Fear) to 1 (Like)
-        this.memory = {}; 
-        
-        // Communication buffer
-        this.lastComm = "";
+        // Cognitive Layer (Chain of Thought)
+        this.thought = "Initialization complete.";
+        this.internalPlan = null; // Independent of state
+        this.planTimer = 0;
+        this.rationality = Math.random(); // Probability of following plan vs impulse
     }
 
     update() {
         this.age += timeSpeed;
-        // Metabolism increases with speed and size
-        let cost = 0.02 * this.dna.size * this.dna.metabolism * (this.state === 'SLEEP' ? 0.2 : 1.0);
-        this.energy -= cost * timeSpeed;
+        this.energy -= 0.015 * this.dna.metabolism * timeSpeed;
+        if (this.energy <= 0 || this.age > this.maxAge) this.alive = false;
 
-        if (this.energy <= 0 || this.age >= this.maxAge) {
-            this.alive = false;
-            // Spawn carcass particle?
+        this.processThoughts();
+        this.decideAction();
+        this.move();
+    }
+
+    processThoughts() {
+        this.planTimer -= timeSpeed;
+        if (this.planTimer <= 0) {
+            // Planning phase: Independent of what animal is actually doing
+            let randThought = THOUGHT_POOL[Math.floor(Math.random() * THOUGHT_POOL.length)];
+            this.thought = randThought;
+            this.planTimer = Math.random() * 300 + 200;
+            
+            // Set an internal plan that may or may not be followed
+            if (Math.random() < 0.3) this.internalPlan = 'SEEK_HOME';
+            else if (Math.random() < 0.2) this.internalPlan = 'FIND_FRIENDS';
+            else this.internalPlan = null;
+        }
+    }
+
+    decideAction() {
+        // Impulse check (Hunger is priority 1)
+        if (this.energy < 40) {
+            this.state = 'FORAGING';
+            this.findFood();
             return;
         }
 
-        this.processBrain();
-        this.act();
-        
-        // Boundaries
-        if (this.x < 0) { this.x = 0; this.angle += Math.PI; }
-        if (this.x > width) { this.x = width; this.angle += Math.PI; }
-        if (this.y < 0) { this.y = 0; this.angle += Math.PI; }
-        if (this.y > height) { this.y = height; this.angle += Math.PI; }
-    }
-
-    processBrain() {
-        // 1. Perception
-        let seenPlants = [];
-        let seenAnimals = [];
-        let effectiveRange = this.dna.senseRange * (lightLevel < 0.5 ? 0.5 : 1.0); // Night reduces vision
-
-        // Scan Plants
-        for (let p of plants) {
-            let d = dist(this.x, this.y, p.x, p.y);
-            if (d < effectiveRange && this.isFacing(p)) {
-                seenPlants.push({entity: p, dist: d});
+        // Territorial Aggression check
+        for (let other of animals) {
+            if (other === this) continue;
+            let d = Math.hypot(this.x - other.x, this.y - other.y);
+            if (d < 50 && this.dna.territoriality > 0.6) {
+                this.state = 'DEFENDING';
+                this.target = other;
+                this.thought = "Intruder detected. Neutralizing.";
+                return;
             }
         }
 
-        // Scan Animals
-        for (let a of animals) {
-            if (a === this) continue;
-            let d = dist(this.x, this.y, a.x, a.y);
-            if (d < effectiveRange && this.isFacing(a)) {
-                seenAnimals.push({entity: a, dist: d});
-            }
-            // Communication Check
-            if (d < 30) { 
-                this.receiveComm(a);
-            }
+        // Reproduction (Egg laying)
+        if (this.energy > 85 && Math.random() < 0.002) {
+            this.layEgg();
         }
 
-        // 2. Neural Decision Tree (Simplified)
-        
-        // Priority 1: Sleep at night?
-        if (lightLevel < 0.3 && this.energy > 40) {
-            this.state = 'SLEEP';
-            this.thought = "Too dark. Resting...";
-            return;
-        } else if (this.state === 'SLEEP' && lightLevel > 0.3) {
-            this.state = 'WANDER';
-        }
-
-        // Priority 2: Hunger
-        if (this.energy < 60 && this.state !== 'EAT') {
-            if (seenPlants.length > 0) {
-                // Find closest
-                seenPlants.sort((a,b) => a.dist - b.dist);
-                this.target = seenPlants[0].entity;
-                this.state = 'SEEK_FOOD';
-                this.thought = "Found sustenance.";
-            } else {
-                this.state = 'WANDER';
-                this.thought = "Starving. Searching...";
-                // Memory lookup: Did anyone tell me where food is?
-                if (this.memory['foodLoc']) {
-                    // Navigate towards remembered food (simplified)
-                    let tx = this.memory['foodLoc'].x;
-                    let ty = this.memory['foodLoc'].y;
-                    this.angle = Math.atan2(ty - this.y, tx - this.x);
-                    this.thought = "Recalling food location...";
-                }
-            }
-        } 
-        
-        // Priority 3: Mating
-        else if (this.energy > 80 && this.age > 500 && animals.length < MAX_ANIMALS) {
-            let mate = seenAnimals.find(sa => sa.entity.dna.color === this.dna.color && sa.entity.age > 500);
-            if (mate) {
-                this.target = mate.entity;
-                this.state = 'MATE';
-                this.thought = "Seeking partner.";
-                this.communicate("I seek connection");
-            }
-        }
-
-        // Default
-        if (this.state !== 'SEEK_FOOD' && this.state !== 'EAT' && this.state !== 'MATE' && this.state !== 'SLEEP') {
-            this.state = 'WANDER';
-            this.thought = "Wandering the wastes.";
-        }
-    }
-
-    act() {
-        if (this.state === 'SLEEP') {
-            return; // Do nothing
-        }
-
-        let moveSpeed = this.dna.speed * timeSpeed;
-
-        if (this.state === 'WANDER') {
-            this.x += Math.cos(this.angle) * moveSpeed;
-            this.y += Math.sin(this.angle) * moveSpeed;
-            if (Math.random() < 0.05) this.angle += rand(-1, 1);
-        }
-        else if (this.state === 'SEEK_FOOD') {
-            if (this.target && this.target.alive) {
-                this.moveTo(this.target, moveSpeed);
-                if (dist(this.x, this.y, this.target.x, this.target.y) < this.dna.size + 5) {
-                    this.state = 'EAT';
-                    this.stateTimer = 60; // Eating takes time
-                }
-            } else {
-                this.state = 'WANDER';
-            }
-        }
-        else if (this.state === 'EAT') {
-            this.thought = "Consuming...";
-            this.stateTimer -= timeSpeed;
-            if (this.stateTimer <= 0) {
-                // Finish eating
-                if (this.target) {
-                    this.energy = Math.min(this.energy + this.target.size * 10, 100);
-                    this.target.alive = false; // Kill plant
-                    // Broadcast food location
-                    this.communicate("food_here");
-                    // Remember this location
-                    this.memory['foodLoc'] = {x: this.x, y: this.y};
-                }
-                this.state = 'WANDER';
-            }
-        }
-        else if (this.state === 'MATE') {
-            if (this.target && this.target.alive) {
-                this.moveTo(this.target, moveSpeed);
-                if (dist(this.x, this.y, this.target.x, this.target.y) < this.dna.size * 2) {
-                    this.reproduce(this.target);
-                    this.energy -= 30; // Cost of mating
-                    this.state = 'WANDER';
-                    this.target = null;
-                }
-            } else {
+        // Logic check: Follow internal plan?
+        if (this.internalPlan && Math.random() < this.rationality) {
+            this.state = this.internalPlan;
+        } else {
+            if (this.state !== 'FORAGING' && this.state !== 'DEFENDING') {
                 this.state = 'WANDER';
             }
         }
     }
 
-    moveTo(target, spd) {
-        let tx = target.x;
-        let ty = target.y;
-        let angleTo = Math.atan2(ty - this.y, tx - this.x);
-        // Smooth turning
-        let diff = angleTo - this.angle;
-        while (diff < -Math.PI) diff += Math.PI * 2;
-        while (diff > Math.PI) diff -= Math.PI * 2;
-        this.angle += diff * 0.1;
-        
+    findFood() {
+        let closest = null, minD = 200;
+        plants.forEach(p => {
+            let d = Math.hypot(this.x - p.x, this.y - p.y);
+            if (d < minD) { minD = d; closest = p; }
+        });
+        this.target = closest;
+    }
+
+    layEgg() {
+        eggs.push(new Egg(this.x, this.y, {...this.dna}, this.id));
+        this.energy -= 40;
+        this.thought = "The lineage is preserved.";
+    }
+
+    move() {
+        let spd = this.dna.speed * timeSpeed;
+        if (this.state === 'FORAGING' && this.target) {
+            let angleTo = Math.atan2(this.target.y - this.y, this.target.x - this.x);
+            this.angle = angleTo;
+            if (Math.hypot(this.x - this.target.x, this.y - this.target.y) < 5) {
+                this.energy = Math.min(100, this.energy + 20);
+                this.target.alive = false;
+                this.target = null;
+            }
+        } else if (this.state === 'DEFENDING' && this.target) {
+            let angleTo = Math.atan2(this.target.y - this.y, this.target.x - this.x);
+            this.angle = angleTo;
+            // Push the intruder away (simplified social interaction)
+            this.target.x += Math.cos(this.angle) * 2;
+            this.target.y += Math.sin(this.angle) * 2;
+        } else if (this.state === 'SEEK_HOME') {
+            this.angle = Math.atan2(this.homeY - this.y, this.homeX - this.x);
+        } else {
+            if (Math.random() < 0.05) this.angle += (Math.random() - 0.5);
+        }
+
         this.x += Math.cos(this.angle) * spd;
         this.y += Math.sin(this.angle) * spd;
-    }
 
-    isFacing(entity) {
-        let angleTo = Math.atan2(entity.y - this.y, entity.x - this.x);
-        let diff = Math.abs(angleTo - this.angle);
-        if (diff > Math.PI) diff = 2 * Math.PI - diff;
-        return diff < 0.8; // Sight cone width (~45 degrees)
-    }
-
-    reproduce(partner) {
-        if (animals.length >= MAX_ANIMALS) return;
-        // Simple crossover
-        let child = new Animal(this.x, this.y, this.dna);
-        // Mix DNA slightly with partner (optional complexity, here just uses self + mutation)
-        animals.push(child);
-        this.thought = "Life continues.";
-    }
-
-    communicate(msg) {
-        this.lastComm = msg;
-        // Visual indicator handled in draw
-    }
-
-    receiveComm(sender) {
-        if (sender.lastComm === "food_here") {
-            // Update memory map
-            this.memory['foodLoc'] = {x: sender.x, y: sender.y};
-        }
+        // Screen wrap
+        if (this.x < 0) this.x = width; if (this.x > width) this.x = 0;
+        if (this.y < 0) this.y = height; if (this.y > height) this.y = 0;
     }
 
     draw() {
         ctx.save();
         ctx.translate(this.x, this.y);
         ctx.rotate(this.angle);
-
-        // Sight Cone (Visual)
-        if (selectedEntity === this) {
-            ctx.fillStyle = 'rgba(255, 255, 255, 0.1)';
-            ctx.beginPath();
-            ctx.moveTo(0, 0);
-            ctx.arc(0, 0, this.dna.senseRange, -0.8, 0.8);
-            ctx.fill();
-        }
+        
+        // Sight Cone
+        ctx.fillStyle = "rgba(0, 255, 170, 0.05)";
+        ctx.beginPath();
+        ctx.moveTo(0,0);
+        ctx.arc(0,0, 60, -0.6, 0.6);
+        ctx.fill();
 
         // Body
         ctx.fillStyle = this.dna.color;
         ctx.beginPath();
-        ctx.arc(0, 0, this.dna.size, 0, Math.PI * 2);
-        ctx.fill();
-
-        // Eye
-        ctx.fillStyle = '#fff';
-        ctx.beginPath();
-        ctx.arc(this.dna.size/2, 0, this.dna.size/3, 0, Math.PI * 2);
+        ctx.arc(0, 0, this.dna.size, 0, Math.PI*2);
         ctx.fill();
         
-        // Comm bubble (dot)
-        if (this.lastComm !== "" && Math.random() < 0.1) {
-             ctx.fillStyle = '#ff0';
-             ctx.fillRect(0, -10, 2, 2);
-             this.lastComm = ""; // Clear after flash
-        }
-
+        // Head/Direction
+        ctx.fillStyle = "#fff";
+        ctx.fillRect(this.dna.size - 2, -1, 3, 2);
         ctx.restore();
+    }
+}
+
+class Plant {
+    constructor(x, y) {
+        this.x = x; this.y = y; this.alive = true; this.size = Math.random() * 3 + 2;
+    }
+    draw() {
+        ctx.fillStyle = "#2a2";
+        ctx.beginPath();
+        ctx.arc(this.x, this.y, this.size, 0, Math.PI*2);
+        ctx.fill();
     }
 }
 
@@ -533,7 +251,7 @@ function init() {
     resize();
     resetSim();
     window.addEventListener('resize', resize);
-    canvas.addEventListener('pointerdown', handleInput);
+    canvas.addEventListener('pointerdown', selectEntity);
     requestAnimationFrame(loop);
 }
 
@@ -543,147 +261,59 @@ function resize() {
 }
 
 function resetSim() {
-    animals = [];
-    plants = [];
-    seeds = [];
-    simTime = 0;
-    dayCount = 0;
-    
-    // Initial Spawn
-    for(let i=0; i<10; i++) {
-        animals.push(new Animal(rand(0, width), rand(0, height)));
-    }
-    for(let i=0; i<50; i++) {
-        plants.push(new Plant(rand(0, width), rand(0, height)));
-    }
+    animals = []; plants = []; eggs = [];
+    for(let i=0; i<15; i++) animals.push(new Animal(Math.random()*width, Math.random()*height));
+    for(let i=0; i<40; i++) plants.push(new Plant(Math.random()*width, Math.random()*height));
 }
 
-function handleInput(e) {
+let selected = null;
+function selectEntity(e) {
     const rect = canvas.getBoundingClientRect();
-    const x = e.clientX - rect.left;
-    const y = e.clientY - rect.top;
-    
-    // Find clicked entity
-    let found = null;
-    let minDist = 30;
-    
-    [...animals, ...plants].forEach(ent => {
-        let d = dist(x, y, ent.x, ent.y);
-        if (d < minDist) {
-            minDist = d;
-            found = ent;
-        }
-    });
-    
-    selectedEntity = found;
-    
-    const panel = document.getElementById('info-panel');
-    const dataDiv = document.getElementById('entity-data');
-    
-    if (found) {
-        panel.style.display = 'block';
-        if (found instanceof Animal) {
-            dataDiv.innerHTML = `
-                Type: Animal<br>
-                ID: ${found.id}<br>
-                Age: ${Math.floor(found.age)}/${found.maxAge}<br>
-                Energy: ${Math.floor(found.energy)}%<br>
-                State: ${found.state}<br>
-                Speed DNA: ${found.dna.speed.toFixed(2)}
-            `;
-        } else {
-            dataDiv.innerHTML = `Type: Plant<br>Size: ${found.size.toFixed(2)}`;
-        }
-    } else {
-        panel.style.display = 'none';
-    }
-}
-
-function updateEnvironment() {
-    simTime += timeSpeed;
-    if (simTime >= TICKS_PER_DAY) {
-        simTime = 0;
-        dayCount++;
-    }
-    
-    // Day/Night Cycle (Sine Wave)
-    // 0 = Midnight, 0.5 = Noon, 1 = Midnight
-    let normTime = simTime / TICKS_PER_DAY;
-    lightLevel = 0.5 + 0.5 * Math.sin(normTime * Math.PI * 2 - Math.PI/2);
-    lightLevel = clamp(lightLevel + 0.2, 0.2, 1.0); // Clamp min light for visibility
-    
-    // Spontaneous plant growth (random seeds from nowhere)
-    if (Math.random() < 0.01 * plantGrowthMult * timeSpeed && plants.length < MAX_PLANTS/2) {
-        plants.push(new Plant(rand(0, width), rand(0, height)));
-    }
-}
-
-function updateUI() {
-    document.getElementById('day-display').innerText = dayCount;
-    // Format time
-    let hours = Math.floor((simTime / TICKS_PER_DAY) * 24);
-    let mins = Math.floor(((simTime / TICKS_PER_DAY) * 24 * 60) % 60);
-    document.getElementById('time-display').innerText = 
-        `${hours.toString().padStart(2,'0')}:${mins.toString().padStart(2,'0')}`;
-        
-    document.getElementById('pop-animal').innerText = animals.length;
-    document.getElementById('pop-plant').innerText = plants.length;
-    
-    if (selectedEntity && selectedEntity instanceof Animal && selectedEntity.alive) {
-        document.getElementById('entity-data').innerHTML = `
-                Type: Animal (${selectedEntity.id})<br>
-                Age: ${Math.floor(selectedEntity.age)}<br>
-                Energy: ${Math.floor(selectedEntity.energy)}<br>
-                State: <strong>${selectedEntity.state}</strong>
-            `;
-        document.getElementById('brain-log').innerText = `"${selectedEntity.thought}"`;
-    } else if (selectedEntity && !selectedEntity.alive) {
-        document.getElementById('entity-data').innerText = "Entity Deceased.";
-        document.getElementById('brain-log').innerText = "";
-    }
+    const ex = e.clientX - rect.left, ey = e.clientY - rect.top;
+    selected = animals.find(a => Math.hypot(a.x - ex, a.y - ey) < 20) || null;
+    document.getElementById('info-panel').style.display = selected ? 'block' : 'none';
 }
 
 function loop() {
-    // 1. Update Settings from UI
     timeSpeed = parseFloat(document.getElementById('speed-slider').value);
-    mutationRate = parseFloat(document.getElementById('mutation-slider').value);
-    plantGrowthMult = parseFloat(document.getElementById('growth-slider').value);
+    globalAggro = parseFloat(document.getElementById('aggro-slider').value);
 
-    // 2. Clear Canvas
-    // Day/Night Background
-    let lightVal = Math.floor(lightLevel * 50); // 10 to 60
-    ctx.fillStyle = `rgb(${lightVal}, ${lightVal+10}, ${lightVal+10})`;
+    // Environment
+    ctx.fillStyle = "#050808";
     ctx.fillRect(0, 0, width, height);
-
-    updateEnvironment();
-
-    // 3. Update & Draw Entities
     
-    // Seeds
-    seeds = seeds.filter(s => s.update());
-    seeds.forEach(s => s.draw());
-    
-    // Plants
+    // Plant growth
+    if (Math.random() < 0.05 * timeSpeed && plants.length < 100) {
+        plants.push(new Plant(Math.random()*width, Math.random()*height));
+    }
+
+    // Process Entities
     plants = plants.filter(p => p.alive);
-    plants.forEach(p => {
-        p.update();
-        p.draw();
-    });
-    
-    // Animals
+    plants.forEach(p => p.draw());
+
+    eggs = eggs.filter(e => e.alive);
+    eggs.forEach(e => { e.update(); e.draw(); });
+
     animals = animals.filter(a => a.alive);
     animals.forEach(a => {
         a.update();
         a.draw();
     });
 
-    updateUI();
+    if (selected) {
+        document.getElementById('ent-name').innerText = `ENTITY ${selected.id}`;
+        document.getElementById('ent-stats').innerHTML = `
+            AGE: ${Math.floor(selected.age)} | ENERGY: ${Math.floor(selected.energy)}%<br>
+            STATE: <span style="color:#fff">${selected.state}</span><br>
+            PLAN: <span style="color:#aaa">${selected.internalPlan || 'NONE'}</span>
+        `;
+        document.getElementById('ent-thought').innerText = selected.thought;
+    }
+
     requestAnimationFrame(loop);
 }
 
-// Start
 init();
-
 </script>
 </body>
 </html>
