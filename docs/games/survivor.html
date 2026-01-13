@@ -3,176 +3,1041 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Zyqral Neural Engine</title>
+    <title>Neural Network Brain Simulation</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
-        body { margin: 0; background: #050505; color: #00ffcc; font-family: monospace; overflow: hidden; }
-        canvas { display: block; touch-action: none; }
-        #ui { position: absolute; top: 10px; left: 10px; right: 10px; background: rgba(0, 20, 20, 0.8); padding: 10px; border: 1px solid #00ffcc; border-radius: 5px; font-size: 12px; max-height: 40vh; overflow-y: auto; pointer-events: auto; }
-        .slider-group { margin-bottom: 10px; }
-        label { display: block; margin-bottom: 3px; text-transform: uppercase; }
-        input[type=range] { width: 100%; accent-color: #00ffcc; }
-        .stats { position: absolute; bottom: 10px; left: 10px; font-size: 10px; color: rgba(0, 255, 204, 0.5); pointer-events: none; }
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            touch-action: manipulation;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #0a0a1a;
+            color: #e0e0ff;
+            line-height: 1.6;
+            overflow-x: hidden;
+            padding: 0;
+            margin: 0;
+            -webkit-tap-highlight-color: transparent;
+        }
+        
+        .container {
+            max-width: 100%;
+            padding: 10px;
+            margin: 0 auto;
+        }
+        
+        header {
+            text-align: center;
+            padding: 15px 0;
+            background: linear-gradient(90deg, #0c0c2e, #1a1a3a);
+            border-bottom: 1px solid #2a2a5a;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
+            margin-bottom: 15px;
+        }
+        
+        h1 {
+            font-size: 1.8rem;
+            margin-bottom: 5px;
+            color: #7bdfff;
+            text-shadow: 0 0 10px rgba(123, 223, 255, 0.5);
+        }
+        
+        .subtitle {
+            font-size: 0.9rem;
+            color: #a0a0ff;
+            max-width: 800px;
+            margin: 0 auto;
+        }
+        
+        .main-content {
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+        
+        @media (min-width: 768px) {
+            .main-content {
+                flex-direction: row;
+            }
+            
+            .simulation-panel {
+                flex: 3;
+            }
+            
+            .controls-panel {
+                flex: 2;
+            }
+        }
+        
+        .simulation-container {
+            position: relative;
+            background-color: #0f0f25;
+            border-radius: 12px;
+            overflow: hidden;
+            border: 1px solid #2a2a5a;
+            box-shadow: 0 6px 20px rgba(0, 0, 0, 0.4);
+            height: 500px;
+        }
+        
+        #brainCanvas {
+            width: 100%;
+            height: 100%;
+            display: block;
+            background-color: #0a0a15;
+        }
+        
+        .controls-panel {
+            background-color: #11112a;
+            border-radius: 12px;
+            padding: 15px;
+            border: 1px solid #2a2a5a;
+            box-shadow: 0 6px 20px rgba(0, 0, 0, 0.4);
+            overflow-y: auto;
+            max-height: 500px;
+        }
+        
+        .control-section {
+            margin-bottom: 20px;
+            padding-bottom: 15px;
+            border-bottom: 1px solid #2a2a5a;
+        }
+        
+        .control-section:last-child {
+            border-bottom: none;
+            margin-bottom: 0;
+            padding-bottom: 0;
+        }
+        
+        h2 {
+            font-size: 1.3rem;
+            color: #7bdfff;
+            margin-bottom: 12px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        h2 i {
+            font-size: 1.1rem;
+        }
+        
+        .control-group {
+            margin-bottom: 12px;
+        }
+        
+        .control-label {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 6px;
+            font-size: 0.9rem;
+        }
+        
+        .control-value {
+            color: #7bdfff;
+            font-weight: bold;
+        }
+        
+        input[type="range"] {
+            width: 100%;
+            height: 8px;
+            border-radius: 4px;
+            background: #2a2a5a;
+            outline: none;
+            -webkit-appearance: none;
+        }
+        
+        input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            background: #7bdfff;
+            cursor: pointer;
+            box-shadow: 0 0 8px rgba(123, 223, 255, 0.8);
+        }
+        
+        .neurotransmitter-controls {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 12px;
+        }
+        
+        .nt-control {
+            background-color: #1a1a3a;
+            padding: 10px;
+            border-radius: 8px;
+            border-left: 4px solid;
+        }
+        
+        .nt-control.gaba {
+            border-left-color: #ff4d94;
+        }
+        
+        .nt-control.dopamine {
+            border-left-color: #4dff88;
+        }
+        
+        .nt-control.serotonin {
+            border-left-color: #ffcc4d;
+        }
+        
+        .nt-control.glutamate {
+            border-left-color: #4dc3ff;
+        }
+        
+        .nt-name {
+            font-weight: bold;
+            margin-bottom: 5px;
+            font-size: 0.95rem;
+        }
+        
+        .nt-function {
+            font-size: 0.8rem;
+            color: #a0a0ff;
+            margin-bottom: 8px;
+        }
+        
+        .buttons {
+            display: flex;
+            gap: 10px;
+            margin-top: 15px;
+        }
+        
+        button {
+            flex: 1;
+            padding: 12px;
+            border: none;
+            border-radius: 8px;
+            background: linear-gradient(90deg, #2a2a5a, #3a3a6a);
+            color: #e0e0ff;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.3s;
+            font-size: 0.9rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+        }
+        
+        button:hover, button:active {
+            background: linear-gradient(90deg, #3a3a7a, #4a4a8a);
+            transform: translateY(-2px);
+        }
+        
+        button.primary {
+            background: linear-gradient(90deg, #1a5a7a, #2a6a8a);
+        }
+        
+        button.primary:hover, button.primary:active {
+            background: linear-gradient(90deg, #2a6a8a, #3a7a9a);
+        }
+        
+        .simulation-info {
+            background-color: #11112a;
+            border-radius: 12px;
+            padding: 15px;
+            margin-top: 15px;
+            border: 1px solid #2a2a5a;
+            font-size: 0.9rem;
+        }
+        
+        .info-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
+            margin-top: 10px;
+        }
+        
+        .info-item {
+            display: flex;
+            justify-content: space-between;
+            padding: 8px 0;
+            border-bottom: 1px dashed #2a2a5a;
+        }
+        
+        .info-label {
+            color: #a0a0ff;
+        }
+        
+        .info-value {
+            font-weight: bold;
+            color: #7bdfff;
+        }
+        
+        .brain-region {
+            position: absolute;
+            pointer-events: none;
+            font-size: 0.8rem;
+            font-weight: bold;
+            color: rgba(255, 255, 255, 0.9);
+            text-shadow: 0 0 5px rgba(0, 0, 0, 0.8);
+            z-index: 10;
+        }
+        
+        footer {
+            text-align: center;
+            padding: 15px;
+            margin-top: 15px;
+            color: #7a7aaa;
+            font-size: 0.8rem;
+            border-top: 1px solid #2a2a5a;
+        }
+        
+        .mobile-warning {
+            display: none;
+            background-color: #2a1a1a;
+            color: #ffa0a0;
+            padding: 10px;
+            border-radius: 8px;
+            margin-bottom: 15px;
+            font-size: 0.9rem;
+            text-align: center;
+            border: 1px solid #ff4d4d;
+        }
+        
+        @media (max-width: 767px) {
+            .mobile-warning {
+                display: block;
+            }
+            
+            .simulation-container {
+                height: 350px;
+            }
+            
+            .controls-panel {
+                max-height: none;
+            }
+            
+            .neurotransmitter-controls {
+                grid-template-columns: 1fr;
+            }
+            
+            .info-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+        
+        /* Animation for firing neurons */
+        @keyframes neuronFire {
+            0% { opacity: 0.5; transform: scale(1); }
+            50% { opacity: 1; transform: scale(1.2); }
+            100% { opacity: 0.5; transform: scale(1); }
+        }
+        
+        /* Animation for neurotransmitter pulses */
+        @keyframes pulse {
+            0% { opacity: 0; transform: scale(0.1); }
+            50% { opacity: 0.8; }
+            100% { opacity: 0; transform: scale(1.5); }
+        }
     </style>
 </head>
 <body>
-
-<div id="ui">
-    <div class="slider-group">
-        <label>Prefrontal Cortex (Neuron Count)</label>
-        <input type="range" id="pfc-count" min="10" max="100" value="40">
+    <div class="container">
+        <header>
+            <h1><i class="fas fa-brain"></i> Neural Network Brain Simulation</h1>
+            <p class="subtitle">Interactive simulation of brain regions with adjustable neuron counts, dendrites, and neurotransmitter dynamics</p>
+        </header>
+        
+        <div class="mobile-warning">
+            <i class="fas fa-mobile-alt"></i> For best experience, use landscape mode on mobile devices
+        </div>
+        
+        <div class="main-content">
+            <div class="simulation-panel">
+                <div class="simulation-container">
+                    <canvas id="brainCanvas"></canvas>
+                    
+                    <!-- Brain region labels -->
+                    <div class="brain-region" id="prefrontalLabel" style="top: 15%; left: 50%;">Prefrontal Cortex</div>
+                    <div class="brain-region" id="motorLabel" style="top: 40%; left: 25%;">Motor Cortex</div>
+                    <div class="brain-region" id="sensoryLabel" style="top: 40%; left: 75%;">Sensory Cortex</div>
+                    <div class="brain-region" id="visualLabel" style="top: 70%; left: 15%;">Visual Cortex</div>
+                    <div class="brain-region" id="auditoryLabel" style="top: 70%; left: 85%;">Auditory Cortex</div>
+                    <div class="brain-region" id="hippocampusLabel" style="top: 60%; left: 50%;">Hippocampus</div>
+                    <div class="brain-region" id="amygdalaLabel" style="top: 45%; left: 50%;">Amygdala</div>
+                </div>
+                
+                <div class="simulation-info">
+                    <h2><i class="fas fa-chart-line"></i> Simulation Metrics</h2>
+                    <div class="info-grid">
+                        <div class="info-item">
+                            <span class="info-label">Total Neurons:</span>
+                            <span class="info-value" id="totalNeurons">0</span>
+                        </div>
+                        <div class="info-item">
+                            <span class="info-label">Active Connections:</span>
+                            <span class="info-value" id="activeConnections">0</span>
+                        </div>
+                        <div class="info-item">
+                            <span class="info-label">Firing Rate:</span>
+                            <span class="info-value" id="firingRate">0 Hz</span>
+                        </div>
+                        <div class="info-item">
+                            <span class="info-label">Neurotransmitter Activity:</span>
+                            <span class="info-value" id="ntActivity">Low</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="controls-panel">
+                <div class="control-section">
+                    <h2><i class="fas fa-sliders-h"></i> Brain Region Controls</h2>
+                    
+                    <div class="control-group">
+                        <div class="control-label">
+                            <span>Prefrontal Cortex Neurons</span>
+                            <span class="control-value" id="prefrontalValue">1200</span>
+                        </div>
+                        <input type="range" id="prefrontalSlider" min="100" max="3000" value="1200" step="100">
+                    </div>
+                    
+                    <div class="control-group">
+                        <div class="control-label">
+                            <span>Motor Cortex Neurons</span>
+                            <span class="control-value" id="motorValue">800</span>
+                        </div>
+                        <input type="range" id="motorSlider" min="100" max="2000" value="800" step="100">
+                    </div>
+                    
+                    <div class="control-group">
+                        <div class="control-label">
+                            <span>Sensory Cortex Neurons</span>
+                            <span class="control-value" id="sensoryValue">900</span>
+                        </div>
+                        <input type="range" id="sensorySlider" min="100" max="2000" value="900" step="100">
+                    </div>
+                    
+                    <div class="control-group">
+                        <div class="control-label">
+                            <span>Visual Cortex Neurons</span>
+                            <span class="control-value" id="visualValue">1000</span>
+                        </div>
+                        <input type="range" id="visualSlider" min="100" max="2500" value="1000" step="100">
+                    </div>
+                    
+                    <div class="control-group">
+                        <div class="control-label">
+                            <span>Auditory Cortex Neurons</span>
+                            <span class="control-value" id="auditoryValue">700</span>
+                        </div>
+                        <input type="range" id="auditorySlider" min="100" max="1500" value="700" step="100">
+                    </div>
+                    
+                    <div class="control-group">
+                        <div class="control-label">
+                            <span>Hippocampus Neurons</span>
+                            <span class="control-value" id="hippocampusValue">600</span>
+                        </div>
+                        <input type="range" id="hippocampusSlider" min="100" max="1500" value="600" step="100">
+                    </div>
+                    
+                    <div class="control-group">
+                        <div class="control-label">
+                            <span>Amygdala Neurons</span>
+                            <span class="control-value" id="amygdalaValue">400</span>
+                        </div>
+                        <input type="range" id="amygdalaSlider" min="100" max="1000" value="400" step="100">
+                    </div>
+                </div>
+                
+                <div class="control-section">
+                    <h2><i class="fas fa-vial"></i> Neurotransmitter Levels</h2>
+                    
+                    <div class="neurotransmitter-controls">
+                        <div class="nt-control gaba">
+                            <div class="nt-name">GABA <span class="control-value" id="gabaValue">45%</span></div>
+                            <div class="nt-function">Inhibitory</div>
+                            <input type="range" id="gabaSlider" min="0" max="100" value="45">
+                        </div>
+                        
+                        <div class="nt-control dopamine">
+                            <div class="nt-name">Dopamine <span class="control-value" id="dopamineValue">60%</span></div>
+                            <div class="nt-function">Reward/Motivation</div>
+                            <input type="range" id="dopamineSlider" min="0" max="100" value="60">
+                        </div>
+                        
+                        <div class="nt-control serotonin">
+                            <div class="nt-name">Serotonin <span class="control-value" id="serotoninValue">55%</span></div>
+                            <div class="nt-function">Mood/Emotion</div>
+                            <input type="range" id="serotoninSlider" min="0" max="100" value="55">
+                        </div>
+                        
+                        <div class="nt-control glutamate">
+                            <div class="nt-name">Glutamate <span class="control-value" id="glutamateValue">70%</span></div>
+                            <div class="nt-function">Excitatory</div>
+                            <input type="range" id="glutamateSlider" min="0" max="100" value="70">
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="buttons">
+                    <button class="primary" id="simulateBtn">
+                        <i class="fas fa-play"></i> Simulate Activity
+                    </button>
+                    <button id="resetBtn">
+                        <i class="fas fa-redo"></i> Reset
+                    </button>
+                </div>
+            </div>
+        </div>
+        
+        <footer>
+            <p>Interactive Neural Network Brain Simulation | Functional representation of brain regions with adjustable parameters</p>
+            <p>Simulation includes dendrites, axons, and neurotransmitter dynamics (GABA, Dopamine, Serotonin, Glutamate)</p>
+        </footer>
     </div>
-    <div class="slider-group">
-        <label>Neurotransmitter: Dopamine (Speed)</label>
-        <input type="range" id="dopamine" min="1" max="10" value="5">
-    </div>
-    <div class="slider-group">
-        <label>Neurotransmitter: GABA (Inhibition)</label>
-        <input type="range" id="gaba" min="0" max="10" value="2">
-    </div>
-    <div class="slider-group">
-        <label>Neurotransmitter: Serotonin (Stability)</label>
-        <input type="range" id="serotonin" min="1" max="10" value="5">
-    </div>
-</div>
 
-<div class="stats" id="stats">Active Synapses: 0 | Energy Consumption: Low</div>
-
-<canvas id="brainCanvas"></canvas>
-
-<script>
-    const canvas = document.getElementById('brainCanvas');
-    const ctx = canvas.getContext('2d');
-    const stats = document.getElementById('stats');
-    
-    let neurons = [];
-    let neurotransmitters = { dopamine: 5, gaba: 2, serotonin: 5 };
-    let regions = {
-        PFC: { x: 0.5, y: 0.2, color: '#00ffff', count: 40 },
-        Amygdala: { x: 0.5, y: 0.6, color: '#ff0055', count: 20 },
-        VisualCortex: { x: 0.5, y: 0.8, color: '#aa00ff', count: 30 }
-    };
-
-    function resize() {
-        canvas.width = window.innerWidth;
-        canvas.height = window.innerHeight;
-        initNeurons();
-    }
-
-    class Neuron {
-        constructor(regionKey) {
-            const region = regions[regionKey];
-            this.region = regionKey;
-            this.x = canvas.width * (region.x + (Math.random() - 0.5) * 0.4);
-            this.y = canvas.height * (region.y + (Math.random() - 0.5) * 0.2);
-            this.potential = 0;
-            this.threshold = 1.0;
-            this.color = region.color;
-            this.connections = [];
+    <script>
+        // Main simulation variables
+        let canvas, ctx;
+        let brainRegions = {};
+        let neurons = [];
+        let connections = [];
+        let neurotransmitters = [];
+        let animationId = null;
+        let isSimulating = false;
+        let simulationStartTime = 0;
+        
+        // Neurotransmitter colors
+        const NT_COLORS = {
+            gaba: '#ff4d94',
+            dopamine: '#4dff88',
+            serotonin: '#ffcc4d',
+            glutamate: '#4dc3ff'
+        };
+        
+        // Brain region data
+        const REGIONS = {
+            prefrontal: { x: 0.5, y: 0.15, baseNeurons: 1200, color: '#7bdfff' },
+            motor: { x: 0.25, y: 0.4, baseNeurons: 800, color: '#4dff88' },
+            sensory: { x: 0.75, y: 0.4, baseNeurons: 900, color: '#ff884d' },
+            visual: { x: 0.15, y: 0.7, baseNeurons: 1000, color: '#ff4dff' },
+            auditory: { x: 0.85, y: 0.7, baseNeurons: 700, color: '#ffcc4d' },
+            hippocampus: { x: 0.5, y: 0.6, baseNeurons: 600, color: '#4dc3ff' },
+            amygdala: { x: 0.5, y: 0.45, baseNeurons: 400, color: '#ff4d4d' }
+        };
+        
+        // Neurotransmitter data
+        let neurotransmitterLevels = {
+            gaba: 45,
+            dopamine: 60,
+            serotonin: 55,
+            glutamate: 70
+        };
+        
+        // Initialize the simulation
+        function init() {
+            canvas = document.getElementById('brainCanvas');
+            ctx = canvas.getContext('2d');
+            
+            // Set canvas size to match container
+            resizeCanvas();
+            window.addEventListener('resize', resizeCanvas);
+            
+            // Initialize brain regions from slider values
+            updateBrainRegions();
+            
+            // Set up event listeners for sliders
+            setupEventListeners();
+            
+            // Create initial neurons and connections
+            generateNeuronsAndConnections();
+            
+            // Start the animation loop
+            animate();
+            
+            // Update simulation metrics
+            updateMetrics();
         }
-
-        connect(others) {
-            this.connections = others
-                .filter(n => n !== this && Math.hypot(this.x - n.x, this.y - n.y) < 150)
-                .slice(0, 5);
+        
+        // Resize canvas to fit container
+        function resizeCanvas() {
+            const container = canvas.parentElement;
+            canvas.width = container.clientWidth;
+            canvas.height = container.clientHeight;
+            
+            // Update neuron positions based on new canvas size
+            updateNeuronPositions();
         }
-
-        fire() {
-            if (this.potential > this.threshold) {
-                this.potential = 0;
-                this.connections.forEach(target => {
-                    const signal = (neurotransmitters.dopamine / 5) - (neurotransmitters.gaba / 10);
-                    target.receive(signal, this.x, this.y);
-                });
-                return true;
+        
+        // Update brain regions from slider values
+        function updateBrainRegions() {
+            for (const region in REGIONS) {
+                const slider = document.getElementById(`${region}Slider`);
+                if (slider) {
+                    brainRegions[region] = {
+                        ...REGIONS[region],
+                        neuronCount: parseInt(slider.value)
+                    };
+                }
             }
-            // Serotonin stabilizes leak
-            this.potential *= (0.9 + (neurotransmitters.serotonin / 100));
-            return false;
         }
-
-        receive(val, fromX, fromY) {
-            this.potential += val;
-            // Visual Dendrite Pulse
-            pulses.push({
-                x: fromX, y: fromY, tx: this.x, ty: this.y, progress: 0, 
-                color: this.color, speed: 0.02 * (neurotransmitters.dopamine / 5)
+        
+        // Set up event listeners for controls
+        function setupEventListeners() {
+            // Brain region sliders
+            for (const region in REGIONS) {
+                const slider = document.getElementById(`${region}Slider`);
+                const valueDisplay = document.getElementById(`${region}Value`);
+                
+                if (slider) {
+                    slider.addEventListener('input', function() {
+                        valueDisplay.textContent = this.value;
+                        updateBrainRegions();
+                        generateNeuronsAndConnections();
+                    });
+                }
+            }
+            
+            // Neurotransmitter sliders
+            for (const nt in neurotransmitterLevels) {
+                const slider = document.getElementById(`${nt}Slider`);
+                const valueDisplay = document.getElementById(`${nt}Value`);
+                
+                if (slider) {
+                    slider.addEventListener('input', function() {
+                        neurotransmitterLevels[nt] = parseInt(this.value);
+                        valueDisplay.textContent = `${this.value}%`;
+                    });
+                }
+            }
+            
+            // Control buttons
+            document.getElementById('simulateBtn').addEventListener('click', function() {
+                isSimulating = !isSimulating;
+                simulationStartTime = Date.now();
+                
+                if (isSimulating) {
+                    this.innerHTML = '<i class="fas fa-pause"></i> Pause Simulation';
+                    this.classList.add('primary');
+                } else {
+                    this.innerHTML = '<i class="fas fa-play"></i> Simulate Activity';
+                }
+            });
+            
+            document.getElementById('resetBtn').addEventListener('click', function() {
+                // Reset sliders to default values
+                for (const region in REGIONS) {
+                    const slider = document.getElementById(`${region}Slider`);
+                    const valueDisplay = document.getElementById(`${region}Value`);
+                    
+                    if (slider) {
+                        slider.value = REGIONS[region].baseNeurons;
+                        valueDisplay.textContent = REGIONS[region].baseNeurons;
+                    }
+                }
+                
+                // Reset neurotransmitter sliders
+                const defaultNTLevels = { gaba: 45, dopamine: 60, serotonin: 55, glutamate: 70 };
+                for (const nt in defaultNTLevels) {
+                    const slider = document.getElementById(`${nt}Slider`);
+                    const valueDisplay = document.getElementById(`${nt}Value`);
+                    
+                    if (slider) {
+                        slider.value = defaultNTLevels[nt];
+                        valueDisplay.textContent = `${defaultNTLevels[nt]}%`;
+                        neurotransmitterLevels[nt] = defaultNTLevels[nt];
+                    }
+                }
+                
+                updateBrainRegions();
+                generateNeuronsAndConnections();
+                isSimulating = false;
+                document.getElementById('simulateBtn').innerHTML = '<i class="fas fa-play"></i> Simulate Activity';
             });
         }
-
-        draw() {
-            ctx.beginPath();
-            ctx.arc(this.x, this.y, 2 + this.potential * 2, 0, Math.PI * 2);
-            ctx.fillStyle = this.color;
-            ctx.fill();
-            if (this.potential > 0.5) {
-                ctx.shadowBlur = 10;
-                ctx.shadowColor = this.color;
-            } else {
-                ctx.shadowBlur = 0;
+        
+        // Generate neurons and connections based on current settings
+        function generateNeuronsAndConnections() {
+            neurons = [];
+            connections = [];
+            
+            let neuronId = 0;
+            
+            // Create neurons for each region
+            for (const region in brainRegions) {
+                const regionData = brainRegions[region];
+                const neuronCount = Math.min(regionData.neuronCount, 300); // Limit for performance
+                
+                for (let i = 0; i < neuronCount; i++) {
+                    // Position neurons around the region center with some randomness
+                    const x = (regionData.x + (Math.random() - 0.5) * 0.15) * canvas.width;
+                    const y = (regionData.y + (Math.random() - 0.5) * 0.15) * canvas.height;
+                    
+                    neurons.push({
+                        id: neuronId++,
+                        region: region,
+                        x: x,
+                        y: y,
+                        radius: 3 + Math.random() * 2,
+                        color: regionData.color,
+                        firing: false,
+                        fireStart: 0,
+                        connections: []
+                    });
+                }
+            }
+            
+            // Create connections between neurons
+            // Each neuron connects to a few nearby neurons
+            for (let i = 0; i < neurons.length; i++) {
+                const neuron = neurons[i];
+                const maxConnections = 3 + Math.floor(Math.random() * 4);
+                
+                // Find nearby neurons to connect to
+                let connectionsMade = 0;
+                for (let j = 0; j < neurons.length && connectionsMade < maxConnections; j++) {
+                    if (i === j) continue;
+                    
+                    const otherNeuron = neurons[j];
+                    const dx = neuron.x - otherNeuron.x;
+                    const dy = neuron.y - otherNeuron.y;
+                    const distance = Math.sqrt(dx * dx + dy * dy);
+                    
+                    // Connect if within a reasonable distance
+                    if (distance < 150) {
+                        connections.push({
+                            from: neuron,
+                            to: otherNeuron,
+                            strength: Math.random() * 0.5 + 0.5,
+                            active: false,
+                            lastPulse: 0
+                        });
+                        
+                        neuron.connections.push(connections.length - 1);
+                        connectionsMade++;
+                    }
+                }
+            }
+            
+            // Update metrics
+            updateMetrics();
+        }
+        
+        // Update neuron positions after canvas resize
+        function updateNeuronPositions() {
+            for (const neuron of neurons) {
+                const region = brainRegions[neuron.region];
+                if (region) {
+                    // Keep relative position within region
+                    const regionX = region.x * canvas.width;
+                    const regionY = region.y * canvas.height;
+                    
+                    // Calculate relative position from original position
+                    const relX = (neuron.x - region.x * canvas.width) / canvas.width;
+                    const relY = (neuron.y - region.y * canvas.height) / canvas.height;
+                    
+                    neuron.x = regionX + relX * canvas.width;
+                    neuron.y = regionY + relY * canvas.height;
+                }
             }
         }
-    }
-
-    let pulses = [];
-
-    function initNeurons() {
-        neurons = [];
-        Object.keys(regions).forEach(key => {
-            for (let i = 0; i < regions[key].count; i++) {
-                neurons.push(new Neuron(key));
+        
+        // Main animation loop
+        function animate() {
+            // Clear canvas with a subtle gradient
+            const gradient = ctx.createRadialGradient(
+                canvas.width / 2, canvas.height / 2, 0,
+                canvas.width / 2, canvas.height / 2, canvas.width
+            );
+            gradient.addColorStop(0, '#0a0a15');
+            gradient.addColorStop(1, '#050510');
+            
+            ctx.fillStyle = gradient;
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            
+            // Update simulation if active
+            if (isSimulating) {
+                updateSimulation();
             }
-        });
-        neurons.forEach(n => n.connect(neurons));
-    }
-
-    function animate() {
-        ctx.fillStyle = 'rgba(5, 5, 5, 0.2)';
-        ctx.fillRect(0, 0, canvas.width, canvas.height);
-
-        // Random stimulus
-        if (Math.random() > 0.9) neurons[Math.floor(Math.random() * neurons.length)].potential += 1;
-
-        neurons.forEach(n => {
-            n.fire();
-            n.draw();
-        });
-
-        pulses = pulses.filter(p => {
-            p.progress += p.speed;
-            const curX = p.x + (p.tx - p.x) * p.progress;
-            const curY = p.y + (p.ty - p.y) * p.progress;
-            ctx.beginPath();
-            ctx.moveTo(p.x + (p.tx - p.x) * (p.progress - 0.1), p.y + (p.ty - p.y) * (p.progress - 0.1));
-            ctx.lineTo(curX, curY);
-            ctx.strokeStyle = p.color;
-            ctx.lineWidth = 1;
-            ctx.stroke();
-            return p.progress < 1;
-        });
-
-        stats.innerText = `Active Synapses: ${pulses.length} | Neuro-Stability: ${neurotransmitters.serotonin > 5 ? 'High' : 'Volatile'}`;
-        requestAnimationFrame(animate);
-    }
-
-    // UI Listeners
-    document.getElementById('pfc-count').addEventListener('input', (e) => {
-        regions.PFC.count = parseInt(e.target.value);
-        initNeurons();
-    });
-    document.getElementById('dopamine').addEventListener('input', (e) => {
-        neurotransmitters.dopamine = parseInt(e.target.value);
-    });
-    document.getElementById('gaba').addEventListener('input', (e) => {
-        neurotransmitters.gaba = parseInt(e.target.value);
-    });
-    document.getElementById('serotonin').addEventListener('input', (e) => {
-        neurotransmitters.serotonin = parseInt(e.target.value);
-    });
-
-    window.addEventListener('resize', resize);
-    resize();
-    animate();
-
-</script>
+            
+            // Draw connections (dendrites/axons)
+            drawConnections();
+            
+            // Draw neurons
+            drawNeurons();
+            
+            // Draw neurotransmitter pulses
+            drawNeurotransmitterPulses();
+            
+            // Continue animation
+            animationId = requestAnimationFrame(animate);
+        }
+        
+        // Update simulation state
+        function updateSimulation() {
+            const currentTime = Date.now();
+            const elapsedTime = (currentTime - simulationStartTime) / 1000;
+            
+            // Update metrics periodically
+            if (currentTime % 1000 < 16) { // About once per second
+                updateMetrics();
+            }
+            
+            // Determine firing rate based on neurotransmitter levels
+            // Glutamate increases firing, GABA decreases it
+            const baseFiringProbability = 0.01;
+            const glutamateEffect = neurotransmitterLevels.glutamate / 100;
+            const gabaEffect = neurotransmitterLevels.gaba / 100;
+            const firingProbability = baseFiringProbability * (0.5 + glutamateEffect) * (1.5 - gabaEffect);
+            
+            // Randomly fire some neurons
+            for (const neuron of neurons) {
+                // Neurons can fire based on probability
+                if (Math.random() < firingProbability && !neuron.firing) {
+                    neuron.firing = true;
+                    neuron.fireStart = currentTime;
+                    
+                    // Sometimes trigger neurotransmitter release
+                    if (Math.random() < 0.3) {
+                        createNeurotransmitterPulse(neuron);
+                    }
+                    
+                    // Activate connections from this neuron
+                    for (const connIndex of neuron.connections) {
+                        const connection = connections[connIndex];
+                        connection.active = true;
+                        connection.lastPulse = currentTime;
+                        
+                        // Chance to fire the connected neuron based on dopamine (enhances signal transmission)
+                        const dopamineEffect = neurotransmitterLevels.dopamine / 100;
+                        if (Math.random() < 0.2 * dopamineEffect) {
+                            const targetNeuron = connection.to;
+                            if (!targetNeuron.firing) {
+                                targetNeuron.firing = true;
+                                targetNeuron.fireStart = currentTime;
+                            }
+                        }
+                    }
+                }
+                
+                // Stop firing after a short duration
+                if (neuron.firing && currentTime - neuron.fireStart > 100) {
+                    neuron.firing = false;
+                }
+            }
+            
+            // Deactivate connections after a short time
+            for (const connection of connections) {
+                if (connection.active && currentTime - connection.lastPulse > 200) {
+                    connection.active = false;
+                }
+            }
+            
+            // Update neurotransmitter pulses
+            for (let i = neurotransmitters.length - 1; i >= 0; i--) {
+                const pulse = neurotransmitters[i];
+                pulse.age = currentTime - pulse.startTime;
+                
+                // Remove old pulses
+                if (pulse.age > 1000) {
+                    neurotransmitters.splice(i, 1);
+                }
+            }
+        }
+        
+        // Draw connections between neurons
+        function drawConnections() {
+            for (const connection of connections) {
+                const from = connection.from;
+                const to = connection.to;
+                
+                // Determine connection color and opacity based on activity
+                let opacity = 0.1;
+                let lineWidth = 0.5;
+                
+                if (connection.active) {
+                    opacity = 0.6;
+                    lineWidth = 1.5;
+                } else if (isSimulating) {
+                    // Subtle pulsing for inactive connections during simulation
+                    const pulse = Math.sin(Date.now() / 1000) * 0.05 + 0.1;
+                    opacity = pulse;
+                }
+                
+                // Draw the connection line
+                ctx.beginPath();
+                ctx.moveTo(from.x, from.y);
+                ctx.lineTo(to.x, to.y);
+                ctx.strokeStyle = `rgba(160, 160, 255, ${opacity})`;
+                ctx.lineWidth = lineWidth;
+                ctx.stroke();
+                
+                // Draw connection points (synapses)
+                if (connection.active) {
+                    const midX = (from.x + to.x) / 2;
+                    const midY = (from.y + to.y) / 2;
+                    
+                    ctx.beginPath();
+                    ctx.arc(midX, midY, 2, 0, Math.PI * 2);
+                    ctx.fillStyle = `rgba(255, 255, 200, ${opacity})`;
+                    ctx.fill();
+                }
+            }
+        }
+        
+        // Draw all neurons
+        function drawNeurons() {
+            for (const neuron of neurons) {
+                // Draw neuron body
+                ctx.beginPath();
+                ctx.arc(neuron.x, neuron.y, neuron.radius, 0, Math.PI * 2);
+                
+                // Neuron color changes when firing
+                if (neuron.firing) {
+                    const fireIntensity = Math.sin((Date.now() - neuron.fireStart) / 20) * 0.5 + 0.5;
+                    ctx.fillStyle = `rgba(255, 255, 200, ${fireIntensity})`;
+                    
+                    // Draw firing effect
+                    ctx.beginPath();
+                    ctx.arc(neuron.x, neuron.y, neuron.radius * 2, 0, Math.PI * 2);
+                    ctx.fillStyle = `rgba(255, 200, 100, ${fireIntensity * 0.3})`;
+                    ctx.fill();
+                } else {
+                    ctx.fillStyle = neuron.color;
+                }
+                
+                ctx.fill();
+                
+                // Draw neuron outline
+                ctx.beginPath();
+                ctx.arc(neuron.x, neuron.y, neuron.radius, 0, Math.PI * 2);
+                ctx.strokeStyle = `rgba(255, 255, 255, 0.3)`;
+                ctx.lineWidth = 0.5;
+                ctx.stroke();
+                
+                // Draw dendrites (small protruding lines)
+                const dendriteCount = 4;
+                for (let i = 0; i < dendriteCount; i++) {
+                    const angle = (i / dendriteCount) * Math.PI * 2;
+                    const dendriteLength = neuron.radius * 2;
+                    const endX = neuron.x + Math.cos(angle) * dendriteLength;
+                    const endY = neuron.y + Math.sin(angle) * dendriteLength;
+                    
+                    ctx.beginPath();
+                    ctx.moveTo(neuron.x, neuron.y);
+                    ctx.lineTo(endX, endY);
+                    ctx.strokeStyle = `rgba(200, 200, 255, 0.3)`;
+                    ctx.lineWidth = 0.5;
+                    ctx.stroke();
+                }
+            }
+        }
+        
+        // Create a neurotransmitter pulse at a neuron
+        function createNeurotransmitterPulse(neuron) {
+            // Determine which neurotransmitter based on levels
+            const ntTypes = Object.keys(neurotransmitterLevels);
+            const total = ntTypes.reduce((sum, nt) => sum + neurotransmitterLevels[nt], 0);
+            
+            let random = Math.random() * total;
+            let selectedNT = 'glutamate'; // Default
+            
+            for (const nt of ntTypes) {
+                random -= neurotransmitterLevels[nt];
+                if (random <= 0) {
+                    selectedNT = nt;
+                    break;
+                }
+            }
+            
+            neurotransmitters.push({
+                x: neuron.x,
+                y: neuron.y,
+                type: selectedNT,
+                startTime: Date.now(),
+                age: 0,
+                radius: 0
+            });
+        }
+        
+        // Draw neurotransmitter pulses
+        function drawNeurotransmitterPulses() {
+            for (const pulse of neurotransmitters) {
+                const progress = pulse.age / 1000; // 0 to 1 over 1 second
+                const radius = progress * 30;
+                const opacity = 1 - progress;
+                
+                ctx.beginPath();
+                ctx.arc(pulse.x, pulse.y, radius, 0, Math.PI * 2);
+                
+                const color = NT_COLORS[pulse.type] || NT_COLORS.glutamate;
+                const rgb = hexToRgb(color);
+                
+                // Draw pulse with gradient
+                const gradient = ctx.createRadialGradient(
+                    pulse.x, pulse.y, 0,
+                    pulse.x, pulse.y, radius
+                );
+                gradient.addColorStop(0, `rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, ${opacity})`);
+                gradient.addColorStop(1, `rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, 0)`);
+                
+                ctx.fillStyle = gradient;
+                ctx.fill();
+                
+                // Draw neurotransmitter symbol in the center
+                if (progress < 0.3) {
+                    ctx.beginPath();
+                    ctx.arc(pulse.x, pulse.y, 3, 0, Math.PI * 2);
+                    ctx.fillStyle = `rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, 1)`;
+                    ctx.fill();
+                }
+            }
+        }
+        
+        // Convert hex color to RGB object
+        function hexToRgb(hex) {
+            const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
+            return result ? {
+                r: parseInt(result[1], 16),
+                g: parseInt(result[2], 16),
+                b: parseInt(result[3], 16)
+            } : { r: 0, g: 0, b: 0 };
+        }
+        
+        // Update simulation metrics display
+        function updateMetrics() {
+            // Calculate total neurons
+            let totalNeurons = 0;
+            for (const region in brainRegions) {
+                totalNeurons += brainRegions[region].neuronCount;
+            }
+            
+            // Calculate active connections
+            let activeConnections = 0;
+            for (const connection of connections) {
+                if (connection.active) activeConnections++;
+            }
+            
+            // Calculate firing rate (simplified)
+            let firingNeurons = 0;
+            for (const neuron of neurons) {
+                if (neuron.firing) firingNeurons++;
+            }
+            const firingRate = isSimulating ? (firingNeurons / neurons.length * 100).toFixed(1) : "0.0";
+            
+            // Determine neurotransmitter activity level
+            const totalNTLevel = Object.values(neurotransmitterLevels).reduce((a, b) => a + b, 0);
+            let ntActivity = "Low";
+            if (totalNTLevel > 250) ntActivity = "High";
+            else if (totalNTLevel > 200) ntActivity = "Medium";
+            
+            // Update display
+            document.getElementById('totalNeurons').textContent = totalNeurons.toLocaleString();
+            document.getElementById('activeConnections').textContent = activeConnections.toLocaleString();
+            document.getElementById('firingRate').textContent = `${firingRate} Hz`;
+            document.getElementById('ntActivity').textContent = ntActivity;
+        }
+        
+        // Initialize when page loads
+        window.addEventListener('load', init);
+    </script>
 </body>
 </html>
