@@ -177,13 +177,54 @@ button:active { transform: translateY(0); }
   animation: fadeIn 0.3s ease;
   font-size: 0.9rem;
 }
+.edit-btn, .regenerate-btn {
+  padding: 0.25rem 0.5rem;
+  background: white;
+  border: 1px solid #ddd;
+  border-radius: 0.5rem;
+  cursor: pointer;
+  font-size: 0.85rem;
+  transition: all 0.2s;
+  margin-top: 0.5rem;
+}
+.edit-btn:hover, .regenerate-btn:hover {
+  border-color: #667eea;
+  background: #f0f0f0;
+}
+.msg.user .bubble {
+  position: relative;
+}
+.edit-input {
+  width: 100%;
+  padding: 0.5rem;
+  border: 2px solid #667eea;
+  border-radius: 0.5rem;
+  font-size: 1rem;
+  font-family: inherit;
+  margin-top: 0.5rem;
+}
+.edit-actions {
+  display: flex;
+  gap: 0.5rem;
+  margin-top: 0.5rem;
+}
+.edit-actions button {
+  padding: 0.5rem 1rem;
+  font-size: 0.85rem;
+  border-radius: 0.5rem;
+}
+.regenerate-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+}
 </style>
 </head>
 <body>
 <div class="container">
   <div class="header">
-    <h1>🤖 Markov Chain Bot</h1>
-    <p>Advanced probabilistic conversation with RLHF</p>
+    <h1>🤖 True Next-Word Markov Bot</h1>
+    <p>Pure word-by-word probabilistic generation</p>
   </div>
   <div class="stats" id="stats"></div>
   <div class="chat" id="chat"></div>
@@ -194,529 +235,266 @@ button:active { transform: translateY(0); }
 </div>
 
 <script>
-class MarkovChain {
+class TrueMarkovChain {
   constructor(order = 2) {
     this.order = order;
-    this.chain = new Map();
-    this.startTokens = [];
-    this.contextMemory = [];
-    this.maxMemory = 5;
+    this.transitions = new Map(); // word -> {nextWord: count}
     this.rewardWeights = new Map();
     this.feedbackHistory = [];
     this.responseHistory = [];
-    this.entityMemory = new Map(); // Track entities (names, places, concepts)
-    this.sentimentScores = new Map(); // Sentiment analysis per topic
-    this.conversationGraph = new Map(); // Build knowledge graph
-    this.nGramCache = new Map(); // Cache for performance
-    this.variableOrder = true; // Dynamic n-gram order
+    this.totalWords = 0;
   }
 
   train(text, rewardMultiplier = 1.0) {
-    const tokens = this.tokenize(text);
-    if (tokens.length < this.order + 1) return;
+    const words = this.tokenize(text);
+    if (words.length < this.order + 1) return;
 
-    // Multi-order training for richer patterns
-    for (let order = 1; order <= Math.min(this.order + 1, 4); order++) {
-      for (let i = 0; i < tokens.length - order; i++) {
-        const state = tokens.slice(i, i + order).join(' ');
-        const next = tokens[i + order];
-        
-        if (i === 0) this.startTokens.push(state);
-        
-        if (!this.chain.has(state)) {
-          this.chain.set(state, []);
-        }
-        this.chain.get(state).push(next);
-        
-        const transitionKey = `${state}→${next}`;
-        const currentWeight = this.rewardWeights.get(transitionKey) || 1.0;
-        this.rewardWeights.set(transitionKey, currentWeight * rewardMultiplier);
-      }
-    }
-    
-    // Extract and store entities
-    this.extractEntities(tokens);
-  }
-
-  extractEntities(tokens) {
-    // Simple entity extraction: capitalized words, numbers, special patterns
-    tokens.forEach((token, idx) => {
-      if (token.match(/^[A-Z]/)) {
-        const entity = token.toLowerCase();
-        if (!this.entityMemory.has(entity)) {
-          this.entityMemory.set(entity, { count: 0, contexts: [] });
-        }
-        const data = this.entityMemory.get(entity);
-        data.count++;
-        const context = tokens.slice(Math.max(0, idx - 2), Math.min(tokens.length, idx + 3)).join(' ');
-        data.contexts.push(context);
-      }
-    });
-  }
-
-  analyzeSentiment(text) {
-    const positive = ['good', 'great', 'love', 'excellent', 'wonderful', 'amazing', 'beautiful', 'happy', 'joy', 'perfect'];
-    const negative = ['bad', 'hate', 'terrible', 'awful', 'sad', 'angry', 'poor', 'wrong', 'difficult'];
-    
-    const tokens = this.tokenize(text);
-    let score = 0;
-    tokens.forEach(t => {
-      if (positive.includes(t)) score += 1;
-      if (negative.includes(t)) score -= 1;
-    });
-    return score;
-  }
-
-  buildConversationGraph(userInput, botResponse) {
-    // Create relationships between concepts mentioned
-    const userTokens = this.tokenize(userInput);
-    const botTokens = this.tokenize(botResponse);
-    
-    userTokens.forEach(ut => {
-      if (!this.conversationGraph.has(ut)) {
-        this.conversationGraph.set(ut, new Set());
-      }
-      botTokens.forEach(bt => {
-        this.conversationGraph.get(ut).add(bt);
-      });
-    });
-  }
-
-  getRelatedConcepts(word, depth = 2) {
-    // Navigate conversation graph to find related concepts
-    const related = new Set();
-    const queue = [[word, 0]];
-    const visited = new Set();
-    
-    while (queue.length > 0) {
-      const [current, level] = queue.shift();
-      if (visited.has(current) || level >= depth) continue;
-      visited.add(current);
+    for (let i = 0; i <= words.length - this.order - 1; i++) {
+      const context = words.slice(i, i + this.order).join(' ');
+      const next = words[i + this.order];
       
-      const connections = this.conversationGraph.get(current);
-      if (connections) {
-        connections.forEach(conn => {
-          related.add(conn);
-          if (level < depth - 1) queue.push([conn, level + 1]);
-        });
+      if (!this.transitions.has(context)) {
+        this.transitions.set(context, new Map());
+      }
+      
+      const nextMap = this.transitions.get(context);
+      nextMap.set(next, (nextMap.get(next) || 0) + 1);
+      this.totalWords++;
+      
+      // Initialize reward weight
+      const key = `${context}→${next}`;
+      const current = this.rewardWeights.get(key) || 1.0;
+      this.rewardWeights.set(key, current * rewardMultiplier);
+    }
+  }
+
+  tokenize(text) {
+    return text.toLowerCase()
+      .replace(/([.!?])/g, ' $1')
+      .split(/\s+/)
+      .filter(t => t.length > 0);
+  }
+
+  getStartContext(seed) {
+    if (!seed) {
+      const contexts = Array.from(this.transitions.keys());
+      return contexts[Math.floor(Math.random() * contexts.length)];
+    }
+    
+    const seedWords = this.tokenize(seed);
+    const contexts = Array.from(this.transitions.keys());
+    
+    // Find contexts that contain seed words
+    let bestContext = null;
+    let maxOverlap = 0;
+    
+    for (const ctx of contexts) {
+      const ctxWords = ctx.split(' ');
+      const overlap = ctxWords.filter(w => seedWords.includes(w)).length;
+      
+      if (overlap > maxOverlap || (overlap === maxOverlap && Math.random() > 0.5)) {
+        maxOverlap = overlap;
+        bestContext = ctx;
       }
     }
     
-    return Array.from(related);
+    return bestContext || contexts[Math.floor(Math.random() * contexts.length)];
+  }
+
+  generateNextWord(context) {
+    const nextMap = this.transitions.get(context);
+    if (!nextMap || nextMap.size === 0) return null;
+    
+    const candidates = Array.from(nextMap.entries());
+    const weights = candidates.map(([word, count]) => {
+      const key = `${context}→${word}`;
+      const reward = this.rewardWeights.get(key) || 1.0;
+      const freq = count / this.totalWords;
+      const rarity = 1 / (freq * 1000 + 1);
+      const exploration = 0.7 + Math.random() * 0.6;
+      
+      return (count + 1) * reward * rarity * exploration;
+    });
+    
+    const total = weights.reduce((a, b) => a + b, 0);
+    let rand = Math.random() * total;
+    
+    for (let i = 0; i < candidates.length; i++) {
+      rand -= weights[i];
+      if (rand <= 0) return candidates[i][0];
+    }
+    
+    return candidates[0][0];
+  }
+
+  generate(seed = null, minWords = 10, maxWords = 40) {
+    if (this.transitions.size === 0) {
+      return { text: "I need training data first!", id: null };
+    }
+    
+    const responseId = Date.now() + Math.random();
+    const transitions = [];
+    
+    // Start with seed-based context
+    let context = this.getStartContext(seed);
+    const result = context.split(' ');
+    
+    let attempts = 0;
+    let sentenceEnded = false;
+    
+    while (result.length < maxWords && attempts < maxWords * 2) {
+      attempts++;
+      
+      // Get current context window
+      const currentContext = result.slice(-this.order).join(' ');
+      
+      // Generate next word
+      const nextWord = this.generateNextWord(currentContext);
+      
+      if (!nextWord) {
+        // Fallback: get a random context
+        const randomContext = Array.from(this.transitions.keys())[
+          Math.floor(Math.random() * this.transitions.size)
+        ];
+        const fallbackWord = this.generateNextWord(randomContext);
+        if (fallbackWord) {
+          result.push(fallbackWord);
+          transitions.push(`${randomContext}→${fallbackWord}`);
+        } else {
+          break;
+        }
+        continue;
+      }
+      
+      result.push(nextWord);
+      transitions.push(`${currentContext}→${nextWord}`);
+      
+      // Check for sentence ending
+      if (nextWord.match(/[.!?]/)) {
+        sentenceEnded = true;
+        if (result.length >= minWords && Math.random() > 0.3) {
+          break;
+        }
+      }
+    }
+    
+    let text = result.join(' ')
+      .replace(/\s+([.!?,])/g, '$1')
+      .replace(/\s+/g, ' ')
+      .trim();
+    
+    text = text.charAt(0).toUpperCase() + text.slice(1);
+    
+    // Ensure it ends with punctuation
+    if (!text.match(/[.!?]$/)) {
+      text += '.';
+    }
+    
+    this.responseHistory.push({
+      id: responseId,
+      text: text,
+      transitions: transitions,
+      timestamp: Date.now()
+    });
+    
+    if (this.responseHistory.length > 50) {
+      this.responseHistory.shift();
+    }
+    
+    return { text, id: responseId };
   }
 
   applyFeedback(responseId, isPositive) {
-    const feedback = {
-      responseId,
-      isPositive,
-      timestamp: Date.now()
-    };
+    const feedback = { responseId, isPositive, timestamp: Date.now() };
     this.feedbackHistory.push(feedback);
     
     const response = this.responseHistory.find(r => r.id === responseId);
     if (!response) return;
     
-    // Adaptive learning rate based on feedback history
-    const recentFeedback = this.feedbackHistory.slice(-10);
-    const recentPositive = recentFeedback.filter(f => f.isPositive).length;
-    const adaptiveLR = 0.3 + (recentPositive / 10) * 0.7; // 0.3 to 1.0
-    
-    const rewardMultiplier = isPositive ? (1 + adaptiveLR) : (1 - adaptiveLR * 0.5);
+    const multiplier = isPositive ? 1.5 : 0.6;
     
     response.transitions.forEach(transition => {
-      const currentWeight = this.rewardWeights.get(transition) || 1.0;
-      this.rewardWeights.set(transition, currentWeight * rewardMultiplier);
-    });
-    
-    // Store sentiment association
-    const sentiment = this.analyzeSentiment(response.text);
-    response.transitions.forEach(t => {
-      const key = `sentiment_${t}`;
-      this.sentimentScores.set(key, sentiment * (isPositive ? 1 : -1));
+      const current = this.rewardWeights.get(transition) || 1.0;
+      this.rewardWeights.set(transition, current * multiplier);
     });
     
     if (isPositive) {
-      this.train(response.text, 1.5);
-    } else {
-      this.train(response.text, 0.6);
+      this.train(response.text, 1.3);
     }
     
     if (this.feedbackHistory.length > 100) {
       this.feedbackHistory.shift();
     }
   }
-
-  tokenize(text) {
-    return text.toLowerCase()
-      .replace(/[^\w\s.!?]/g, '')
-      .split(/\s+/)
-      .filter(t => t.length > 0);
-  }
-
-  getRelevantState(context) {
-    const contextTokens = this.tokenize(context);
-    const states = Array.from(this.chain.keys());
-    
-    let bestMatch = null;
-    let maxScore = 0;
-    
-    for (const state of states) {
-      const stateTokens = state.split(' ');
-      const score = stateTokens.filter(t => contextTokens.includes(t)).length;
-      if (score > maxScore) {
-        maxScore = score;
-        bestMatch = state;
-      }
-    }
-    
-    return maxScore > 0 ? bestMatch : null;
-  }
-
-  generate(seed = null, maxLength = 50) {
-    if (this.chain.size === 0) return { text: "I need more training data to respond!", id: null };
-    
-    const responseId = Date.now() + Math.random();
-    const transitions = [];
-    const inputTokens = seed ? this.tokenize(seed) : [];
-    const semanticWords = this.getSemanticContext(seed || '');
-    
-    // Expand semantic context with conversation graph
-    const graphExpanded = new Set(semanticWords);
-    inputTokens.forEach(token => {
-      const related = this.getRelatedConcepts(token, 2);
-      related.forEach(r => graphExpanded.add(r));
-    });
-    const expandedContext = Array.from(graphExpanded);
-    
-    // Sentiment-aware state selection
-    const inputSentiment = this.analyzeSentiment(seed || '');
-    
-    let state = null;
-    let bestScore = 0;
-    const states = Array.from(this.chain.keys());
-    
-    for (const s of states) {
-      const stateTokens = s.split(' ');
-      const directOverlap = stateTokens.filter(t => inputTokens.includes(t)).length;
-      const semanticOverlap = stateTokens.filter(t => expandedContext.includes(t)).length;
-      const isNotDirectRepeat = stateTokens.some(t => !inputTokens.includes(t));
-      
-      // Entity bonus: prefer states with known entities
-      let entityBonus = 0;
-      stateTokens.forEach(t => {
-        if (this.entityMemory.has(t)) {
-          entityBonus += this.entityMemory.get(t).count * 0.1;
-        }
-      });
-      
-      const score = (semanticOverlap * 4) + (directOverlap * 2) + (isNotDirectRepeat ? 3 : -15) + entityBonus;
-      
-      if (score > bestScore && this.chain.get(s).length > 0) {
-        bestScore = score;
-        state = s;
-      }
-    }
-    
-    if (!state || bestScore < 1) {
-      const randomStates = states.filter(s => this.chain.get(s).length > 1);
-      state = randomStates[Math.floor(Math.random() * randomStates.length)] || states[0];
-    }
-    
-    const result = state.split(' ');
-    const usedStates = new Set([state]);
-    let attempts = 0;
-    let stuckCount = 0;
-    let diversityPenalty = 0;
-    
-    while (result.length < maxLength && attempts < maxLength * 4) {
-      attempts++;
-      const currentState = result.slice(-this.order).join(' ');
-      let nextWords = this.chain.get(currentState);
-      
-      // Try variable order if stuck
-      if (!nextWords && this.variableOrder) {
-        for (let o = this.order - 1; o >= 1; o--) {
-          const altState = result.slice(-o).join(' ');
-          nextWords = this.chain.get(altState);
-          if (nextWords && nextWords.length > 0) break;
-        }
-      }
-      
-      if (!nextWords || nextWords.length === 0) {
-        const relatedStates = states.filter(s => {
-          const tokens = s.split(' ');
-          return tokens.some(t => expandedContext.includes(t));
-        });
-        
-        if (relatedStates.length > 0) {
-          const newState = relatedStates[Math.floor(Math.random() * relatedStates.length)];
-          const newWords = this.chain.get(newState);
-          if (newWords && newWords.length > 0) {
-            const nextWord = newWords[Math.floor(Math.random() * newWords.length)];
-            result.push(nextWord);
-            transitions.push(`${newState}→${nextWord}`);
-            stuckCount = 0;
-            continue;
-          }
-        }
-        break;
-      }
-      
-      if (usedStates.has(currentState)) {
-        stuckCount++;
-        diversityPenalty += 0.5;
-        if (stuckCount > 2) {
-          const randomNext = states[Math.floor(Math.random() * states.length)];
-          const words = this.chain.get(randomNext);
-          if (words) {
-            const nextWord = words[Math.floor(Math.random() * words.length)];
-            result.push(nextWord);
-            transitions.push(`${randomNext}→${nextWord}`);
-            stuckCount = 0;
-            usedStates.clear();
-            diversityPenalty = 0;
-            continue;
-          }
-        }
-      }
-      
-      usedStates.add(currentState);
-      
-      // Advanced weighting with multiple factors
-      const weights = nextWords.map((w, i) => {
-        const freq = nextWords.filter(x => x === w).length;
-        const baseWeight = 1 / (freq + 0.1);
-        
-        // Semantic boost
-        const semanticBoost = expandedContext.includes(w) ? 3 : 1;
-        
-        // RLHF reward weight
-        const transitionKey = `${currentState}→${w}`;
-        const rewardWeight = this.rewardWeights.get(transitionKey) || 1.0;
-        
-        // Sentiment alignment
-        const sentimentKey = `sentiment_${transitionKey}`;
-        const sentimentScore = this.sentimentScores.get(sentimentKey) || 0;
-        const sentimentBoost = inputSentiment * sentimentScore > 0 ? 1.5 : 1.0;
-        
-        // Diversity bonus (prefer less recently used words)
-        const recentlyUsed = result.slice(-10).includes(w);
-        const diversityBoost = recentlyUsed ? 0.3 : 1.5;
-        
-        // Entity boost
-        const entityBoost = this.entityMemory.has(w) ? 1.3 : 1.0;
-        
-        return baseWeight * semanticBoost * rewardWeight * sentimentBoost * diversityBoost * entityBoost;
-      });
-      
-      const totalWeight = weights.reduce((a, b) => a + b, 0);
-      let random = Math.random() * totalWeight;
-      let next = nextWords[0];
-      
-      for (let i = 0; i < nextWords.length; i++) {
-        random -= weights[i];
-        if (random <= 0) {
-          next = nextWords[i];
-          break;
-        }
-      }
-      
-      transitions.push(`${currentState}→${next}`);
-      result.push(next);
-      
-      if (next.match(/[.!?]$/) && result.length >= 10 && Math.random() > 0.2) break;
-    }
-    
-    let finalText = result.join(' ');
-    const inputLower = (seed || '').toLowerCase();
-    if (finalText.toLowerCase().startsWith(inputLower.substring(0, 20))) {
-      const randomState = states[Math.floor(Math.random() * states.length)];
-      return this.generate(randomState.split(' ')[0], maxLength);
-    }
-    
-    finalText = this.capitalize(finalText);
-    
-    // Store response and build conversation graph
-    this.responseHistory.push({
-      id: responseId,
-      text: finalText,
-      transitions: transitions,
-      timestamp: Date.now()
-    });
-    
-    if (seed) {
-      this.buildConversationGraph(seed, finalText);
-    }
-    
-    if (this.responseHistory.length > 50) {
-      this.responseHistory.shift();
-    }
-    
-    return { text: finalText, id: responseId };
-  }
-
-  capitalize(text) {
-    return text.charAt(0).toUpperCase() + text.slice(1);
-  }
-
-  addContext(text) {
-    this.contextMemory.push(text);
-    if (this.contextMemory.length > this.maxMemory) {
-      this.contextMemory.shift();
-    }
-  }
-
-  getContext() {
-    return this.contextMemory.join(' ');
-  }
 }
 
-const bot = new MarkovChain(2);
+const bot = new TrueMarkovChain(2);
+let messageCounter = 0;
+const conversationPairs = new Map(); // Track user message -> bot response pairs
 
 const corpus = [
-  "Hello! How are you doing today? I hope you're having a wonderful day. It's great to meet you and talk with you.",
-  "I love learning new things every single day. Knowledge is power and wisdom comes from experience and observation.",
-  "The weather is beautiful today. It's a perfect day to go outside and enjoy the fresh air and sunshine.",
-  "Technology is advancing rapidly in our modern world. Artificial intelligence is changing the way we live and work.",
-  "What are your interests and hobbies? I enjoy discussing various topics with people from all walks of life.",
-  "Learning is a lifelong journey that never ends. Every day brings new opportunities to grow and develop skills.",
-  "Communication is key to understanding each other. Let's have a meaningful conversation about interesting topics.",
-  "I find it fascinating how language works and evolves. Words have so much power to inspire and motivate.",
-  "Tell me more about yourself and your story. I'm curious to learn about your experiences and perspectives.",
-  "Life is full of surprises and unexpected moments. Every moment is an opportunity for discovery and growth.",
-  "Creativity drives innovation in science and art. Imagination helps us solve complex problems in new ways.",
-  "Music and art enrich our lives deeply. They express emotions and ideas beyond what words can capture.",
-  "Books open doors to new worlds and ideas. Reading expands our perspective and understanding of humanity.",
-  "Friendship and connection matter deeply to us. Relationships shape who we become and how we see the world.",
-  "Questions lead to deeper understanding always. Curiosity fuels progress and growth in all areas of life.",
-  "The universe is vast and mysterious beyond comprehension. Space exploration reveals wonders we never imagined possible.",
-  "History teaches us valuable lessons about humanity. We learn from the past to build a better future together.",
-  "Science helps us understand the natural world. Through experimentation we discover fundamental truths about reality.",
-  "Philosophy explores the big questions of existence. Why are we here and what gives life meaning and purpose?",
-  "Food brings people together across cultures. Cooking is both an art and a science that delights the senses.",
-  "Travel broadens the mind and opens horizons. Experiencing different cultures helps us appreciate diversity and beauty.",
-  "Health and wellness are essential for happiness. Taking care of body and mind leads to a fulfilling life.",
-  "Dreams inspire us to reach for the stars. Setting goals and working toward them creates purpose and direction.",
-  "Nature provides beauty and tranquility always. The natural world reminds us of something greater than ourselves.",
-  "Education empowers individuals to change their lives. Learning new skills opens doors to opportunities and success.",
-  "Time is our most precious resource indeed. How we spend our days is how we spend our lives ultimately.",
-  "Change is the only constant in life. Adapting to new situations helps us thrive in an ever-evolving world.",
-  "Compassion makes the world a better place. Kindness and empathy create connections that transcend all boundaries.",
-  "Technology connects us globally like never before. The internet has revolutionized communication and information sharing.",
-  "Stories have been told since the dawn of humanity. Narratives help us make sense of our experiences and dreams.",
-  "Exercise and movement keep us healthy and strong. Physical activity improves both body and mind significantly.",
-  "Meditation and mindfulness reduce stress effectively. Being present in the moment brings peace and clarity.",
-  "Art reflects the human experience beautifully. Creative expression allows us to explore emotions and ideas freely.",
-  "Innovation drives progress in every field. New ideas and approaches solve problems that seemed impossible before.",
-  "Community gives us a sense of belonging. Working together we can achieve more than any individual alone.",
-  "The ocean covers most of our planet. Marine life is diverse and fascinating beyond what we've discovered.",
-  "Mountains stand as majestic natural monuments. Climbing challenges us physically and mentally in profound ways.",
-  "Language evolves with each generation naturally. New words and expressions emerge as culture changes over time.",
-  "Laughter is truly the best medicine available. Humor helps us cope with challenges and brings joy to life.",
-  "Sleep is essential for health and wellbeing. Rest allows our bodies and minds to recover and rejuvenate.",
-  "Gratitude shifts our perspective toward positivity. Appreciating what we have creates contentment and happiness.",
-  "Music transcends language and cultural barriers. Rhythm and melody speak directly to the human soul.",
-  "Animals teach us about loyalty and presence. Pets provide companionship and unconditional love to millions.",
-  "The brain is incredibly complex and adaptable. Neuroscience reveals how thoughts and consciousness emerge mysteriously.",
-  "Mathematics describes the patterns of the universe. Numbers and equations unlock secrets of the natural world.",
-  "Poetry captures moments in lyrical language. Verses express feelings that prose cannot quite convey fully.",
-  "Games challenge our strategic thinking skills. Play is important for development and entertainment at all ages.",
-  "Memory shapes our identity and personality. Our experiences and recollections define who we are today.",
-  "Hope gives us strength during difficult times. Believing in better days ahead helps us persevere through struggles.",
-  "Justice and fairness are fundamental human values. Equal treatment and rights matter for building better societies.",
-  "Seasons change in their natural cycles. Each time of year brings unique beauty and different possibilities.",
-  
-  // Dictionary definitions and semantic knowledge
-  "Intelligence means the ability to learn, understand, and apply knowledge. Smart people can solve problems creatively using reasoning and logic.",
-  "Wisdom is knowledge gained through experience and reflection. Wise individuals make sound judgments based on deep understanding of life.",
-  "Consciousness refers to awareness of one's thoughts and surroundings. Being conscious means experiencing subjective perceptions and sensations.",
-  "Empathy is the capacity to understand another person's feelings. Empathetic people can sense emotions and respond with compassion and care.",
-  "Artificial means made by humans rather than occurring naturally. Artificial intelligence systems are created through programming and machine learning algorithms.",
-  "Algorithm is a step-by-step procedure for solving problems. Computer algorithms process data using logical instructions to produce desired outputs.",
-  "Emotion is a strong feeling such as joy, sadness, or anger. Emotional responses are complex reactions involving both mind and body systems.",
-  "Concept means an abstract idea or general notion. Conceptual thinking allows us to understand categories and relationships between different things.",
-  "Reality is the state of things as they actually exist. Our perception of reality is shaped by senses, beliefs, and cognitive processing.",
-  "Perception is how we interpret sensory information from our environment. Perceptual experiences vary between individuals based on their unique perspectives.",
-  "Logic is reasoning conducted according to strict principles of validity. Logical thinking helps us draw correct conclusions from available evidence and premises.",
-  "Truth refers to facts and statements that correspond with reality. Truthful information is accurate, verified, and not distorted by bias or deception.",
-  "Beauty is a quality that gives pleasure to the senses or mind. Beautiful things evoke appreciation through harmony, elegance, or emotional resonance.",
-  "Meaning is the significance or purpose that something conveys. Meaningful experiences give our lives direction, value, and a sense of importance.",
-  "Context is the circumstances that form the setting for understanding. Contextual information helps interpret meaning by providing relevant background and relationships.",
-  "Paradox is a statement that seems contradictory but may be true. Paradoxical situations challenge our assumptions and reveal deeper insights about complexity.",
-  "Entropy measures disorder or randomness in a system. Entropic processes naturally tend toward increasing chaos unless energy maintains organization and structure.",
-  "Synergy happens when combined elements produce greater effects than separately. Synergistic collaboration creates outcomes that exceed the sum of individual contributions.",
-  "Nuance is a subtle difference in meaning or expression. Nuanced understanding requires careful attention to fine distinctions and contextual variations in communication.",
-  "Cognition encompasses mental processes like thinking, knowing, and remembering. Cognitive abilities enable us to process information, solve problems, and make decisions.",
-  "Intuition is immediate understanding without conscious reasoning. Intuitive insights arise from subconscious pattern recognition and accumulated experiential knowledge.",
-  "Synthesis combines separate elements into a coherent whole. Synthetic thinking integrates diverse information to create new understanding or innovative solutions.",
-  "Analysis is systematic examination of components and relationships. Analytical thinking breaks down complex subjects into manageable parts for detailed study.",
-  "Abstraction focuses on essential features while ignoring specific details. Abstract concepts represent general patterns that apply across many different concrete instances.",
-  "Inference is a conclusion drawn from evidence and reasoning. Inferential thinking allows us to derive new knowledge from existing information and logical deduction.",
-  "Metaphor is a figure of speech comparing unlike things. Metaphorical language helps us understand abstract concepts by relating them to familiar experiences.",
-  "Analogy shows similarity between different things for explanation. Analogical reasoning transfers knowledge from one domain to solve problems in another domain.",
-  "Heuristic is a practical approach to problem solving. Heuristic methods find satisfactory solutions quickly rather than searching for perfect optimal answers.",
-  "Recursive means defined in terms of itself repeatedly. Recursive processes apply the same operation multiple times, building complexity through self-reference and iteration.",
-  "Emergent properties arise from interactions of simpler components. Emergence creates novel characteristics at higher levels that cannot be predicted from individual parts.",
-  "Complexity involves many interconnected and interdependent elements. Complex systems exhibit unpredictable behavior arising from numerous simultaneous interactions and feedback loops.",
-  "Efficiency is achieving maximum output with minimum wasted effort. Efficient systems optimize resource utilization while maintaining quality and effectiveness of results.",
-  "Coherence means logical consistency and orderly connection of parts. Coherent ideas fit together harmoniously to form unified, comprehensible, and well-structured understanding.",
-  "Ambiguity is the quality of being open to multiple interpretations. Ambiguous statements or situations can be understood in different ways depending on perspective and context.",
-  "Precision is exactness and accuracy in expression or measurement. Precise communication eliminates vagueness by specifying details with clarity and specificity.",
-  "Abstinence means voluntarily refraining from something desired. Abstract thinking requires mental discipline to separate general principles from specific concrete examples.",
-  "Resonance occurs when something evokes strong response or connection. Ideas resonate when they align with our experiences, values, and deeply held beliefs.",
-  "Dialectic is reasoning through dialogue examining opposing views. Dialectical thinking synthesizes contradictions into higher understanding through thesis, antithesis, and synthesis.",
-  "Epistemology studies the nature and scope of knowledge. Epistemological questions examine how we know what we know and what constitutes justified true belief.",
-  "Ontology investigates the nature of being and existence. Ontological inquiry explores what entities exist and how they relate to one another fundamentally.",
-  "Phenomenology describes conscious experience from first-person perspective. Phenomenological analysis examines how things appear to awareness without theoretical assumptions.",
-  "Pragmatic means dealing with things practically and realistically. Pragmatism values practical consequences and real-world results over abstract principles or ideological purity.",
-  "Empirical knowledge comes from observation and experimentation. Empiricism emphasizes evidence from sensory experience as the foundation for understanding reality.",
-  "Rationalism emphasizes reason as the source of knowledge. Rational approaches use logical deduction and mathematical thinking to discover truths about the world.",
-  "Skepticism questions claims and demands evidence before accepting beliefs. Skeptical thinking maintains doubt about unverified assertions and examines assumptions critically.",
-  "Objectivity means judging based on facts without bias. Objective analysis strives for impartiality by separating personal feelings from verifiable observable evidence.",
-  "Subjectivity relates to personal perspectives and individual experiences. Subjective reality is influenced by emotions, beliefs, and unique ways each person perceives situations.",
-  "Determinism is the idea that all events are caused necessarily. Deterministic systems follow predictable patterns where current states fully determine future outcomes.",
-  "Probability measures likelihood that events will occur. Probabilistic reasoning handles uncertainty by quantifying degrees of confidence in different possible outcomes.",
-  "Optimization finds the best solution from available alternatives. Optimization processes maximize desired outcomes while minimizing costs, risks, or negative consequences.",
-  "Transformation means thorough change in form or appearance. Transformative experiences fundamentally alter our understanding, identity, or way of engaging with the world."
+  "Intelligence means the ability to learn understand and apply knowledge effectively.",
+  "Wisdom comes from experience reflection and deep understanding of life.",
+  "Consciousness refers to awareness of thoughts feelings and surroundings.",
+  "Empathy allows us to understand and share the feelings of others.",
+  "Creativity drives innovation through imagination and original thinking.",
+  "Logic helps us reason systematically and draw valid conclusions.",
+  "Learning is a continuous process that expands our knowledge and skills.",
+  "Communication enables us to share ideas and connect with others meaningfully.",
+  "Curiosity motivates us to explore discover and ask questions.",
+  "Philosophy examines fundamental questions about existence reality and meaning.",
+  "Science uses systematic methods to understand the natural world.",
+  "Technology advances rapidly and transforms how we live and work.",
+  "Art expresses emotions and ideas through creative visual forms.",
+  "Music connects people across cultures through rhythm melody and harmony.",
+  "Language evolves constantly as new words and expressions emerge.",
+  "Memory stores our experiences and shapes our identity over time.",
+  "Emotion influences our decisions behaviors and relationships profoundly.",
+  "Perception filters how we interpret sensory information from our environment.",
+  "Imagination allows us to envision possibilities beyond current reality.",
+  "Reasoning enables us to analyze problems and find solutions logically.",
+  "Mathematics describes patterns relationships and abstract structures precisely.",
+  "Beauty inspires appreciation through harmony elegance and meaningful form.",
+  "Truth corresponds to facts and reality without distortion or bias.",
+  "Knowledge accumulates through observation study and critical thinking.",
+  "Understanding develops when we grasp concepts and see connections clearly.",
+  "Thinking involves mental processes like analyzing comparing and evaluating.",
+  "Ideas emerge from combining existing knowledge in novel ways.",
+  "Concepts represent abstract categories that organize our understanding.",
+  "Patterns reveal underlying structure in seemingly random information.",
+  "Relationships connect different elements and create meaningful associations.",
+  "Context provides background information that helps interpret meaning accurately.",
+  "Insight arises suddenly when we perceive things in a new light.",
+  "Analysis breaks down complex subjects into understandable components.",
+  "Synthesis combines separate elements into coherent unified wholes.",
+  "Abstraction focuses on essential features while ignoring specific details.",
+  "Inference draws conclusions from evidence and logical reasoning.",
+  "Intuition provides immediate understanding without conscious deliberation.",
+  "Experience teaches valuable lessons through direct participation and observation.",
+  "Practice develops skills through repeated application and refinement.",
+  "Attention focuses mental resources on specific information or tasks.",
+  "Awareness encompasses conscious recognition of internal and external states.",
+  "Reflection examines past experiences to extract meaning and lessons.",
+  "Growth happens through challenges learning and continuous development.",
+  "Change represents transformation from one state to another over time.",
+  "Adaptation helps organisms adjust to new environments and circumstances.",
+  "Evolution produces gradual changes through natural selection and variation.",
+  "Progress moves toward improvement and advancement in various domains.",
+  "Development unfolds through stages of increasing complexity and capability.",
+  "Transformation fundamentally alters form appearance or character.",
+  "Innovation introduces new methods ideas or products that solve problems.",
 ];
 
-// Semantic relationship network for enhanced intelligence
-const semanticNet = {
-  intelligence: ['smart', 'clever', 'wisdom', 'knowledge', 'learning', 'thinking', 'reasoning', 'cognition'],
-  emotion: ['feeling', 'joy', 'sadness', 'empathy', 'compassion', 'love', 'happiness'],
-  science: ['experiment', 'hypothesis', 'theory', 'evidence', 'research', 'discovery', 'analysis'],
-  technology: ['computer', 'algorithm', 'artificial', 'digital', 'innovation', 'programming'],
-  philosophy: ['truth', 'reality', 'meaning', 'existence', 'consciousness', 'wisdom', 'ethics'],
-  nature: ['environment', 'ecology', 'organic', 'natural', 'biology', 'evolution'],
-  art: ['creative', 'beauty', 'aesthetic', 'expression', 'imagination', 'design'],
-  mathematics: ['number', 'pattern', 'logic', 'calculation', 'precision', 'geometry'],
-  language: ['word', 'meaning', 'communication', 'expression', 'grammar', 'metaphor']
-};
-
-// Enhanced training with semantic associations
 corpus.forEach(text => bot.train(text));
 
-// Add semantic understanding
-bot.getSemanticContext = function(text) {
-  const tokens = this.tokenize(text);
-  const related = new Set();
-  
-  for (const token of tokens) {
-    for (const [category, words] of Object.entries(semanticNet)) {
-      if (words.includes(token)) {
-        words.forEach(w => related.add(w));
-        related.add(category);
-      }
-    }
-  }
-  
-  return Array.from(related);
-};
-
-function addMessage(text, isUser, responseId = null) {
+function addMessage(text, isUser, responseId = null, messageId = null) {
   const chat = document.getElementById('chat');
   const msg = document.createElement('div');
   msg.className = `msg ${isUser ? 'user' : 'bot'}`;
+  
+  if (messageId) {
+    msg.dataset.messageId = messageId;
+  }
   
   const avatar = document.createElement('div');
   avatar.className = 'avatar';
@@ -724,46 +502,202 @@ function addMessage(text, isUser, responseId = null) {
   
   const bubble = document.createElement('div');
   bubble.className = 'bubble';
-  bubble.textContent = text;
+  
+  const textSpan = document.createElement('span');
+  textSpan.textContent = text;
+  textSpan.className = 'message-text';
+  bubble.appendChild(textSpan);
   
   msg.appendChild(avatar);
   msg.appendChild(bubble);
   
-  // RLHF: Add feedback buttons to bot messages
+  // Add edit button to user messages
+  if (isUser && messageId) {
+    const editBtn = document.createElement('button');
+    editBtn.className = 'edit-btn';
+    editBtn.textContent = '✏️ Edit';
+    editBtn.onclick = () => editMessage(messageId);
+    bubble.appendChild(editBtn);
+  }
+  
+  // Add feedback and regenerate to bot messages
   if (!isUser && responseId) {
+    const actionsDiv = document.createElement('div');
+    actionsDiv.style.marginTop = '0.5rem';
+    actionsDiv.style.display = 'flex';
+    actionsDiv.style.gap = '0.5rem';
+    actionsDiv.style.flexWrap = 'wrap';
+    
     const feedbackDiv = document.createElement('div');
     feedbackDiv.className = 'feedback-buttons';
+    feedbackDiv.style.flex = '1';
+    feedbackDiv.style.margin = '0';
+    feedbackDiv.style.padding = '0';
+    feedbackDiv.style.border = 'none';
     feedbackDiv.innerHTML = `
       <button class="feedback-btn thumbs-up" onclick="giveFeedback(${responseId}, true)" title="Good response">👍</button>
       <button class="feedback-btn thumbs-down" onclick="giveFeedback(${responseId}, false)" title="Bad response">👎</button>
     `;
-    bubble.appendChild(feedbackDiv);
+    
+    const regenBtn = document.createElement('button');
+    regenBtn.className = 'regenerate-btn';
+    regenBtn.innerHTML = '🔄 Regenerate';
+    regenBtn.onclick = () => regenerateResponse(messageId);
+    
+    actionsDiv.appendChild(feedbackDiv);
+    actionsDiv.appendChild(regenBtn);
+    bubble.appendChild(actionsDiv);
   }
   
   chat.appendChild(msg);
   chat.scrollTop = chat.scrollHeight;
+  
+  return messageId;
+}
+
+function editMessage(messageId) {
+  const msg = document.querySelector(`[data-message-id="${messageId}"]`);
+  if (!msg) return;
+  
+  const bubble = msg.querySelector('.bubble');
+  const textSpan = bubble.querySelector('.message-text');
+  const currentText = textSpan.textContent;
+  
+  // Create edit interface
+  const editInput = document.createElement('textarea');
+  editInput.className = 'edit-input';
+  editInput.value = currentText;
+  editInput.rows = 3;
+  
+  const editActions = document.createElement('div');
+  editActions.className = 'edit-actions';
+  
+  const saveBtn = document.createElement('button');
+  saveBtn.textContent = '✓ Save & Regenerate';
+  saveBtn.onclick = () => saveEdit(messageId, editInput.value);
+  
+  const cancelBtn = document.createElement('button');
+  cancelBtn.textContent = '✕ Cancel';
+  cancelBtn.style.background = '#6c757d';
+  cancelBtn.onclick = () => cancelEdit(messageId);
+  
+  editActions.appendChild(saveBtn);
+  editActions.appendChild(cancelBtn);
+  
+  // Hide original text and edit button
+  textSpan.style.display = 'none';
+  bubble.querySelector('.edit-btn').style.display = 'none';
+  
+  // Add edit interface
+  bubble.insertBefore(editInput, textSpan.nextSibling);
+  bubble.insertBefore(editActions, editInput.nextSibling);
+  
+  editInput.focus();
+  editInput.select();
+}
+
+function cancelEdit(messageId) {
+  const msg = document.querySelector(`[data-message-id="${messageId}"]`);
+  if (!msg) return;
+  
+  const bubble = msg.querySelector('.bubble');
+  const textSpan = bubble.querySelector('.message-text');
+  const editInput = bubble.querySelector('.edit-input');
+  const editActions = bubble.querySelector('.edit-actions');
+  
+  textSpan.style.display = '';
+  bubble.querySelector('.edit-btn').style.display = '';
+  editInput.remove();
+  editActions.remove();
+}
+
+function saveEdit(messageId, newText) {
+  if (!newText.trim()) return;
+  
+  const msg = document.querySelector(`[data-message-id="${messageId}"]`);
+  if (!msg) return;
+  
+  const bubble = msg.querySelector('.bubble');
+  const textSpan = bubble.querySelector('.message-text');
+  const editInput = bubble.querySelector('.edit-input');
+  const editActions = bubble.querySelector('.edit-actions');
+  
+  // Update text
+  textSpan.textContent = newText;
+  textSpan.style.display = '';
+  bubble.querySelector('.edit-btn').style.display = '';
+  editInput.remove();
+  editActions.remove();
+  
+  // Train on new text
+  bot.train(newText, 1.0);
+  
+  // Remove old bot response and regenerate
+  const pair = conversationPairs.get(messageId);
+  if (pair) {
+    const botMsg = document.querySelector(`[data-message-id="${pair.botMessageId}"]`);
+    if (botMsg) botMsg.remove();
+  }
+  
+  // Generate new response
+  showTyping();
+  setTimeout(() => {
+    removeTyping();
+    const result = bot.generate(newText, 10, 40);
+    const botMessageId = messageCounter++;
+    conversationPairs.set(messageId, { botMessageId, userText: newText });
+    addMessage(result.text, false, result.id, botMessageId);
+    updateStats();
+  }, 800 + Math.random() * 700);
+}
+
+function regenerateResponse(botMessageId) {
+  // Find the user message that prompted this response
+  let userMessageId = null;
+  let userText = '';
+  
+  for (const [uId, pair] of conversationPairs.entries()) {
+    if (pair.botMessageId === botMessageId) {
+      userMessageId = uId;
+      userText = pair.userText;
+      break;
+    }
+  }
+  
+  if (!userText) return;
+  
+  // Remove old bot message
+  const botMsg = document.querySelector(`[data-message-id="${botMessageId}"]`);
+  if (botMsg) botMsg.remove();
+  
+  // Generate new response
+  showTyping();
+  setTimeout(() => {
+    removeTyping();
+    const result = bot.generate(userText, 10, 40);
+    const newBotMessageId = messageCounter++;
+    conversationPairs.set(userMessageId, { botMessageId: newBotMessageId, userText });
+    addMessage(result.text, false, result.id, newBotMessageId);
+    updateStats();
+  }, 800 + Math.random() * 700);
 }
 
 function giveFeedback(responseId, isPositive) {
   bot.applyFeedback(responseId, isPositive);
   
-  // Visual feedback
   const buttons = document.querySelectorAll(`button[onclick*="${responseId}"]`);
   buttons.forEach(btn => {
     btn.disabled = true;
     btn.style.opacity = '0.5';
   });
   
-  // Show learning notification
   const chat = document.getElementById('chat');
   const notification = document.createElement('div');
   notification.className = 'learning-notification';
-  notification.textContent = isPositive ? '✓ Learning from positive feedback!' : '✓ Learning from negative feedback!';
+  notification.textContent = isPositive ? '✓ Reinforcing this pattern!' : '✓ Reducing this pattern!';
   chat.appendChild(notification);
   
   setTimeout(() => notification.remove(), 2000);
-  
-  // Update stats display
   updateStats();
 }
 
@@ -802,39 +736,20 @@ function send() {
   
   if (!text) return;
   
-  addMessage(text, true);
-  bot.train(text);
-  bot.addContext(text);
+  const userMessageId = messageCounter++;
+  addMessage(text, true, null, userMessageId);
+  bot.train(text, 1.0);
   input.value = '';
   
   showTyping();
   
   setTimeout(() => {
     removeTyping();
-    const context = bot.getContext();
-    const response = bot.generate(context, 30);
-    addMessage(response, false);
-  }, 800 + Math.random() * 700);
-}
-
-function send() {
-  const input = document.getElementById('userInput');
-  const text = input.value.trim();
-  
-  if (!text) return;
-  
-  addMessage(text, true);
-  bot.train(text);
-  bot.addContext(text);
-  input.value = '';
-  
-  showTyping();
-  
-  setTimeout(() => {
-    removeTyping();
-    const context = bot.getContext();
-    const result = bot.generate(context, 30);
-    addMessage(result.text, false, result.id);
+    const result = bot.generate(text, 10, 40);
+    const botMessageId = messageCounter++;
+    conversationPairs.set(userMessageId, { botMessageId, userText: text });
+    addMessage(result.text, false, result.id, botMessageId);
+    updateStats();
   }, 800 + Math.random() * 700);
 }
 
@@ -844,17 +759,14 @@ function updateStats() {
   
   const totalFeedback = bot.feedbackHistory.length;
   const positive = bot.feedbackHistory.filter(f => f.isPositive).length;
-  const negative = totalFeedback - positive;
   const satisfaction = totalFeedback > 0 ? Math.round((positive / totalFeedback) * 100) : 0;
   
   statsDiv.innerHTML = `
-    <div class="stat">📊 Feedback: ${totalFeedback}</div>
-    <div class="stat">👍 ${positive}</div>
-    <div class="stat">👎 ${negative}</div>
+    <div class="stat">🔗 Contexts: ${bot.transitions.size}</div>
+    <div class="stat">📝 Words: ${bot.totalWords}</div>
+    <div class="stat">👍 ${positive}/${totalFeedback}</div>
     <div class="stat">✨ ${satisfaction}%</div>
-    <div class="stat">🧠 Patterns: ${bot.rewardWeights.size}</div>
-    <div class="stat">🏷️ Entities: ${bot.entityMemory.size}</div>
-    <div class="stat">🔗 Graph: ${bot.conversationGraph.size}</div>
+    <div class="stat">🎯 Patterns: ${bot.rewardWeights.size}</div>
   `;
 }
 
@@ -862,9 +774,8 @@ document.getElementById('userInput').addEventListener('keypress', (e) => {
   if (e.key === 'Enter') send();
 });
 
-addMessage("Hello! I'm an advanced Markov chain chatbot with multi-layer intelligence: RLHF learning, sentiment analysis, entity tracking, knowledge graphs, and variable-order n-grams. Use 👍/👎 to teach me your preferences!", false);
+addMessage("Hello! I'm a true next-word Markov chain bot. I generate responses one word at a time based on learned probabilities. Chat with me and use feedback to train me!", false);
 
-// Initialize stats display
 setTimeout(updateStats, 100);
 </script>
 </body>
