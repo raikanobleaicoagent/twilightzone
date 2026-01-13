@@ -3,488 +3,687 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Survival Instinct Simulation</title>
+    <title>Zyqral Survival Simulation</title>
     <style>
-        body {
+        :root {
+            --bg-color: #1a1a1a;
+            --text-color: #00ffcc;
+            --panel-bg: rgba(0, 20, 20, 0.85);
+        }
+        body, html {
             margin: 0;
             padding: 0;
-            overflow: hidden;
-            background-color: #000;
-            color: #fff;
-            font-family: Arial, sans-serif;
-        }
-        #simulation {
-            display: flex;
-            flex-direction: column;
-            height: 100vh;
-        }
-        #canvas-container {
-            flex: 1;
-            position: relative;
-        }
-        #world {
             width: 100%;
             height: 100%;
-            background-color: #222;
+            overflow: hidden;
+            background-color: var(--bg-color);
+            font-family: 'Courier New', Courier, monospace;
+            color: var(--text-color);
+            user-select: none;
+            -webkit-user-select: none;
+        }
+        canvas {
+            display: block;
+            touch-action: none;
+        }
+        #ui-layer {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
         }
         #controls {
             position: absolute;
             bottom: 0;
             left: 0;
             width: 100%;
-            background: rgba(0,0,0,0.7);
+            background: var(--panel-bg);
             padding: 10px;
             box-sizing: border-box;
+            pointer-events: auto;
+            max-height: 30vh;
+            overflow-y: auto;
+            border-top: 1px solid var(--text-color);
             display: flex;
             flex-wrap: wrap;
             justify-content: space-around;
-            z-index: 10;
+            font-size: 12px;
         }
-        #controls button, #controls input, #controls select {
+        .control-group {
             margin: 5px;
-            padding: 5px;
-            border: none;
-            border-radius: 5px;
-            background: #444;
-            color: #fff;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
         }
-        #day-night {
+        input[type=range] {
+            width: 100px;
+        }
+        #info-panel {
             position: absolute;
             top: 10px;
             left: 10px;
-            font-size: 14px;
-            z-index: 10;
+            background: var(--panel-bg);
+            padding: 10px;
+            border: 1px solid var(--text-color);
+            pointer-events: auto;
+            max-width: 300px;
+            font-size: 11px;
+            display: none; /* Hidden until something is clicked */
         }
-        #stats {
+        #info-panel h3 { margin: 0 0 5px 0; border-bottom: 1px solid white; }
+        .thought-bubble {
+            color: #fff;
+            font-style: italic;
+        }
+        #stats-overlay {
             position: absolute;
             top: 10px;
             right: 10px;
-            font-size: 14px;
-            z-index: 10;
+            text-align: right;
+            font-size: 10px;
+            color: rgba(255, 255, 255, 0.7);
         }
     </style>
 </head>
 <body>
-    <div id="simulation">
-        <div id="canvas-container">
-            <canvas id="world"></canvas>
-            <div id="day-night">Day: 1, Time: Day</div>
-            <div id="stats">Animals: 0, Plants: 0</div>
+
+    <canvas id="simCanvas"></canvas>
+    
+    <div id="ui-layer">
+        <div id="stats-overlay">
+            Day: <span id="day-display">0</span><br>
+            Time: <span id="time-display">00:00</span><br>
+            Animals: <span id="pop-animal">0</span><br>
+            Plants: <span id="pop-plant">0</span>
         </div>
+
+        <div id="info-panel">
+            <h3>Entity Analysis</h3>
+            <div id="entity-data">Select an entity</div>
+            <div id="brain-log" style="margin-top:5px; color:#aaa;"></div>
+        </div>
+
         <div id="controls">
-            <button id="start">Start</button>
-            <button id="pause">Pause</button>
-            <button id="reset">Reset</button>
-            <label>Initial Animals: <input type="number" id="init-animals" value="10" min="1" max="100"></label>
-            <label>Initial Plants: <input type="number" id="init-plants" value="50" min="10" max="500"></label>
-            <label>World Size: <select id="world-size">
-                <option value="500">Small (500x500)</option>
-                <option value="800" selected>Medium (800x800)</option>
-                <option value="1200">Large (1200x1200)</option>
-            </select></label>
-            <label>Simulation Speed: <input type="range" id="sim-speed" min="1" max="10" value="5"></label>
+            <div class="control-group">
+                <label>Time Speed</label>
+                <input type="range" id="speed-slider" min="0" max="10" step="1" value="1">
+            </div>
+            <div class="control-group">
+                <label>Mutation Rate</label>
+                <input type="range" id="mutation-slider" min="0" max="1" step="0.05" value="0.1">
+            </div>
+            <div class="control-group">
+                <label>Plant Growth</label>
+                <input type="range" id="growth-slider" min="0" max="5" step="0.1" value="1">
+            </div>
+            <div class="control-group">
+                <button onclick="resetSim()">RESET SIMULATION</button>
+            </div>
         </div>
     </div>
-    <script>
-        const WORLD_SIZE = parseInt(document.getElementById('world-size').value);
-        const canvas = document.getElementById('world');
-        const ctx = canvas.getContext('2d');
-        canvas.width = window.innerWidth;
-        canvas.height = window.innerHeight - document.getElementById('controls').offsetHeight;
-        let worldWidth = WORLD_SIZE;
-        let worldHeight = WORLD_SIZE;
-        let SCALE = Math.min(canvas.width / worldWidth, canvas.height / worldHeight);
 
-        window.addEventListener('resize', () => {
-            canvas.width = window.innerWidth;
-            canvas.height = window.innerHeight - document.getElementById('controls').offsetHeight;
-            SCALE = Math.min(canvas.width / worldWidth, canvas.height / worldHeight);
-        });
+<script>
+/**
+ * ZYQRAL SURVIVAL ENGINE
+ * Concept: Awareness through simulation.
+ */
 
-        let animals = [];
-        let plants = [];
-        let day = 1;
-        let timeOfDay = 'Day';
-        let cycleTime = 0;
-        const CYCLE_DURATION = 600;
-        let isRunning = false;
-        let simSpeed = 5;
+// --- CONFIGURATION & GLOBALS ---
+const canvas = document.getElementById('simCanvas');
+const ctx = canvas.getContext('2d', { alpha: false });
+let width, height;
 
-        class DNA {
-            constructor() {
-                this.growthRate = Math.random() * 0.05 + 0.01;
-                this.speed = Math.random() * 2 + 1;
-                this.metabolism = Math.random() * 0.5 + 0.5;
-                this.seedCount = Math.floor(Math.random() * 3) + 1;
-                this.sightRange = Math.random() * 50 + 50;
-                this.reproductionThreshold = Math.random() * 100 + 200;
-                this.communicationRange = Math.random() * 20 + 20;
+// Simulation Constants
+const TICKS_PER_DAY = 2000;
+const MAX_ANIMALS = 80; // Cap for mobile performance
+const MAX_PLANTS = 150;
+
+// State
+let simTime = 0;
+let timeSpeed = 1;
+let mutationRate = 0.1;
+let plantGrowthMult = 1;
+let dayCount = 0;
+let lightLevel = 1.0; // 1.0 = Day, 0.2 = Night
+
+// Entities
+let animals = [];
+let plants = [];
+let seeds = [];
+let particles = []; // Visual effects
+
+let selectedEntity = null;
+
+// --- UTILS ---
+const dist = (x1, y1, x2, y2) => Math.hypot(x2 - x1, y2 - y1);
+const rand = (min, max) => Math.random() * (max - min) + min;
+const randInt = (min, max) => Math.floor(rand(min, max));
+const clamp = (val, min, max) => Math.min(Math.max(val, min), max);
+function colorVar(base, variance) {
+    // Simple color shifter
+    return base; // Placeholder for optimization
+}
+
+// --- CLASSES ---
+
+class DNA {
+    constructor(parentDNA = null) {
+        if (parentDNA) {
+            this.speed = this.mutate(parentDNA.speed, 0.5, 3.0);
+            this.size = this.mutate(parentDNA.size, 3, 8);
+            this.senseRange = this.mutate(parentDNA.senseRange, 50, 150);
+            this.metabolism = this.mutate(parentDNA.metabolism, 0.5, 2.0); // Hunger rate
+            this.color = parentDNA.color; // Color usually stays similar
+            this.sociability = this.mutate(parentDNA.sociability, 0, 1); // 0=Loner, 1=Herder
+            this.aggression = this.mutate(parentDNA.aggression, 0, 1);
+        } else {
+            this.speed = rand(1, 2);
+            this.size = rand(4, 6);
+            this.senseRange = rand(80, 120);
+            this.metabolism = 1.0;
+            this.color = `hsl(${randInt(0, 360)}, 70%, 50%)`;
+            this.sociability = rand(0, 1);
+            this.aggression = rand(0, 1);
+        }
+    }
+
+    mutate(val, min, max) {
+        if (Math.random() < mutationRate) {
+            let change = (Math.random() - 0.5) * 0.2 * val;
+            return clamp(val + change, min, max);
+        }
+        return val;
+    }
+}
+
+class Seed {
+    constructor(x, y, plantDNA) {
+        this.x = x;
+        this.y = y;
+        this.dna = plantDNA;
+        this.timer = rand(200, 500); // Time to germinate
+        this.vx = rand(-1, 1);
+        this.vy = rand(-1, 1);
+    }
+
+    update() {
+        if (this.timer > 0) {
+            this.timer -= timeSpeed * plantGrowthMult;
+            this.x += this.vx * 0.1 * timeSpeed;
+            this.y += this.vy * 0.1 * timeSpeed;
+        } else {
+            // Germinate
+            if (plants.length < MAX_PLANTS) {
+                plants.push(new Plant(this.x, this.y, this.dna));
+            }
+            return false; // Remove seed
+        }
+        return true; // Keep seed
+    }
+
+    draw() {
+        ctx.fillStyle = '#888';
+        ctx.fillRect(this.x, this.y, 2, 2);
+    }
+}
+
+class Plant {
+    constructor(x, y, dna) {
+        this.x = x;
+        this.y = y;
+        this.dna = dna || { growthRate: rand(0.5, 1.5), maxSz: rand(5, 10), seeds: randInt(1, 3) };
+        this.size = 1;
+        this.age = 0;
+        this.maxAge = 3000 * (1/plantGrowthMult);
+        this.alive = true;
+    }
+
+    update() {
+        // Grow
+        if (this.size < this.dna.maxSz) {
+            this.size += 0.01 * this.dna.growthRate * plantGrowthMult * timeSpeed * lightLevel; // Plants need light
+        }
+        
+        // Age
+        this.age += timeSpeed;
+        if (this.age > this.maxAge) {
+            this.reproduce();
+            this.alive = false;
+        }
+    }
+
+    reproduce() {
+        for(let i=0; i<this.dna.seeds; i++) {
+            seeds.push(new Seed(this.x, this.y, this.dna));
+        }
+    }
+
+    draw() {
+        ctx.fillStyle = '#2d6';
+        ctx.beginPath();
+        ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
+        ctx.fill();
+    }
+}
+
+class Animal {
+    constructor(x, y, dna = null) {
+        this.x = x;
+        this.y = y;
+        this.dna = new DNA(dna);
+        this.angle = rand(0, Math.PI * 2);
+        this.energy = 100;
+        this.age = 0;
+        this.maxAge = TICKS_PER_DAY * 7; // 7 Days
+        this.alive = true;
+        this.id = Math.random().toString(36).substr(2, 5);
+        
+        // State Machine
+        this.state = 'WANDER'; // WANDER, SEEK_FOOD, EAT, FLEE, MATE, SLEEP
+        this.stateTimer = 0;
+        this.target = null;
+        this.thought = "Born into the void.";
+        
+        // "Memory" - simplified neural weights for interactions
+        // Key: Species/Group ID, Value: -1 (Fear) to 1 (Like)
+        this.memory = {}; 
+        
+        // Communication buffer
+        this.lastComm = "";
+    }
+
+    update() {
+        this.age += timeSpeed;
+        // Metabolism increases with speed and size
+        let cost = 0.02 * this.dna.size * this.dna.metabolism * (this.state === 'SLEEP' ? 0.2 : 1.0);
+        this.energy -= cost * timeSpeed;
+
+        if (this.energy <= 0 || this.age >= this.maxAge) {
+            this.alive = false;
+            // Spawn carcass particle?
+            return;
+        }
+
+        this.processBrain();
+        this.act();
+        
+        // Boundaries
+        if (this.x < 0) { this.x = 0; this.angle += Math.PI; }
+        if (this.x > width) { this.x = width; this.angle += Math.PI; }
+        if (this.y < 0) { this.y = 0; this.angle += Math.PI; }
+        if (this.y > height) { this.y = height; this.angle += Math.PI; }
+    }
+
+    processBrain() {
+        // 1. Perception
+        let seenPlants = [];
+        let seenAnimals = [];
+        let effectiveRange = this.dna.senseRange * (lightLevel < 0.5 ? 0.5 : 1.0); // Night reduces vision
+
+        // Scan Plants
+        for (let p of plants) {
+            let d = dist(this.x, this.y, p.x, p.y);
+            if (d < effectiveRange && this.isFacing(p)) {
+                seenPlants.push({entity: p, dist: d});
             }
         }
 
-        class SimpleNN {
-            constructor(inputs, outputs) {
-                this.weights = Array.from({length: outputs}, () => Array(inputs).fill(Math.random() * 2 - 1));
-                this.biases = Array(outputs).fill(Math.random() * 2 - 1);
+        // Scan Animals
+        for (let a of animals) {
+            if (a === this) continue;
+            let d = dist(this.x, this.y, a.x, a.y);
+            if (d < effectiveRange && this.isFacing(a)) {
+                seenAnimals.push({entity: a, dist: d});
             }
-            predict(inputs) {
-                return this.weights.map((row, i) => {
-                    let sum = row.reduce((acc, w, j) => acc + w * inputs[j], 0) + this.biases[i];
-                    return 1 / (1 + Math.exp(-sum));
-                });
-            }
-            train(inputs, targets, learningRate = 0.1) {
-                const outputs = this.predict(inputs);
-                const errors = targets.map((t, i) => t - outputs[i]);
-                errors.forEach((err, i) => {
-                    this.biases[i] += learningRate * err;
-                    inputs.forEach((inp, j) => {
-                        this.weights[i][j] += learningRate * err * inp;
-                    });
-                });
+            // Communication Check
+            if (d < 30) { 
+                this.receiveComm(a);
             }
         }
 
-        class Plant {
-            constructor(x, y, dna = new DNA()) {
-                this.x = x;
-                this.y = y;
-                this.dna = dna;
-                this.size = 1;
-                this.maxSize = 10;
-                this.energy = 50;
-                this.age = 0;
-                this.lifespan = Math.random() * 3000 + 2000;
-                this.seeds = [];
-            }
-            grow() {
-                if (timeOfDay === 'Day') {
-                    this.energy += this.dna.growthRate * 2;
-                } else {
-                    this.energy += this.dna.growthRate;
-                }
-                if (this.energy > 10 && this.size < this.maxSize) {
-                    this.size += 0.1;
-                    this.energy -= 5;
-                }
-                this.age++;
-                if (this.age > this.lifespan) {
-                    this.die();
-                }
-                if (Math.random() < 0.01 && this.size > 5) {
-                    this.produceSeeds();
-                }
-            }
-            produceSeeds() {
-                for (let i = 0; i < this.dna.seedCount; i++) {
-                    const seedX = this.x + Math.random() * 20 - 10;
-                    const seedY = this.y + Math.random() * 20 - 10;
-                    if (seedX > 0 && seedX < worldWidth && seedY > 0 && seedY < worldHeight) {
-                        plants.push(new Plant(seedX, seedY, mutateDNA(this.dna)));
-                    }
+        // 2. Neural Decision Tree (Simplified)
+        
+        // Priority 1: Sleep at night?
+        if (lightLevel < 0.3 && this.energy > 40) {
+            this.state = 'SLEEP';
+            this.thought = "Too dark. Resting...";
+            return;
+        } else if (this.state === 'SLEEP' && lightLevel > 0.3) {
+            this.state = 'WANDER';
+        }
+
+        // Priority 2: Hunger
+        if (this.energy < 60 && this.state !== 'EAT') {
+            if (seenPlants.length > 0) {
+                // Find closest
+                seenPlants.sort((a,b) => a.dist - b.dist);
+                this.target = seenPlants[0].entity;
+                this.state = 'SEEK_FOOD';
+                this.thought = "Found sustenance.";
+            } else {
+                this.state = 'WANDER';
+                this.thought = "Starving. Searching...";
+                // Memory lookup: Did anyone tell me where food is?
+                if (this.memory['foodLoc']) {
+                    // Navigate towards remembered food (simplified)
+                    let tx = this.memory['foodLoc'].x;
+                    let ty = this.memory['foodLoc'].y;
+                    this.angle = Math.atan2(ty - this.y, tx - this.x);
+                    this.thought = "Recalling food location...";
                 }
             }
-            die() {
-                plants = plants.filter(p => p !== this);
-            }
-            draw() {
-                ctx.fillStyle = 'green';
-                ctx.beginPath();
-                ctx.arc(this.x * SCALE, this.y * SCALE, this.size, 0, Math.PI * 2);
-                ctx.fill();
+        } 
+        
+        // Priority 3: Mating
+        else if (this.energy > 80 && this.age > 500 && animals.length < MAX_ANIMALS) {
+            let mate = seenAnimals.find(sa => sa.entity.dna.color === this.dna.color && sa.entity.age > 500);
+            if (mate) {
+                this.target = mate.entity;
+                this.state = 'MATE';
+                this.thought = "Seeking partner.";
+                this.communicate("I seek connection");
             }
         }
 
-        class Animal {
-            constructor(x, y, dna = new DNA()) {
-                this.x = x;
-                this.y = y;
-                this.dna = dna;
-                this.size = 5;
-                this.energy = 100;
-                this.age = 0;
-                this.lifespan = 7 * 1200;
-                this.speed = this.dna.speed;
-                this.direction = Math.random() * Math.PI * 2;
-                this.sightConeAngle = Math.PI / 3;
-                this.sightRange = this.dna.sightRange;
-                this.memory = new Map();
-                this.nnMemory = new SimpleNN(3, 1);
-                this.nnComm = new SimpleNN(4, 2);
-                this.eatingTime = 0;
-                this.targetPlant = null;
-                this.id = Math.random().toString(36).substr(2, 9);
-                this.knownPlants = [];
-            }
-            update() {
-                this.age++;
-                if (this.age > this.lifespan) {
-                    this.die();
-                    return;
-                }
-                this.energy -= this.dna.metabolism;
-                if (this.energy < 0) {
-                    this.die();
-                    return;
-                }
-                if (this.eatingTime > 0) {
-                    this.eat();
-                    return;
-                }
-                this.perceive();
-                this.communicate();
-                this.move();
-                if (this.energy > this.dna.reproductionThreshold) {
-                    this.reproduce();
-                }
-            }
-            perceive() {
-                let closestPlant = null;
-                let minDist = Infinity;
-                plants.forEach(p => {
-                    const dx = p.x - this.x;
-                    const dy = p.y - this.y;
-                    const dist = Math.sqrt(dx*dx + dy*dy);
-                    if (dist < this.sightRange) {
-                        const angle = Math.atan2(dy, dx);
-                        const dirDiff = Math.abs((angle - this.direction + Math.PI*2) % (Math.PI*2) - Math.PI);
-                        if (dirDiff < this.sightConeAngle / 2) {
-                            if (dist < minDist) {
-                                minDist = dist;
-                                closestPlant = p;
-                            }
-                            if (!this.knownPlants.some(kp => kp === p)) {
-                                this.knownPlants.push(p);
-                            }
-                        }
-                    }
-                });
-                if (closestPlant) {
-                    this.targetPlant = closestPlant;
-                    const dx = closestPlant.x - this.x;
-                    const dy = closestPlant.y - this.y;
-                    this.direction = Math.atan2(dy, dx);
-                } else {
-                    this.direction += Math.random() * 0.2 - 0.1;
-                }
-                animals.forEach(a => {
-                    if (a !== this) {
-                        const dx = a.x - this.x;
-                        const dy = a.y - this.y;
-                        const dist = Math.sqrt(dx*dx + dy*dy);
-                        if (dist < this.sightRange) {
-                            const inputs = [dist / this.sightRange, (a.size - this.size) / 10, this.memory.get(a.id) || 0];
-                            const trust = this.nnMemory.predict(inputs)[0];
-                            this.memory.set(a.id, trust);
-                            if (Math.random() < 0.01) {
-                                const target = Math.random() > 0.5 ? 1 : 0;
-                                this.nnMemory.train(inputs, [target]);
-                            }
-                        }
-                    }
-                });
-                this.knownPlants = this.knownPlants.filter(p => plants.includes(p));
-            }
-            communicate() {
-                animals.forEach(a => {
-                    if (a !== this) {
-                        const dx = a.x - this.x;
-                        const dy = a.y - this.y;
-                        const dist = Math.sqrt(dx*dx + dy*dy);
-                        if (dist < this.dna.communicationRange) {
-                            const trust = this.memory.get(a.id) || 0;
-                            if (trust > 0.5 && Math.random() < 0.05) {
-                                this.sendSignal(a);
-                            }
-                            if (trust > 0.5 && Math.random() < 0.05) {
-                                this.receiveSignal(a);
-                            }
-                        }
-                    }
-                });
-            }
-            sendSignal(receiver) {
-                if (this.knownPlants.length > 0) {
-                    const plantToShare = this.knownPlants[Math.floor(Math.random() * this.knownPlants.length)];
-                    const signal = [plantToShare.x / worldWidth, plantToShare.y / worldHeight, plantToShare.size / 10, this.energy / 100];
-                    const response = receiver.processSignal(signal, this);
-                    const targetTrust = response[0] > 0.5 ? 1 : 0;
-                    this.nnComm.train(signal, [targetTrust, Math.random()]);
-                }
-            }
-            receiveSignal(sender) {
-                return this.nnComm.predict([sender.x / worldWidth, sender.y / worldHeight, sender.size / 10, sender.energy / 100]);
-            }
-            processSignal(signal, sender) {
-                const outputs = this.nnComm.predict(signal);
-                const accept = outputs[0] > 0.5;
-                if (accept) {
-                    const sharedPlant = {x: signal[0] * worldWidth, y: signal[1] * worldHeight, size: signal[2] * 10};
-                    const existing = plants.find(p => Math.abs(p.x - sharedPlant.x) < 1 && Math.abs(p.y - sharedPlant.y) < 1);
-                    if (existing && !this.knownPlants.includes(existing)) {
-                        this.knownPlants.push(existing);
-                        if (!this.targetPlant || Math.random() < 0.3) {
-                            this.targetPlant = existing;
-                        }
-                    }
-                }
-                const targetAccept = accept ? 1 : 0;
-                this.nnComm.train(signal, [targetAccept, outputs[1]]);
-                return outputs;
-            }
-            move() {
-                if (this.targetPlant) {
-                    const dx = this.targetPlant.x - this.x;
-                    const dy = this.targetPlant.y - this.y;
-                    const dist = Math.sqrt(dx*dx + dy*dy);
-                    if (dist < this.size + this.targetPlant.size) {
-                        this.startEating();
-                        return;
-                    }
-                    const moveDist = Math.min(this.speed, dist);
-                    this.x += Math.cos(this.direction) * moveDist;
-                    this.y += Math.sin(this.direction) * moveDist;
-                } else {
-                    this.x += Math.cos(this.direction) * this.speed;
-                    this.y += Math.sin(this.direction) * this.speed;
-                }
-                this.x = (this.x + worldWidth) % worldWidth;
-                this.y = (this.y + worldHeight) % worldHeight;
-            }
-            startEating() {
-                this.eatingTime = 30;
-            }
-            eat() {
-                this.eatingTime--;
-                if (this.eatingTime <= 0) {
-                    if (this.targetPlant) {
-                        this.energy += this.targetPlant.size * 10;
-                        this.targetPlant.die();
-                        this.targetPlant = null;
-                    }
-                }
-            }
-            reproduce() {
-                const childDNA = mutateDNA(this.dna);
-                const child = new Animal(this.x + Math.random()*10-5, this.y + Math.random()*10-5, childDNA);
-                animals.push(child);
-                this.energy /= 2;
-            }
-            die() {
-                animals = animals.filter(a => a !== this);
-            }
-            draw() {
-                ctx.fillStyle = 'red';
-                ctx.beginPath();
-                ctx.arc(this.x * SCALE, this.y * SCALE, this.size, 0, Math.PI * 2);
-                ctx.fill();
-                ctx.beginPath();
-                ctx.moveTo(this.x * SCALE, this.y * SCALE);
-                const leftAngle = this.direction - this.sightConeAngle / 2;
-                const rightAngle = this.direction + this.sightConeAngle / 2;
-                ctx.lineTo(
-                    (this.x + Math.cos(leftAngle) * this.sightRange) * SCALE,
-                    (this.y + Math.sin(leftAngle) * this.sightRange) * SCALE
-                );
-                ctx.arc(this.x * SCALE, this.y * SCALE, this.sightRange * SCALE, leftAngle, rightAngle);
-                ctx.lineTo(this.x * SCALE, this.y * SCALE);
-                ctx.fillStyle = 'rgba(255,255,0,0.2)';
-                ctx.fill();
-                ctx.strokeStyle = 'blue';
-                ctx.beginPath();
-                ctx.arc(this.x * SCALE, this.y * SCALE, this.dna.communicationRange * SCALE, 0, Math.PI * 2);
-                ctx.stroke();
-            }
+        // Default
+        if (this.state !== 'SEEK_FOOD' && this.state !== 'EAT' && this.state !== 'MATE' && this.state !== 'SLEEP') {
+            this.state = 'WANDER';
+            this.thought = "Wandering the wastes.";
+        }
+    }
+
+    act() {
+        if (this.state === 'SLEEP') {
+            return; // Do nothing
         }
 
-        function mutateDNA(dna) {
-            const newDNA = new DNA();
-            Object.keys(dna).forEach(key => {
-                if (typeof dna[key] === 'number') {
-                    newDNA[key] = dna[key] * (Math.random() * 0.2 + 0.9);
-                } else {
-                    newDNA[key] = dna[key];
+        let moveSpeed = this.dna.speed * timeSpeed;
+
+        if (this.state === 'WANDER') {
+            this.x += Math.cos(this.angle) * moveSpeed;
+            this.y += Math.sin(this.angle) * moveSpeed;
+            if (Math.random() < 0.05) this.angle += rand(-1, 1);
+        }
+        else if (this.state === 'SEEK_FOOD') {
+            if (this.target && this.target.alive) {
+                this.moveTo(this.target, moveSpeed);
+                if (dist(this.x, this.y, this.target.x, this.target.y) < this.dna.size + 5) {
+                    this.state = 'EAT';
+                    this.stateTimer = 60; // Eating takes time
                 }
-            });
-            return newDNA;
-        }
-
-        function init() {
-            animals = [];
-            plants = [];
-            day = 1;
-            timeOfDay = 'Day';
-            cycleTime = 0;
-            worldWidth = parseInt(document.getElementById('world-size').value);
-            worldHeight = worldWidth;
-            SCALE = Math.min(canvas.width / worldWidth, canvas.height / worldHeight);
-            const initAnimals = parseInt(document.getElementById('init-animals').value);
-            const initPlants = parseInt(document.getElementById('init-plants').value);
-            for (let i = 0; i < initAnimals; i++) {
-                animals.push(new Animal(Math.random() * worldWidth, Math.random() * worldHeight));
-            }
-            for (let i = 0; i < initPlants; i++) {
-                plants.push(new Plant(Math.random() * worldWidth, Math.random() * worldHeight));
+            } else {
+                this.state = 'WANDER';
             }
         }
-
-        function update() {
-            if (!isRunning) return;
-            cycleTime++;
-            if (cycleTime >= CYCLE_DURATION) {
-                cycleTime = 0;
-                if (timeOfDay === 'Day') {
-                    timeOfDay = 'Night';
-                } else {
-                    timeOfDay = 'Day';
-                    day++;
+        else if (this.state === 'EAT') {
+            this.thought = "Consuming...";
+            this.stateTimer -= timeSpeed;
+            if (this.stateTimer <= 0) {
+                // Finish eating
+                if (this.target) {
+                    this.energy = Math.min(this.energy + this.target.size * 10, 100);
+                    this.target.alive = false; // Kill plant
+                    // Broadcast food location
+                    this.communicate("food_here");
+                    // Remember this location
+                    this.memory['foodLoc'] = {x: this.x, y: this.y};
                 }
+                this.state = 'WANDER';
             }
-            plants.forEach(p => p.grow());
-            animals.forEach(a => a.update());
-            draw();
-            setTimeout(update, 1000 / (30 * simSpeed));
         }
-
-        function draw() {
-            ctx.clearRect(0, 0, canvas.width, canvas.height);
-            ctx.fillStyle = timeOfDay === 'Day' ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.5)';
-            ctx.fillRect(0, 0, canvas.width, canvas.height);
-            plants.forEach(p => p.draw());
-            animals.forEach(a => a.draw());
-            document.getElementById('day-night').textContent = `Day: ${day}, Time: ${timeOfDay}`;
-            document.getElementById('stats').textContent = `Animals: ${animals.length}, Plants: ${plants.length}`;
-        }
-
-        document.getElementById('start').addEventListener('click', () => {
-            if (!isRunning) {
-                isRunning = true;
-                update();
+        else if (this.state === 'MATE') {
+            if (this.target && this.target.alive) {
+                this.moveTo(this.target, moveSpeed);
+                if (dist(this.x, this.y, this.target.x, this.target.y) < this.dna.size * 2) {
+                    this.reproduce(this.target);
+                    this.energy -= 30; // Cost of mating
+                    this.state = 'WANDER';
+                    this.target = null;
+                }
+            } else {
+                this.state = 'WANDER';
             }
-        });
-        document.getElementById('pause').addEventListener('click', () => {
-            isRunning = false;
-        });
-        document.getElementById('reset').addEventListener('click', () => {
-            isRunning = false;
-            init();
-            draw();
-        });
-        document.getElementById('world-size').addEventListener('change', () => {
-            worldWidth = parseInt(document.getElementById('world-size').value);
-            worldHeight = worldWidth;
-            SCALE = Math.min(canvas.width / worldWidth, canvas.height / worldHeight);
-        });
-        document.getElementById('sim-speed').addEventListener('input', () => {
-            simSpeed = parseInt(document.getElementById('sim-speed').value);
-        });
-
-        init();
-        draw();
-
-        function handleTouch(event) {
         }
-        canvas.addEventListener('touchstart', handleTouch);
-    </script>
+    }
+
+    moveTo(target, spd) {
+        let tx = target.x;
+        let ty = target.y;
+        let angleTo = Math.atan2(ty - this.y, tx - this.x);
+        // Smooth turning
+        let diff = angleTo - this.angle;
+        while (diff < -Math.PI) diff += Math.PI * 2;
+        while (diff > Math.PI) diff -= Math.PI * 2;
+        this.angle += diff * 0.1;
+        
+        this.x += Math.cos(this.angle) * spd;
+        this.y += Math.sin(this.angle) * spd;
+    }
+
+    isFacing(entity) {
+        let angleTo = Math.atan2(entity.y - this.y, entity.x - this.x);
+        let diff = Math.abs(angleTo - this.angle);
+        if (diff > Math.PI) diff = 2 * Math.PI - diff;
+        return diff < 0.8; // Sight cone width (~45 degrees)
+    }
+
+    reproduce(partner) {
+        if (animals.length >= MAX_ANIMALS) return;
+        // Simple crossover
+        let child = new Animal(this.x, this.y, this.dna);
+        // Mix DNA slightly with partner (optional complexity, here just uses self + mutation)
+        animals.push(child);
+        this.thought = "Life continues.";
+    }
+
+    communicate(msg) {
+        this.lastComm = msg;
+        // Visual indicator handled in draw
+    }
+
+    receiveComm(sender) {
+        if (sender.lastComm === "food_here") {
+            // Update memory map
+            this.memory['foodLoc'] = {x: sender.x, y: sender.y};
+        }
+    }
+
+    draw() {
+        ctx.save();
+        ctx.translate(this.x, this.y);
+        ctx.rotate(this.angle);
+
+        // Sight Cone (Visual)
+        if (selectedEntity === this) {
+            ctx.fillStyle = 'rgba(255, 255, 255, 0.1)';
+            ctx.beginPath();
+            ctx.moveTo(0, 0);
+            ctx.arc(0, 0, this.dna.senseRange, -0.8, 0.8);
+            ctx.fill();
+        }
+
+        // Body
+        ctx.fillStyle = this.dna.color;
+        ctx.beginPath();
+        ctx.arc(0, 0, this.dna.size, 0, Math.PI * 2);
+        ctx.fill();
+
+        // Eye
+        ctx.fillStyle = '#fff';
+        ctx.beginPath();
+        ctx.arc(this.dna.size/2, 0, this.dna.size/3, 0, Math.PI * 2);
+        ctx.fill();
+        
+        // Comm bubble (dot)
+        if (this.lastComm !== "" && Math.random() < 0.1) {
+             ctx.fillStyle = '#ff0';
+             ctx.fillRect(0, -10, 2, 2);
+             this.lastComm = ""; // Clear after flash
+        }
+
+        ctx.restore();
+    }
+}
+
+// --- ENGINE ---
+
+function init() {
+    resize();
+    resetSim();
+    window.addEventListener('resize', resize);
+    canvas.addEventListener('pointerdown', handleInput);
+    requestAnimationFrame(loop);
+}
+
+function resize() {
+    width = canvas.width = window.innerWidth;
+    height = canvas.height = window.innerHeight;
+}
+
+function resetSim() {
+    animals = [];
+    plants = [];
+    seeds = [];
+    simTime = 0;
+    dayCount = 0;
+    
+    // Initial Spawn
+    for(let i=0; i<10; i++) {
+        animals.push(new Animal(rand(0, width), rand(0, height)));
+    }
+    for(let i=0; i<50; i++) {
+        plants.push(new Plant(rand(0, width), rand(0, height)));
+    }
+}
+
+function handleInput(e) {
+    const rect = canvas.getBoundingClientRect();
+    const x = e.clientX - rect.left;
+    const y = e.clientY - rect.top;
+    
+    // Find clicked entity
+    let found = null;
+    let minDist = 30;
+    
+    [...animals, ...plants].forEach(ent => {
+        let d = dist(x, y, ent.x, ent.y);
+        if (d < minDist) {
+            minDist = d;
+            found = ent;
+        }
+    });
+    
+    selectedEntity = found;
+    
+    const panel = document.getElementById('info-panel');
+    const dataDiv = document.getElementById('entity-data');
+    
+    if (found) {
+        panel.style.display = 'block';
+        if (found instanceof Animal) {
+            dataDiv.innerHTML = `
+                Type: Animal<br>
+                ID: ${found.id}<br>
+                Age: ${Math.floor(found.age)}/${found.maxAge}<br>
+                Energy: ${Math.floor(found.energy)}%<br>
+                State: ${found.state}<br>
+                Speed DNA: ${found.dna.speed.toFixed(2)}
+            `;
+        } else {
+            dataDiv.innerHTML = `Type: Plant<br>Size: ${found.size.toFixed(2)}`;
+        }
+    } else {
+        panel.style.display = 'none';
+    }
+}
+
+function updateEnvironment() {
+    simTime += timeSpeed;
+    if (simTime >= TICKS_PER_DAY) {
+        simTime = 0;
+        dayCount++;
+    }
+    
+    // Day/Night Cycle (Sine Wave)
+    // 0 = Midnight, 0.5 = Noon, 1 = Midnight
+    let normTime = simTime / TICKS_PER_DAY;
+    lightLevel = 0.5 + 0.5 * Math.sin(normTime * Math.PI * 2 - Math.PI/2);
+    lightLevel = clamp(lightLevel + 0.2, 0.2, 1.0); // Clamp min light for visibility
+    
+    // Spontaneous plant growth (random seeds from nowhere)
+    if (Math.random() < 0.01 * plantGrowthMult * timeSpeed && plants.length < MAX_PLANTS/2) {
+        plants.push(new Plant(rand(0, width), rand(0, height)));
+    }
+}
+
+function updateUI() {
+    document.getElementById('day-display').innerText = dayCount;
+    // Format time
+    let hours = Math.floor((simTime / TICKS_PER_DAY) * 24);
+    let mins = Math.floor(((simTime / TICKS_PER_DAY) * 24 * 60) % 60);
+    document.getElementById('time-display').innerText = 
+        `${hours.toString().padStart(2,'0')}:${mins.toString().padStart(2,'0')}`;
+        
+    document.getElementById('pop-animal').innerText = animals.length;
+    document.getElementById('pop-plant').innerText = plants.length;
+    
+    if (selectedEntity && selectedEntity instanceof Animal && selectedEntity.alive) {
+        document.getElementById('entity-data').innerHTML = `
+                Type: Animal (${selectedEntity.id})<br>
+                Age: ${Math.floor(selectedEntity.age)}<br>
+                Energy: ${Math.floor(selectedEntity.energy)}<br>
+                State: <strong>${selectedEntity.state}</strong>
+            `;
+        document.getElementById('brain-log').innerText = `"${selectedEntity.thought}"`;
+    } else if (selectedEntity && !selectedEntity.alive) {
+        document.getElementById('entity-data').innerText = "Entity Deceased.";
+        document.getElementById('brain-log').innerText = "";
+    }
+}
+
+function loop() {
+    // 1. Update Settings from UI
+    timeSpeed = parseFloat(document.getElementById('speed-slider').value);
+    mutationRate = parseFloat(document.getElementById('mutation-slider').value);
+    plantGrowthMult = parseFloat(document.getElementById('growth-slider').value);
+
+    // 2. Clear Canvas
+    // Day/Night Background
+    let lightVal = Math.floor(lightLevel * 50); // 10 to 60
+    ctx.fillStyle = `rgb(${lightVal}, ${lightVal+10}, ${lightVal+10})`;
+    ctx.fillRect(0, 0, width, height);
+
+    updateEnvironment();
+
+    // 3. Update & Draw Entities
+    
+    // Seeds
+    seeds = seeds.filter(s => s.update());
+    seeds.forEach(s => s.draw());
+    
+    // Plants
+    plants = plants.filter(p => p.alive);
+    plants.forEach(p => {
+        p.update();
+        p.draw();
+    });
+    
+    // Animals
+    animals = animals.filter(a => a.alive);
+    animals.forEach(a => {
+        a.update();
+        a.draw();
+    });
+
+    updateUI();
+    requestAnimationFrame(loop);
+}
+
+// Start
+init();
+
+</script>
 </body>
 </html>
