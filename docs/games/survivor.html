@@ -2,1018 +2,377 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Survival Instinct Simulation</title>
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-            touch-action: manipulation;
-        }
-        
-        body {
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
-            color: #e6e6e6;
-            line-height: 1.6;
-            overflow-x: hidden;
-            padding: 10px;
-            min-height: 100vh;
-        }
-        
-        .container {
-            max-width: 1000px;
-            margin: 0 auto;
-            padding: 10px;
-        }
-        
-        header {
-            text-align: center;
-            margin-bottom: 15px;
-            padding-bottom: 10px;
-            border-bottom: 2px solid #0f3460;
-        }
-        
-        h1 {
-            font-size: 2.2rem;
-            margin-bottom: 8px;
-            background: linear-gradient(90deg, #4cc9f0, #4361ee);
-            -webkit-background-clip: text;
-            background-clip: text;
-            color: transparent;
-            text-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
-        }
-        
-        .subtitle {
-            color: #b8b8b8;
-            font-size: 1rem;
-            margin-bottom: 15px;
-        }
-        
-        .simulation-area {
-            display: flex;
-            flex-direction: column;
-            gap: 15px;
-        }
-        
-        @media (min-width: 768px) {
-            .simulation-area {
-                flex-direction: row;
-            }
-        }
-        
-        .canvas-container {
-            flex: 1;
-            background-color: #0f3460;
-            border-radius: 12px;
-            overflow: hidden;
-            box-shadow: 0 8px 25px rgba(0, 0, 0, 0.5);
-            position: relative;
-            aspect-ratio: 1 / 1;
-            max-height: 80vh;
-        }
-        
-        #simulationCanvas {
-            display: block;
-            width: 100%;
-            height: 100%;
-        }
-        
-        .time-indicator {
-            position: absolute;
-            top: 15px;
-            left: 15px;
-            background: rgba(0, 0, 0, 0.7);
-            padding: 8px 12px;
-            border-radius: 20px;
-            font-size: 0.9rem;
-            display: flex;
-            align-items: center;
-            gap: 8px;
-            z-index: 10;
-        }
-        
-        .time-icon {
-            color: #f9c74f;
-        }
-        
-        .controls-panel {
-            flex: 0 0 320px;
-            background-color: rgba(15, 52, 96, 0.7);
-            border-radius: 12px;
-            padding: 18px;
-            box-shadow: 0 8px 25px rgba(0, 0, 0, 0.3);
-            overflow-y: auto;
-            max-height: 80vh;
-        }
-        
-        .control-group {
-            margin-bottom: 22px;
-            padding-bottom: 18px;
-            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
-        }
-        
-        .control-group:last-child {
-            border-bottom: none;
-            margin-bottom: 0;
-        }
-        
-        h2 {
-            font-size: 1.4rem;
-            margin-bottom: 15px;
-            color: #4cc9f0;
-            display: flex;
-            align-items: center;
-            gap: 10px;
-        }
-        
-        h2 i {
-            font-size: 1.2rem;
-        }
-        
-        .slider-container {
-            margin-bottom: 15px;
-        }
-        
-        .slider-label {
-            display: flex;
-            justify-content: space-between;
-            margin-bottom: 6px;
-            font-size: 0.95rem;
-        }
-        
-        .slider-value {
-            color: #f9c74f;
-            font-weight: 600;
-        }
-        
-        input[type="range"] {
-            width: 100%;
-            height: 8px;
-            -webkit-appearance: none;
-            background: rgba(255, 255, 255, 0.1);
-            border-radius: 4px;
-            outline: none;
-        }
-        
-        input[type="range"]::-webkit-slider-thumb {
-            -webkit-appearance: none;
-            width: 20px;
-            height: 20px;
-            border-radius: 50%;
-            background: #4cc9f0;
-            cursor: pointer;
-            box-shadow: 0 0 8px rgba(76, 201, 240, 0.8);
-        }
-        
-        input[type="range"]::-moz-range-thumb {
-            width: 20px;
-            height: 20px;
-            border-radius: 50%;
-            background: #4cc9f0;
-            cursor: pointer;
-            border: none;
-            box-shadow: 0 0 8px rgba(76, 201, 240, 0.8);
-        }
-        
-        .button-group {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 12px;
-            margin-top: 10px;
-        }
-        
-        button {
-            background: linear-gradient(90deg, #4361ee, #3a0ca3);
-            color: white;
-            border: none;
-            padding: 12px 15px;
-            border-radius: 8px;
-            font-weight: 600;
-            font-size: 1rem;
-            cursor: pointer;
-            transition: all 0.3s ease;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            gap: 8px;
-        }
-        
-        button:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 5px 15px rgba(67, 97, 238, 0.4);
-        }
-        
-        button:active {
-            transform: translateY(0);
-        }
-        
-        button.reset {
-            background: linear-gradient(90deg, #f72585, #b5179e);
-        }
-        
-        .stats {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 12px;
-            margin-top: 15px;
-        }
-        
-        .stat-box {
-            background: rgba(0, 0, 0, 0.3);
-            border-radius: 8px;
-            padding: 12px;
-            text-align: center;
-        }
-        
-        .stat-value {
-            font-size: 1.8rem;
-            font-weight: 700;
-            color: #4cc9f0;
-            margin-bottom: 5px;
-        }
-        
-        .stat-label {
-            font-size: 0.85rem;
-            color: #b8b8b8;
-        }
-        
-        .legend {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 15px;
-            margin-top: 20px;
-            justify-content: space-between;
-        }
-        
-        .legend-item {
-            display: flex;
-            align-items: center;
-            gap: 8px;
-            font-size: 0.85rem;
-        }
-        
-        .legend-color {
-            width: 15px;
-            height: 15px;
-            border-radius: 50%;
-        }
-        
-        footer {
-            text-align: center;
-            margin-top: 25px;
-            padding-top: 15px;
-            border-top: 1px solid rgba(255, 255, 255, 0.1);
-            font-size: 0.85rem;
-            color: #888;
-        }
-        
-        .mobile-note {
-            display: block;
-            text-align: center;
-            margin-top: 10px;
-            font-size: 0.8rem;
-            color: #f9c74f;
-        }
-        
-        @media (max-width: 767px) {
-            .controls-panel {
-                flex: 0 0 auto;
-            }
-            
-            .button-group {
-                grid-template-columns: 1fr;
-            }
-            
-            h1 {
-                font-size: 1.8rem;
-            }
-            
-            .stats {
-                grid-template-columns: repeat(2, 1fr);
-            }
-        }
+        body { margin: 0; overflow: hidden; }
+        canvas { display: block; width: 100%; height: auto; }
+        #controls { position: absolute; top: 10px; left: 10px; background: rgba(255, 255, 255, 0.7); padding: 10px; border-radius: 5px; font-size: 14px; }
+        #controls label { display: block; margin-bottom: 5px; }
+        #controls input[type="range"] { width: 150px; }
+        #controls button { margin-top: 10px; }
     </style>
 </head>
 <body>
-    <div class="container">
-        <header>
-            <h1><i class="fas fa-seedling"></i> Survival Instinct Simulation</h1>
-            <p class="subtitle">Watch as animals with unique DNA hunt for food, reproduce, and evolve in a dynamic ecosystem</p>
-            <p class="mobile-note">Optimized for mobile - use sliders to control simulation parameters</p>
-        </header>
-        
-        <div class="simulation-area">
-            <div class="canvas-container">
-                <canvas id="simulationCanvas"></canvas>
-                <div class="time-indicator">
-                    <i class="fas fa-sun time-icon"></i>
-                    <span id="timeDisplay">Day 1, 12:00</span>
-                </div>
-            </div>
-            
-            <div class="controls-panel">
-                <div class="control-group">
-                    <h2><i class="fas fa-cogs"></i> Simulation Controls</h2>
-                    
-                    <div class="slider-container">
-                        <div class="slider-label">
-                            <span>Simulation Speed</span>
-                            <span class="slider-value" id="speedValue">1.0x</span>
-                        </div>
-                        <input type="range" id="speedSlider" min="0.1" max="3" step="0.1" value="1">
-                    </div>
-                    
-                    <div class="slider-container">
-                        <div class="slider-label">
-                            <span>Animal Count</span>
-                            <span class="slider-value" id="animalCountValue">5</span>
-                        </div>
-                        <input type="range" id="animalCountSlider" min="1" max="20" step="1" value="5">
-                    </div>
-                    
-                    <div class="slider-container">
-                        <div class="slider-label">
-                            <span>Plant Count</span>
-                            <span class="slider-value" id="plantCountValue">30</span>
-                        </div>
-                        <input type="range" id="plantCountSlider" min="5" max="60" step="5" value="30">
-                    </div>
-                    
-                    <div class="button-group">
-                        <button id="pauseBtn"><i class="fas fa-pause"></i> Pause</button>
-                        <button id="resetBtn" class="reset"><i class="fas fa-redo"></i> Reset</button>
-                    </div>
-                </div>
-                
-                <div class="control-group">
-                    <h2><i class="fas fa-dna"></i> Animal DNA Settings</h2>
-                    
-                    <div class="slider-container">
-                        <div class="slider-label">
-                            <span>Speed Variation</span>
-                            <span class="slider-value" id="speedVarValue">0.5</span>
-                        </div>
-                        <input type="range" id="speedVarSlider" min="0.1" max="1" step="0.1" value="0.5">
-                    </div>
-                    
-                    <div class="slider-container">
-                        <div class="slider-label">
-                            <span>Metabolism Rate</span>
-                            <span class="slider-value" id="metabolismValue">0.8</span>
-                        </div>
-                        <input type="range" id="metabolismSlider" min="0.1" max="2" step="0.1" value="0.8">
-                    </div>
-                    
-                    <div class="slider-container">
-                        <div class="slider-label">
-                            <span>Reproduction Rate</span>
-                            <span class="slider-value" id="reproductionValue">0.3</span>
-                        </div>
-                        <input type="range" id="reproductionSlider" min="0.1" max="1" step="0.1" value="0.3">
-                    </div>
-                </div>
-                
-                <div class="control-group">
-                    <h2><i class="fas fa-chart-line"></i> Simulation Stats</h2>
-                    <div class="stats">
-                        <div class="stat-box">
-                            <div class="stat-value" id="animalStat">5</div>
-                            <div class="stat-label">Animals</div>
-                        </div>
-                        <div class="stat-box">
-                            <div class="stat-value" id="plantStat">30</div>
-                            <div class="stat-label">Plants</div>
-                        </div>
-                        <div class="stat-box">
-                            <div class="stat-value" id="dayStat">1</div>
-                            <div class="stat-label">Day</div>
-                        </div>
-                        <div class="stat-box">
-                            <div class="stat-value" id="seedStat">0</div>
-                            <div class="stat-label">Seeds</div>
-                        </div>
-                    </div>
-                </div>
-                
-                <div class="control-group">
-                    <h2><i class="fas fa-info-circle"></i> Legend</h2>
-                    <div class="legend">
-                        <div class="legend-item">
-                            <div class="legend-color" style="background-color: #4cc9f0;"></div>
-                            <span>Animal</span>
-                        </div>
-                        <div class="legend-item">
-                            <div class="legend-color" style="background-color: #2a9d8f;"></div>
-                            <span>Plant</span>
-                        </div>
-                        <div class="legend-item">
-                            <div class="legend-color" style="background-color: #e9c46a;"></div>
-                            <span>Seed</span>
-                        </div>
-                        <div class="legend-item">
-                            <div class="legend-color" style="background-color: rgba(76, 201, 240, 0.2); border: 1px dashed #4cc9f0;"></div>
-                            <span>Sight Cone</span>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-        
-        <footer>
-            <p>Survival Instinct Simulation | Animals hunt plants, reproduce, and pass on DNA traits | Each entity has a lifespan and ages</p>
-            <p>Plants grow from seeds with realistic growth patterns | Day/Night cycle affects visibility</p>
-        </footer>
+    <canvas id="sim"></canvas>
+    <div id="controls">
+        <label>Initial Animals: <input type="range" id="numAnimals" min="1" max="50" value="10"><span id="numAnimalsVal">10</span></label>
+        <label>Initial Plants: <input type="range" id="numPlants" min="10" max="200" value="50"><span id="numPlantsVal">50</span></label>
+        <label>World Size: <input type="range" id="worldSize" min="500" max="2000" value="800" step="100"><span id="worldSizeVal">800</span></label>
+        <label>Sim Speed Multiplier: <input type="range" id="simSpeed" min="0.1" max="5" value="1" step="0.1"><span id="simSpeedVal">1</span></label>
+        <button id="start">Start/Reset</button>
     </div>
-
     <script>
-        // Canvas setup
-        const canvas = document.getElementById('simulationCanvas');
+        const canvas = document.getElementById('sim');
         const ctx = canvas.getContext('2d');
-        
-        // Set canvas size to match container
-        function resizeCanvas() {
-            const container = canvas.parentElement;
-            canvas.width = container.clientWidth;
-            canvas.height = container.clientHeight;
-        }
-        
-        // Initialize canvas size
-        window.addEventListener('load', resizeCanvas);
-        window.addEventListener('resize', resizeCanvas);
-        
-        // Simulation state
-        let isPaused = false;
-        let simulationSpeed = 1.0;
+        const startBtn = document.getElementById('start');
+        const numAnimalsInput = document.getElementById('numAnimals');
+        const numPlantsInput = document.getElementById('numPlants');
+        const worldSizeInput = document.getElementById('worldSize');
+        const simSpeedInput = document.getElementById('simSpeed');
+        const numAnimalsVal = document.getElementById('numAnimalsVal');
+        const numPlantsVal = document.getElementById('numPlantsVal');
+        const worldSizeVal = document.getElementById('worldSizeVal');
+        const simSpeedVal = document.getElementById('simSpeedVal');
+
+        numAnimalsInput.addEventListener('input', () => numAnimalsVal.textContent = numAnimalsInput.value);
+        numPlantsInput.addEventListener('input', () => numPlantsVal.textContent = numPlantsInput.value);
+        worldSizeInput.addEventListener('input', () => worldSizeVal.textContent = worldSizeInput.value);
+        simSpeedInput.addEventListener('input', () => simSpeedVal.textContent = simSpeedInput.value);
+
+        let running = false;
+        let lastTime = 0;
+        let totalSimTime = 0;
         let animals = [];
         let plants = [];
-        let seeds = [];
-        let day = 1;
-        let timeOfDay = 0; // 0 to 24
-        let dayCycleSpeed = 0.01;
-        
-        // DNA settings
-        let dnaSettings = {
-            speedVariation: 0.5,
-            metabolismRate: 0.8,
-            reproductionRate: 0.3
+        let animalId = 0;
+        let worldSize = 800;
+        const baseSpeed = 3600; // sim seconds per real second at 1x
+        const dnaRanges = {
+            speed: [50, 150], // pixels per sim hour
+            metabolism: [0.5, 1],
+            sightAngle: [45, 135],
+            sightDist: [100, 300],
+            reproThreshold: [80, 120],
+            lifespan: [5, 7]
         };
-        
-        // Colors
-        const colors = {
-            animal: '#4cc9f0',
-            plant: '#2a9d8f',
-            seed: '#e9c46a',
-            sightCone: 'rgba(76, 201, 240, 0.2)',
-            night: 'rgba(0, 0, 30, 0.7)',
-            text: '#e6e6e6'
+        const plantDnaRanges = {
+            growthRate: [0.00005, 0.00015], // size per sim second
+            numSeeds: [1, 4],
+            lifespan: [5, 7]
         };
-        
-        // Animal class
-        class Animal {
-            constructor(x, y, dna = null) {
+
+        function sigmoid(x) {
+            return 1 / (1 + Math.exp(-x));
+        }
+
+        function dsigmoid(y) {
+            return y * (1 - y);
+        }
+
+        class NN {
+            constructor(ni, nh, no) {
+                this.ni = ni;
+                this.nh = nh;
+                this.no = no;
+                this.wih = Array.from({length: nh}, () => Array(ni).fill(0).map(() => Math.random() * 2 - 1));
+                this.who = Array.from({length: no}, () => Array(nh).fill(0).map(() => Math.random() * 2 - 1));
+            }
+
+            predict(input) {
+                const hidden = this.wih.map(row => sigmoid(row.reduce((sum, w, i) => sum + w * input[i], 0)));
+                const output = this.who.map(row => sigmoid(row.reduce((sum, w, i) => sum + w * hidden[i], 0)));
+                return output;
+            }
+
+            train(input, target, lr = 0.1) {
+                const hidden = this.wih.map(row => sigmoid(row.reduce((sum, w, i) => sum + w * input[i], 0)));
+                const output = this.who.map(row => sigmoid(row.reduce((sum, w, i) => sum + w * hidden[i], 0)));
+                const outErr = target.map((t, j) => t - output[j]);
+                const outDelta = outErr.map((e, j) => e * dsigmoid(output[j]));
+                const hidErr = Array(this.nh).fill(0).map((_, i) => outDelta.reduce((sum, d, j) => sum + this.who[j][i] * d, 0));
+                const hidDelta = hidErr.map((e, i) => e * dsigmoid(hidden[i]));
+                // Update who
+                for (let j = 0; j < this.no; j++) {
+                    for (let i = 0; i < this.nh; i++) {
+                        this.who[j][i] += lr * outDelta[j] * hidden[i];
+                    }
+                }
+                // Update wih
+                for (let i = 0; i < this.nh; i++) {
+                    for (let k = 0; k < this.ni; k++) {
+                        this.wih[i][k] += lr * hidDelta[i] * input[k];
+                    }
+                }
+            }
+        }
+
+        function randomDNA(type) {
+            if (type === 'plant') {
+                return {
+                    growthRate: plantDnaRanges.growthRate[0] + Math.random() * (plantDnaRanges.growthRate[1] - plantDnaRanges.growthRate[0]),
+                    numSeeds: Math.floor(plantDnaRanges.numSeeds[0] + Math.random() * (plantDnaRanges.numSeeds[1] - plantDnaRanges.numSeeds[0] + 1)),
+                    lifespan: (plantDnaRanges.lifespan[0] + Math.random() * (plantDnaRanges.lifespan[1] - plantDnaRanges.lifespan[0])) * 86400
+                };
+            } else {
+                return {
+                    speed: dnaRanges.speed[0] + Math.random() * (dnaRanges.speed[1] - dnaRanges.speed[0]),
+                    metabolism: dnaRanges.metabolism[0] + Math.random() * (dnaRanges.metabolism[1] - dnaRanges.metabolism[0]),
+                    sightAngle: dnaRanges.sightAngle[0] + Math.random() * (dnaRanges.sightAngle[1] - dnaRanges.sightAngle[0]),
+                    sightDist: dnaRanges.sightDist[0] + Math.random() * (dnaRanges.sightDist[1] - dnaRanges.sightDist[0]),
+                    reproThreshold: dnaRanges.reproThreshold[0] + Math.random() * (dnaRanges.reproThreshold[1] - dnaRanges.reproThreshold[0]),
+                    lifespan: (dnaRanges.lifespan[0] + Math.random() * (dnaRanges.lifespan[1] - dnaRanges.lifespan[0])) * 86400
+                };
+            }
+        }
+
+        function mutateDNA(dna, type) {
+            const ranges = type === 'plant' ? plantDnaRanges : dnaRanges;
+            const newDna = { ...dna };
+            for (let key in newDna) {
+                if (key === 'numSeeds') {
+                    newDna[key] = Math.max(1, newDna[key] + (Math.random() < 0.5 ? -1 : 1));
+                } else {
+                    newDna[key] *= (Math.random() * 0.2 + 0.9);
+                    const [min, max] = ranges[key];
+                    newDna[key] = Math.max(min, Math.min(max, newDna[key]));
+                    if (key === 'lifespan') newDna[key] *= 86400;
+                }
+            }
+            return newDna;
+        }
+
+        function dnaToInput(dna) {
+            return Object.keys(dnaRanges).map(key => (dna[key] - dnaRanges[key][0]) / (dnaRanges[key][1] - dnaRanges[key][0]));
+        }
+
+        class Plant {
+            constructor(x, y, dna = randomDNA('plant'), isSeed = true) {
                 this.x = x;
                 this.y = y;
-                this.radius = 8;
-                this.energy = 100;
+                this.dna = dna;
                 this.age = 0;
-                this.lifespan = Math.random() * 500 + 300; // Frames
-                this.isAlive = true;
-                
-                // DNA properties
-                if (dna) {
-                    this.dna = {...dna};
-                } else {
-                    this.dna = {
-                        speed: (Math.random() * dnaSettings.speedVariation + 0.5) * 2,
-                        metabolism: Math.random() * dnaSettings.metabolismRate + 0.5,
-                        reproductionThreshold: Math.random() * dnaSettings.reproductionRate + 50,
-                        sightRange: Math.random() * 60 + 40,
-                        sightAngle: Math.random() * Math.PI/2 + Math.PI/4
-                    };
-                }
-                
-                // Movement
-                this.vx = (Math.random() - 0.5) * this.dna.speed;
-                this.vy = (Math.random() - 0.5) * this.dna.speed;
-                this.target = null;
-                
-                // Reproduction cooldown
-                this.reproductionCooldown = 0;
+                this.size = isSeed ? 0 : 5 + Math.random() * 5;
+                this.eater = null;
             }
-            
-            update() {
-                if (!this.isAlive) return;
-                
-                // Age and die if too old
-                this.age++;
-                if (this.age > this.lifespan) {
-                    this.isAlive = false;
-                    return;
+
+            update(dt, isDay) {
+                this.age += dt;
+                if (this.age > this.dna.lifespan) return true;
+                if (isDay) {
+                    this.size += this.dna.growthRate * dt;
                 }
-                
-                // Lose energy from metabolism
-                this.energy -= 0.1 * this.dna.metabolism;
-                if (this.energy <= 0) {
-                    this.isAlive = false;
-                    return;
-                }
-                
-                // Update reproduction cooldown
-                if (this.reproductionCooldown > 0) {
-                    this.reproductionCooldown--;
-                }
-                
-                // Find nearest plant as target
-                let nearestDist = Infinity;
-                let nearestPlant = null;
-                
-                for (let plant of plants) {
-                    if (!plant.isAlive) continue;
-                    
-                    const dx = plant.x - this.x;
-                    const dy = plant.y - this.y;
-                    const distance = Math.sqrt(dx * dx + dy * dy);
-                    
-                    if (distance < nearestDist && distance < this.dna.sightRange) {
-                        // Check if plant is within sight cone
-                        const angleToPlant = Math.atan2(dy, dx);
-                        const animalAngle = Math.atan2(this.vy, this.vx);
-                        const angleDiff = Math.abs(angleToPlant - animalAngle);
-                        
-                        if (angleDiff < this.dna.sightAngle / 2 || angleDiff > 2*Math.PI - this.dna.sightAngle / 2) {
-                            nearestDist = distance;
-                            nearestPlant = plant;
+                this.size = Math.min(this.size, 10);
+                if (this.size >= 10 && Math.random() < 0.01 * dt / 86400) {
+                    for (let i = 0; i < this.dna.numSeeds; i++) {
+                        const angle = Math.random() * 2 * Math.PI;
+                        const dist = Math.random() * 20 + 10;
+                        let nx = this.x + Math.cos(angle) * dist;
+                        let ny = this.y + Math.sin(angle) * dist;
+                        if (nx > 0 && nx < worldSize && ny > 0 && ny < worldSize) {
+                            plants.push(new Plant(nx, ny, mutateDNA(this.dna, 'plant')));
                         }
                     }
                 }
-                
-                // If we have a target, move toward it
-                if (nearestPlant) {
-                    this.target = nearestPlant;
-                    const dx = nearestPlant.x - this.x;
-                    const dy = nearestPlant.y - this.y;
-                    const distance = Math.sqrt(dx * dx + dy * dy);
-                    
-                    // Normalize and set velocity toward target
-                    this.vx = (dx / distance) * this.dna.speed;
-                    this.vy = (dy / distance) * this.dna.speed;
-                    
-                    // If close enough, eat the plant
-                    if (distance < this.radius + nearestPlant.radius) {
-                        this.eat(nearestPlant);
-                        this.target = null;
-                    }
-                } else {
-                    this.target = null;
-                    // Random movement if no target
-                    if (Math.random() < 0.02) {
-                        this.vx = (Math.random() - 0.5) * this.dna.speed;
-                        this.vy = (Math.random() - 0.5) * this.dna.speed;
-                    }
-                }
-                
-                // Update position
-                this.x += this.vx;
-                this.y += this.vy;
-                
-                // Bounce off walls
-                if (this.x < this.radius || this.x > canvas.width - this.radius) this.vx *= -1;
-                if (this.y < this.radius || this.y > canvas.height - this.radius) this.vy *= -1;
-                
-                // Keep within bounds
-                this.x = Math.max(this.radius, Math.min(canvas.width - this.radius, this.x));
-                this.y = Math.max(this.radius, Math.min(canvas.height - this.radius, this.y));
-                
-                // Check for reproduction
-                if (this.energy > this.dna.reproductionThreshold && this.reproductionCooldown === 0) {
-                    this.reproduce();
-                }
+                return false;
             }
-            
-            eat(plant) {
-                this.energy += plant.energy;
-                plant.isAlive = false;
-            }
-            
-            reproduce() {
-                if (this.energy < 60) return; // Need enough energy to reproduce
-                
-                // Find a mate nearby
-                for (let animal of animals) {
-                    if (animal === this || !animal.isAlive) continue;
-                    
-                    const dx = animal.x - this.x;
-                    const dy = animal.y - this.y;
-                    const distance = Math.sqrt(dx * dx + dy * dy);
-                    
-                    if (distance < 30 && animal.energy > animal.dna.reproductionThreshold) {
-                        // Create offspring with mixed DNA
-                        const offspringDNA = {
-                            speed: (this.dna.speed + animal.dna.speed) / 2 + (Math.random() - 0.5) * 0.2,
-                            metabolism: (this.dna.metabolism + animal.dna.metabolism) / 2 + (Math.random() - 0.5) * 0.1,
-                            reproductionThreshold: (this.dna.reproductionThreshold + animal.dna.reproductionThreshold) / 2 + (Math.random() - 0.5) * 5,
-                            sightRange: (this.dna.sightRange + animal.dna.sightRange) / 2 + (Math.random() - 0.5) * 10,
-                            sightAngle: (this.dna.sightAngle + animal.dna.sightAngle) / 2 + (Math.random() - 0.5) * 0.2
-                        };
-                        
-                        // Create new animal
-                        const offspring = new Animal(
-                            this.x + (Math.random() - 0.5) * 20,
-                            this.y + (Math.random() - 0.5) * 20,
-                            offspringDNA
-                        );
-                        
-                        // Reduce parent energy
-                        this.energy -= 40;
-                        animal.energy -= 40;
-                        
-                        // Set reproduction cooldown
-                        this.reproductionCooldown = 100;
-                        animal.reproductionCooldown = 100;
-                        
-                        return offspring;
-                    }
-                }
-                
-                return null;
-            }
-            
+
             draw() {
-                if (!this.isAlive) return;
-                
-                // Draw sight cone
-                ctx.save();
-                ctx.translate(this.x, this.y);
-                const animalAngle = Math.atan2(this.vy, this.vx);
-                
-                ctx.rotate(animalAngle);
+                ctx.fillStyle = 'green';
                 ctx.beginPath();
-                ctx.moveTo(0, 0);
-                ctx.arc(0, 0, this.dna.sightRange, -this.dna.sightAngle/2, this.dna.sightAngle/2);
-                ctx.closePath();
-                ctx.fillStyle = colors.sightCone;
+                ctx.arc(this.x, this.y, this.size, 0, 2 * Math.PI);
                 ctx.fill();
-                ctx.restore();
-                
-                // Draw animal body
-                ctx.beginPath();
-                ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
-                ctx.fillStyle = colors.animal;
-                ctx.fill();
-                
-                // Draw energy indicator
-                const energyHeight = (this.energy / 100) * this.radius * 2;
-                ctx.fillStyle = this.energy > 70 ? '#2ecc71' : this.energy > 30 ? '#f39c12' : '#e74c3c';
-                ctx.fillRect(this.x - this.radius, this.y - this.radius - 5, this.radius * 2, 3);
-                ctx.fillRect(this.x - this.radius, this.y - this.radius - 5, (this.energy / 100) * this.radius * 2, 3);
-                
-                // Draw target line if has target
-                if (this.target && this.target.isAlive) {
-                    ctx.beginPath();
-                    ctx.moveTo(this.x, this.y);
-                    ctx.lineTo(this.target.x, this.target.y);
-                    ctx.strokeStyle = 'rgba(255, 255, 255, 0.5)';
-                    ctx.setLineDash([5, 5]);
-                    ctx.stroke();
-                    ctx.setLineDash([]);
-                }
             }
         }
-        
-        // Plant class
-        class Plant {
-            constructor(x, y, isSeed = false) {
+
+        class Animal {
+            constructor(x, y, dna = randomDNA('animal')) {
                 this.x = x;
                 this.y = y;
-                this.radius = isSeed ? 2 : 5;
-                this.growthStage = isSeed ? 0 : 1;
-                this.maxGrowth = 3;
-                this.growthRate = Math.random() * 0.02 + 0.01;
-                this.energy = isSeed ? 10 : 30;
+                this.dna = dna;
                 this.age = 0;
-                this.lifespan = Math.random() * 800 + 400; // Frames
-                this.isAlive = true;
-                this.isSeed = isSeed;
-                
-                // DNA properties for seeds produced
-                this.dna = {
-                    growthRate: Math.random() * 0.02 + 0.01,
-                    seedCount: Math.floor(Math.random() * 5) + 1,
-                    energyValue: Math.random() * 20 + 20
-                };
+                this.energy = 50;
+                this.maxEnergy = 200;
+                this.dir = Math.random() * 2 * Math.PI;
+                this.id = animalId++;
+                this.memoryNN = new NN(6, 4, 1);
+                this.eating = null;
+                this.eatTime = 0;
+                this.eatDuration = 10; // sim seconds
+                this.target = null;
             }
-            
-            update() {
-                if (!this.isAlive) return;
-                
-                // Age and die if too old
-                this.age++;
-                if (this.age > this.lifespan) {
-                    this.isAlive = false;
-                    // Produce seeds when dying of old age
-                    if (!this.isSeed) {
-                        this.produceSeeds();
+
+            update(dt) {
+                this.age += dt;
+                if (this.age > this.dna.lifespan || this.energy <= 0) return true;
+                this.energy -= this.dna.metabolism * dt / 3600;
+                this.energy = Math.max(0, this.energy);
+
+                if (this.eating) {
+                    this.eatTime += dt;
+                    if (this.eatTime > this.eatDuration) {
+                        this.energy += this.eating.size * 10;
+                        this.energy = Math.min(this.maxEnergy, this.energy);
+                        const index = plants.indexOf(this.eating);
+                        if (index > -1) plants.splice(index, 1);
+                        this.eating = null;
+                        this.target = null;
                     }
-                    return;
+                    return false;
                 }
-                
-                // Grow if not fully grown and not a seed
-                if (!this.isSeed && this.growthStage < this.maxGrowth) {
-                    this.growthStage += this.growthRate;
-                    this.radius = 5 + (this.growthStage - 1) * 3;
-                    this.energy = 30 + (this.growthStage - 1) * 20;
-                    
-                    // If fully grown, potentially produce seeds
-                    if (this.growthStage >= this.maxGrowth && Math.random() < 0.005) {
-                        this.produceSeeds();
+
+                // Sense
+                const seenPlants = plants.filter(p => {
+                    const dx = p.x - this.x;
+                    const dy = p.y - this.y;
+                    const dist = Math.sqrt(dx * dx + dy * dy);
+                    if (dist > this.dna.sightDist || dist < 1) return false;
+                    const angle = Math.atan2(dy, dx);
+                    const relAngle = (angle - this.dir + Math.PI * 2) % (Math.PI * 2) - Math.PI;
+                    return Math.abs(relAngle) < (this.dna.sightAngle * Math.PI / 360) / 2;
+                });
+
+                const viablePlants = seenPlants.filter(p => {
+                    const nearbyAnimal = animals.find(a => a !== this && Math.hypot(a.x - p.x, a.y - p.y) < 10 && (a.eating === p || a.target === p));
+                    if (nearbyAnimal) {
+                        const score = this.memoryNN.predict(dnaToInput(nearbyAnimal.dna))[0];
+                        return score >= 0.5;
                     }
-                }
-                
-                // Seeds can grow into plants
-                if (this.isSeed && Math.random() < 0.01) {
-                    this.growFromSeed();
-                }
-            }
-            
-            produceSeeds() {
-                const seedCount = this.dna.seedCount;
-                for (let i = 0; i < seedCount; i++) {
-                    const angle = (i / seedCount) * Math.PI * 2;
-                    const distance = 20 + Math.random() * 30;
-                    
-                    const seedX = this.x + Math.cos(angle) * distance;
-                    const seedY = this.y + Math.sin(angle) * distance;
-                    
-                    // Keep seeds within bounds
-                    const boundedX = Math.max(5, Math.min(canvas.width - 5, seedX));
-                    const boundedY = Math.max(5, Math.min(canvas.height - 5, seedY));
-                    
-                    const seed = new Plant(boundedX, boundedY, true);
-                    seeds.push(seed);
-                }
-            }
-            
-            growFromSeed() {
-                this.isSeed = false;
-                this.growthStage = 1;
-                this.radius = 5;
-                this.energy = 30;
-            }
-            
-            draw() {
-                if (!this.isAlive) return;
-                
-                ctx.beginPath();
-                ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
-                
-                if (this.isSeed) {
-                    ctx.fillStyle = colors.seed;
+                    return true;
+                });
+
+                if (viablePlants.length > 0) {
+                    viablePlants.sort((a, b) => Math.hypot(a.x - this.x, a.y - this.y) - Math.hypot(b.x - this.x, b.y - this.y));
+                    this.target = viablePlants[0];
                 } else {
-                    // Vary plant color based on growth stage
-                    const greenValue = 100 + Math.floor(this.growthStage * 50);
-                    ctx.fillStyle = `rgb(42, ${greenValue}, 143)`;
+                    this.target = null;
                 }
-                
+
+                // Move
+                let vx = Math.cos(this.dir);
+                let vy = Math.sin(this.dir);
+                if (this.target) {
+                    const dx = this.target.x - this.x;
+                    const dy = this.target.y - this.y;
+                    this.dir = Math.atan2(dy, dx);
+                    vx = Math.cos(this.dir);
+                    vy = Math.sin(this.dir);
+                    const dist = Math.hypot(dx, dy);
+                    if (dist < this.target.size + 5) {
+                        if (!this.target.eater) {
+                            this.eating = this.target;
+                            this.target.eater = this;
+                            this.eatTime = 0;
+                        } else {
+                            // Negative interaction
+                            const thief = animals.find(a => a.eating === this.target);
+                            if (thief) {
+                                this.memoryNN.train(dnaToInput(thief.dna), [0]);
+                            }
+                            this.target = null;
+                        }
+                    }
+                } else {
+                    // Random walk
+                    this.dir += (Math.random() - 0.5) * 0.5;
+                }
+                const speedPerHour = this.dna.speed;
+                this.x += vx * (speedPerHour / 3600) * dt;
+                this.y += vy * (speedPerHour / 3600) * dt;
+
+                // Bounds
+                if (this.x < 0) { this.x = 0; this.dir = Math.PI - this.dir; }
+                if (this.x > worldSize) { this.x = worldSize; this.dir = Math.PI - this.dir; }
+                if (this.y < 0) { this.y = 0; this.dir = -this.dir; }
+                if (this.y > worldSize) { this.y = worldSize; this.dir = -this.dir; }
+
+                // Reproduce
+                if (this.energy > this.dna.reproThreshold) {
+                    this.energy -= 50;
+                    const angle = Math.random() * 2 * Math.PI;
+                    const dist = 10;
+                    let nx = this.x + Math.cos(angle) * dist;
+                    let ny = this.y + Math.sin(angle) * dist;
+                    nx = Math.max(0, Math.min(worldSize, nx));
+                    ny = Math.max(0, Math.min(worldSize, ny));
+                    animals.push(new Animal(nx, ny, mutateDNA(this.dna)));
+                }
+
+                return false;
+            }
+
+            draw() {
+                // Dot
+                ctx.fillStyle = 'red';
+                ctx.beginPath();
+                ctx.arc(this.x, this.y, 3, 0, 2 * Math.PI);
                 ctx.fill();
-                
-                // Draw growth indicator for plants
-                if (!this.isSeed) {
-                    ctx.beginPath();
-                    ctx.arc(this.x, this.y, this.radius + 3, 0, (this.growthStage / this.maxGrowth) * Math.PI * 2);
-                    ctx.strokeStyle = '#2ecc71';
-                    ctx.lineWidth = 2;
-                    ctx.stroke();
-                }
+
+                // Sight cone
+                const coneAngle = this.dna.sightAngle * Math.PI / 180 / 2;
+                ctx.beginPath();
+                ctx.moveTo(this.x, this.y);
+                ctx.arc(this.x, this.y, this.dna.sightDist, this.dir - coneAngle, this.dir + coneAngle);
+                ctx.closePath();
+                ctx.fillStyle = 'rgba(0, 0, 255, 0.1)';
+                ctx.fill();
             }
         }
-        
-        // Initialize simulation
-        function initSimulation() {
+
+        function init() {
+            worldSize = parseInt(worldSizeInput.value);
+            canvas.width = worldSize;
+            canvas.height = worldSize;
             animals = [];
             plants = [];
-            seeds = [];
-            day = 1;
-            timeOfDay = 12; // Start at noon
-            
-            // Create initial animals
-            const animalCount = parseInt(document.getElementById('animalCountSlider').value);
-            for (let i = 0; i < animalCount; i++) {
-                animals.push(new Animal(
-                    Math.random() * (canvas.width - 30) + 15,
-                    Math.random() * (canvas.height - 30) + 15
-                ));
+            animalId = 0;
+            totalSimTime = 0;
+            const numPlants = parseInt(numPlantsInput.value);
+            const numAnimals = parseInt(numAnimalsInput.value);
+            for (let i = 0; i < numPlants; i++) {
+                plants.push(new Plant(Math.random() * worldSize, Math.random() * worldSize));
             }
-            
-            // Create initial plants
-            const plantCount = parseInt(document.getElementById('plantCountSlider').value);
-            for (let i = 0; i < plantCount; i++) {
-                plants.push(new Plant(
-                    Math.random() * (canvas.width - 30) + 15,
-                    Math.random() * (canvas.height - 30) + 15
-                ));
+            for (let i = 0; i < numAnimals; i++) {
+                animals.push(new Animal(Math.random() * worldSize, Math.random() * worldSize));
             }
-            
-            updateStats();
+            running = true;
         }
-        
-        // Update simulation
-        function updateSimulation() {
-            if (isPaused) return;
-            
-            // Update time of day
-            timeOfDay += dayCycleSpeed * simulationSpeed;
-            if (timeOfDay >= 24) {
-                timeOfDay = 0;
-                day++;
+
+        function loop(time) {
+            if (!running) {
+                requestAnimationFrame(loop);
+                return;
             }
-            
-            // Update animals
-            for (let i = animals.length - 1; i >= 0; i--) {
-                animals[i].update();
-                
-                // Remove dead animals
-                if (!animals[i].isAlive) {
-                    animals.splice(i, 1);
-                }
-            }
-            
+            const dt_real = (time - lastTime) / 1000;
+            lastTime = time;
+            const simMultiplier = parseFloat(simSpeedInput.value);
+            const dt = dt_real * baseSpeed * simMultiplier;
+            totalSimTime += dt;
+
+            const dayPos = totalSimTime % 86400;
+            const isDay = dayPos < 43200;
+
             // Update plants
-            for (let i = plants.length - 1; i >= 0; i--) {
-                plants[i].update();
-                
-                // Remove dead plants
-                if (!plants[i].isAlive) {
-                    plants.splice(i, 1);
-                }
-            }
-            
-            // Update seeds
-            for (let i = seeds.length - 1; i >= 0; i--) {
-                seeds[i].update();
-                
-                // If seed has grown into a plant, move it to plants array
-                if (!seeds[i].isSeed && seeds[i].isAlive) {
-                    plants.push(seeds[i]);
-                    seeds.splice(i, 1);
-                }
-                // Remove dead seeds
-                else if (!seeds[i].isAlive) {
-                    seeds.splice(i, 1);
-                }
-            }
-            
-            // Occasionally add new plants if there are too few
-            if (plants.length < 5 && Math.random() < 0.05) {
-                plants.push(new Plant(
-                    Math.random() * (canvas.width - 30) + 15,
-                    Math.random() * (canvas.height - 30) + 15
-                ));
-            }
-            
-            updateStats();
+            plants = plants.filter(p => !p.update(dt, isDay));
+
+            // Update animals
+            animals = animals.filter(a => !a.update(dt));
+
+            // Draw
+            ctx.fillStyle = isDay ? 'lightblue' : 'darkblue';
+            ctx.fillRect(0, 0, worldSize, worldSize);
+            plants.forEach(p => p.draw());
+            animals.forEach(a => a.draw());
+
+            requestAnimationFrame(loop);
         }
-        
-        // Draw simulation
-        function drawSimulation() {
-            // Clear canvas with day/night effect
-            const isNight = timeOfDay < 6 || timeOfDay > 18;
-            const nightOpacity = isNight ? 0.7 : 0;
-            
-            // Draw background with day/night cycle
-            ctx.fillStyle = isNight ? '#0a0a1a' : '#0f3460';
-            ctx.fillRect(0, 0, canvas.width, canvas.height);
-            
-            // Draw night overlay
-            if (isNight) {
-                ctx.fillStyle = colors.night;
-                ctx.fillRect(0, 0, canvas.width, canvas.height);
-            }
-            
-            // Draw plants
-            plants.forEach(plant => plant.draw());
-            
-            // Draw seeds
-            seeds.forEach(seed => seed.draw());
-            
-            // Draw animals
-            animals.forEach(animal => animal.draw());
-            
-            // Draw day/night indicator
-            drawTimeIndicator();
-        }
-        
-        // Draw time indicator
-        function drawTimeIndicator() {
-            const timeString = getTimeString();
-            document.getElementById('timeDisplay').textContent = timeString;
-            
-            // Update sun/moon icon
-            const timeIcon = document.querySelector('.time-icon');
-            const isNight = timeOfDay < 6 || timeOfDay > 18;
-            timeIcon.className = isNight ? 'fas fa-moon time-icon' : 'fas fa-sun time-icon';
-        }
-        
-        // Get formatted time string
-        function getTimeString() {
-            const hours = Math.floor(timeOfDay);
-            const minutes = Math.floor((timeOfDay - hours) * 60);
-            const period = hours >= 12 ? 'PM' : 'AM';
-            const displayHours = hours % 12 || 12;
-            
-            return `Day ${day}, ${displayHours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')} ${period}`;
-        }
-        
-        // Update statistics display
-        function updateStats() {
-            document.getElementById('animalStat').textContent = animals.length;
-            document.getElementById('plantStat').textContent = plants.length;
-            document.getElementById('dayStat').textContent = day;
-            document.getElementById('seedStat').textContent = seeds.length;
-        }
-        
-        // Animation loop
-        function animate() {
-            updateSimulation();
-            drawSimulation();
-            requestAnimationFrame(animate);
-        }
-        
-        // Setup event listeners for controls
-        function setupControls() {
-            // Speed slider
-            const speedSlider = document.getElementById('speedSlider');
-            const speedValue = document.getElementById('speedValue');
-            
-            speedSlider.addEventListener('input', function() {
-                simulationSpeed = parseFloat(this.value);
-                speedValue.textContent = `${simulationSpeed.toFixed(1)}x`;
-            });
-            
-            // Animal count slider
-            const animalCountSlider = document.getElementById('animalCountSlider');
-            const animalCountValue = document.getElementById('animalCountValue');
-            
-            animalCountSlider.addEventListener('input', function() {
-                animalCountValue.textContent = this.value;
-            });
-            
-            // Plant count slider
-            const plantCountSlider = document.getElementById('plantCountSlider');
-            const plantCountValue = document.getElementById('plantCountValue');
-            
-            plantCountSlider.addEventListener('input', function() {
-                plantCountValue.textContent = this.value;
-            });
-            
-            // DNA sliders
-            const speedVarSlider = document.getElementById('speedVarSlider');
-            const speedVarValue = document.getElementById('speedVarValue');
-            
-            speedVarSlider.addEventListener('input', function() {
-                dnaSettings.speedVariation = parseFloat(this.value);
-                speedVarValue.textContent = this.value;
-            });
-            
-            const metabolismSlider = document.getElementById('metabolismSlider');
-            const metabolismValue = document.getElementById('metabolismValue');
-            
-            metabolismSlider.addEventListener('input', function() {
-                dnaSettings.metabolismRate = parseFloat(this.value);
-                metabolismValue.textContent = this.value;
-            });
-            
-            const reproductionSlider = document.getElementById('reproductionSlider');
-            const reproductionValue = document.getElementById('reproductionValue');
-            
-            reproductionSlider.addEventListener('input', function() {
-                dnaSettings.reproductionRate = parseFloat(this.value);
-                reproductionValue.textContent = this.value;
-            });
-            
-            // Pause button
-            const pauseBtn = document.getElementById('pauseBtn');
-            pauseBtn.addEventListener('click', function() {
-                isPaused = !isPaused;
-                this.innerHTML = isPaused ? 
-                    '<i class="fas fa-play"></i> Resume' : 
-                    '<i class="fas fa-pause"></i> Pause';
-            });
-            
-            // Reset button
-            const resetBtn = document.getElementById('resetBtn');
-            resetBtn.addEventListener('click', initSimulation);
-        }
-        
-        // Initialize and start simulation
-        window.addEventListener('load', function() {
-            resizeCanvas();
-            initSimulation();
-            setupControls();
-            animate();
+
+        startBtn.addEventListener('click', () => {
+            init();
         });
+
+        lastTime = performance.now();
+        requestAnimationFrame(loop);
     </script>
 </body>
 </html>
