@@ -201,34 +201,110 @@ class MarkovChain {
     this.startTokens = [];
     this.contextMemory = [];
     this.maxMemory = 5;
-    this.rewardWeights = new Map(); // RLHF: track rewards for state transitions
-    this.feedbackHistory = []; // Store feedback for learning
-    this.responseHistory = []; // Track generated responses
+    this.rewardWeights = new Map();
+    this.feedbackHistory = [];
+    this.responseHistory = [];
+    this.entityMemory = new Map(); // Track entities (names, places, concepts)
+    this.sentimentScores = new Map(); // Sentiment analysis per topic
+    this.conversationGraph = new Map(); // Build knowledge graph
+    this.nGramCache = new Map(); // Cache for performance
+    this.variableOrder = true; // Dynamic n-gram order
   }
 
   train(text, rewardMultiplier = 1.0) {
     const tokens = this.tokenize(text);
     if (tokens.length < this.order + 1) return;
 
-    for (let i = 0; i < tokens.length - this.order; i++) {
-      const state = tokens.slice(i, i + this.order).join(' ');
-      const next = tokens[i + this.order];
-      
-      if (i === 0) this.startTokens.push(state);
-      
-      if (!this.chain.has(state)) {
-        this.chain.set(state, []);
+    // Multi-order training for richer patterns
+    for (let order = 1; order <= Math.min(this.order + 1, 4); order++) {
+      for (let i = 0; i < tokens.length - order; i++) {
+        const state = tokens.slice(i, i + order).join(' ');
+        const next = tokens[i + order];
+        
+        if (i === 0) this.startTokens.push(state);
+        
+        if (!this.chain.has(state)) {
+          this.chain.set(state, []);
+        }
+        this.chain.get(state).push(next);
+        
+        const transitionKey = `${state}→${next}`;
+        const currentWeight = this.rewardWeights.get(transitionKey) || 1.0;
+        this.rewardWeights.set(transitionKey, currentWeight * rewardMultiplier);
       }
-      this.chain.get(state).push(next);
-      
-      // RLHF: Initialize or update reward weight for this transition
-      const transitionKey = `${state}→${next}`;
-      const currentWeight = this.rewardWeights.get(transitionKey) || 1.0;
-      this.rewardWeights.set(transitionKey, currentWeight * rewardMultiplier);
     }
+    
+    // Extract and store entities
+    this.extractEntities(tokens);
   }
 
-  // RLHF: Apply feedback to adjust future responses
+  extractEntities(tokens) {
+    // Simple entity extraction: capitalized words, numbers, special patterns
+    tokens.forEach((token, idx) => {
+      if (token.match(/^[A-Z]/)) {
+        const entity = token.toLowerCase();
+        if (!this.entityMemory.has(entity)) {
+          this.entityMemory.set(entity, { count: 0, contexts: [] });
+        }
+        const data = this.entityMemory.get(entity);
+        data.count++;
+        const context = tokens.slice(Math.max(0, idx - 2), Math.min(tokens.length, idx + 3)).join(' ');
+        data.contexts.push(context);
+      }
+    });
+  }
+
+  analyzeSentiment(text) {
+    const positive = ['good', 'great', 'love', 'excellent', 'wonderful', 'amazing', 'beautiful', 'happy', 'joy', 'perfect'];
+    const negative = ['bad', 'hate', 'terrible', 'awful', 'sad', 'angry', 'poor', 'wrong', 'difficult'];
+    
+    const tokens = this.tokenize(text);
+    let score = 0;
+    tokens.forEach(t => {
+      if (positive.includes(t)) score += 1;
+      if (negative.includes(t)) score -= 1;
+    });
+    return score;
+  }
+
+  buildConversationGraph(userInput, botResponse) {
+    // Create relationships between concepts mentioned
+    const userTokens = this.tokenize(userInput);
+    const botTokens = this.tokenize(botResponse);
+    
+    userTokens.forEach(ut => {
+      if (!this.conversationGraph.has(ut)) {
+        this.conversationGraph.set(ut, new Set());
+      }
+      botTokens.forEach(bt => {
+        this.conversationGraph.get(ut).add(bt);
+      });
+    });
+  }
+
+  getRelatedConcepts(word, depth = 2) {
+    // Navigate conversation graph to find related concepts
+    const related = new Set();
+    const queue = [[word, 0]];
+    const visited = new Set();
+    
+    while (queue.length > 0) {
+      const [current, level] = queue.shift();
+      if (visited.has(current) || level >= depth) continue;
+      visited.add(current);
+      
+      const connections = this.conversationGraph.get(current);
+      if (connections) {
+        connections.forEach(conn => {
+          related.add(conn);
+          if (level < depth - 1) queue.push([conn, level + 1]);
+        });
+      }
+    }
+    
+    return Array.from(related);
+  }
+
   applyFeedback(responseId, isPositive) {
     const feedback = {
       responseId,
@@ -240,23 +316,31 @@ class MarkovChain {
     const response = this.responseHistory.find(r => r.id === responseId);
     if (!response) return;
     
-    // Reward or penalize the transitions used in this response
-    const rewardMultiplier = isPositive ? 1.5 : 0.5;
+    // Adaptive learning rate based on feedback history
+    const recentFeedback = this.feedbackHistory.slice(-10);
+    const recentPositive = recentFeedback.filter(f => f.isPositive).length;
+    const adaptiveLR = 0.3 + (recentPositive / 10) * 0.7; // 0.3 to 1.0
+    
+    const rewardMultiplier = isPositive ? (1 + adaptiveLR) : (1 - adaptiveLR * 0.5);
     
     response.transitions.forEach(transition => {
       const currentWeight = this.rewardWeights.get(transition) || 1.0;
       this.rewardWeights.set(transition, currentWeight * rewardMultiplier);
     });
     
-    // If positive, reinforce the response pattern by retraining
+    // Store sentiment association
+    const sentiment = this.analyzeSentiment(response.text);
+    response.transitions.forEach(t => {
+      const key = `sentiment_${t}`;
+      this.sentimentScores.set(key, sentiment * (isPositive ? 1 : -1));
+    });
+    
     if (isPositive) {
-      this.train(response.text, 1.3);
+      this.train(response.text, 1.5);
     } else {
-      // Negative feedback: slightly reduce weight
-      this.train(response.text, 0.7);
+      this.train(response.text, 0.6);
     }
     
-    // Limit history size
     if (this.feedbackHistory.length > 100) {
       this.feedbackHistory.shift();
     }
@@ -296,18 +380,36 @@ class MarkovChain {
     const inputTokens = seed ? this.tokenize(seed) : [];
     const semanticWords = this.getSemanticContext(seed || '');
     
+    // Expand semantic context with conversation graph
+    const graphExpanded = new Set(semanticWords);
+    inputTokens.forEach(token => {
+      const related = this.getRelatedConcepts(token, 2);
+      related.forEach(r => graphExpanded.add(r));
+    });
+    const expandedContext = Array.from(graphExpanded);
+    
+    // Sentiment-aware state selection
+    const inputSentiment = this.analyzeSentiment(seed || '');
+    
     let state = null;
     let bestScore = 0;
     const states = Array.from(this.chain.keys());
     
-    // Enhanced state selection with semantic awareness
     for (const s of states) {
       const stateTokens = s.split(' ');
       const directOverlap = stateTokens.filter(t => inputTokens.includes(t)).length;
-      const semanticOverlap = stateTokens.filter(t => semanticWords.includes(t)).length;
+      const semanticOverlap = stateTokens.filter(t => expandedContext.includes(t)).length;
       const isNotDirectRepeat = stateTokens.some(t => !inputTokens.includes(t));
       
-      const score = (semanticOverlap * 3) + directOverlap + (isNotDirectRepeat ? 2 : -10);
+      // Entity bonus: prefer states with known entities
+      let entityBonus = 0;
+      stateTokens.forEach(t => {
+        if (this.entityMemory.has(t)) {
+          entityBonus += this.entityMemory.get(t).count * 0.1;
+        }
+      });
+      
+      const score = (semanticOverlap * 4) + (directOverlap * 2) + (isNotDirectRepeat ? 3 : -15) + entityBonus;
       
       if (score > bestScore && this.chain.get(s).length > 0) {
         bestScore = score;
@@ -324,16 +426,26 @@ class MarkovChain {
     const usedStates = new Set([state]);
     let attempts = 0;
     let stuckCount = 0;
+    let diversityPenalty = 0;
     
-    while (result.length < maxLength && attempts < maxLength * 3) {
+    while (result.length < maxLength && attempts < maxLength * 4) {
       attempts++;
       const currentState = result.slice(-this.order).join(' ');
-      const nextWords = this.chain.get(currentState);
+      let nextWords = this.chain.get(currentState);
+      
+      // Try variable order if stuck
+      if (!nextWords && this.variableOrder) {
+        for (let o = this.order - 1; o >= 1; o--) {
+          const altState = result.slice(-o).join(' ');
+          nextWords = this.chain.get(altState);
+          if (nextWords && nextWords.length > 0) break;
+        }
+      }
       
       if (!nextWords || nextWords.length === 0) {
         const relatedStates = states.filter(s => {
           const tokens = s.split(' ');
-          return tokens.some(t => semanticWords.includes(t));
+          return tokens.some(t => expandedContext.includes(t));
         });
         
         if (relatedStates.length > 0) {
@@ -352,7 +464,8 @@ class MarkovChain {
       
       if (usedStates.has(currentState)) {
         stuckCount++;
-        if (stuckCount > 3) {
+        diversityPenalty += 0.5;
+        if (stuckCount > 2) {
           const randomNext = states[Math.floor(Math.random() * states.length)];
           const words = this.chain.get(randomNext);
           if (words) {
@@ -361,6 +474,7 @@ class MarkovChain {
             transitions.push(`${randomNext}→${nextWord}`);
             stuckCount = 0;
             usedStates.clear();
+            diversityPenalty = 0;
             continue;
           }
         }
@@ -368,17 +482,31 @@ class MarkovChain {
       
       usedStates.add(currentState);
       
-      // RLHF: Intelligent word selection with reward weighting
+      // Advanced weighting with multiple factors
       const weights = nextWords.map((w, i) => {
         const freq = nextWords.filter(x => x === w).length;
-        const baseWeight = 1 / freq;
-        const semanticBoost = semanticWords.includes(w) ? 2 : 1;
+        const baseWeight = 1 / (freq + 0.1);
         
-        // RLHF: Apply learned reward weights
+        // Semantic boost
+        const semanticBoost = expandedContext.includes(w) ? 3 : 1;
+        
+        // RLHF reward weight
         const transitionKey = `${currentState}→${w}`;
         const rewardWeight = this.rewardWeights.get(transitionKey) || 1.0;
         
-        return baseWeight * semanticBoost * rewardWeight;
+        // Sentiment alignment
+        const sentimentKey = `sentiment_${transitionKey}`;
+        const sentimentScore = this.sentimentScores.get(sentimentKey) || 0;
+        const sentimentBoost = inputSentiment * sentimentScore > 0 ? 1.5 : 1.0;
+        
+        // Diversity bonus (prefer less recently used words)
+        const recentlyUsed = result.slice(-10).includes(w);
+        const diversityBoost = recentlyUsed ? 0.3 : 1.5;
+        
+        // Entity boost
+        const entityBoost = this.entityMemory.has(w) ? 1.3 : 1.0;
+        
+        return baseWeight * semanticBoost * rewardWeight * sentimentBoost * diversityBoost * entityBoost;
       });
       
       const totalWeight = weights.reduce((a, b) => a + b, 0);
@@ -396,7 +524,7 @@ class MarkovChain {
       transitions.push(`${currentState}→${next}`);
       result.push(next);
       
-      if (next.match(/[.!?]$/) && result.length >= 8 && Math.random() > 0.3) break;
+      if (next.match(/[.!?]$/) && result.length >= 10 && Math.random() > 0.2) break;
     }
     
     let finalText = result.join(' ');
@@ -408,7 +536,7 @@ class MarkovChain {
     
     finalText = this.capitalize(finalText);
     
-    // Store response for potential feedback
+    // Store response and build conversation graph
     this.responseHistory.push({
       id: responseId,
       text: finalText,
@@ -416,7 +544,10 @@ class MarkovChain {
       timestamp: Date.now()
     });
     
-    // Limit history
+    if (seed) {
+      this.buildConversationGraph(seed, finalText);
+    }
+    
     if (this.responseHistory.length > 50) {
       this.responseHistory.shift();
     }
@@ -717,11 +848,13 @@ function updateStats() {
   const satisfaction = totalFeedback > 0 ? Math.round((positive / totalFeedback) * 100) : 0;
   
   statsDiv.innerHTML = `
-    <div class="stat">📊 Total Feedback: ${totalFeedback}</div>
-    <div class="stat">👍 Positive: ${positive}</div>
-    <div class="stat">👎 Negative: ${negative}</div>
-    <div class="stat">✨ Satisfaction: ${satisfaction}%</div>
-    <div class="stat">🧠 Learned Patterns: ${bot.rewardWeights.size}</div>
+    <div class="stat">📊 Feedback: ${totalFeedback}</div>
+    <div class="stat">👍 ${positive}</div>
+    <div class="stat">👎 ${negative}</div>
+    <div class="stat">✨ ${satisfaction}%</div>
+    <div class="stat">🧠 Patterns: ${bot.rewardWeights.size}</div>
+    <div class="stat">🏷️ Entities: ${bot.entityMemory.size}</div>
+    <div class="stat">🔗 Graph: ${bot.conversationGraph.size}</div>
   `;
 }
 
@@ -729,7 +862,7 @@ document.getElementById('userInput').addEventListener('keypress', (e) => {
   if (e.key === 'Enter') send();
 });
 
-addMessage("Hello! I'm a Markov chain chatbot with RLHF (Reinforcement Learning from Human Feedback). I learn from our conversation and your feedback. Use 👍/👎 buttons to teach me what responses you like!", false);
+addMessage("Hello! I'm an advanced Markov chain chatbot with multi-layer intelligence: RLHF learning, sentiment analysis, entity tracking, knowledge graphs, and variable-order n-grams. Use 👍/👎 to teach me your preferences!", false);
 
 // Initialize stats display
 setTimeout(updateStats, 100);
