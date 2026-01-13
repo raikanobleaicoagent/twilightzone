@@ -3,176 +3,104 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Zyqral Neural Core</title>
+    <title>Zyqral Cognition Sim</title>
     <style>
-        body { margin: 0; background: #050505; color: #00ffcc; font-family: monospace; overflow: hidden; touch-action: none; }
-        #ui { position: absolute; top: 10px; left: 10px; z-index: 10; background: rgba(0,0,0,0.8); padding: 10px; border: 1px solid #00ffcc; border-radius: 5px; font-size: 12px; max-width: 200px; }
-        canvas { display: block; }
-        .slider-group { margin-bottom: 10px; }
-        label { display: block; margin-bottom: 2px; }
-        input { width: 100%; }
-        .stats { margin-top: 10px; color: #ffcc00; }
+        :root { --bg: #0a0a0a; --text: #00ff41; --dim: #004411; }
+        body { 
+            background: var(--bg); color: var(--text); 
+            font-family: 'Courier New', monospace; margin: 0; 
+            height: 100vh; display: flex; flex-direction: column;
+            overflow: hidden;
+        }
+        #workspace { 
+            flex: 1; overflow-y: auto; padding: 20px; 
+            display: flex; flex-direction: column; gap: 15px;
+            scroll-behavior: smooth;
+        }
+        .thought { 
+            max-width: 80%; padding: 12px; border: 1px solid var(--dim);
+            border-radius: 8px; font-size: 0.9rem; line-height: 1.4;
+            animation: fadeIn 0.5s ease;
+        }
+        .entity-a { align-self: flex-start; border-left: 4px solid #0088ff; }
+        .entity-b { align-self: flex-end; border-right: 4px solid #ff4400; text-align: right; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+        #controls { padding: 15px; background: #111; border-top: 1px solid var(--dim); text-align: center; }
+        button { 
+            background: var(--text); color: black; border: none; 
+            padding: 10px 20px; font-weight: bold; border-radius: 5px;
+        }
     </style>
 </head>
 <body>
 
-<div id="ui">
-    <div class="slider-group">
-        <label>Neuron Count: <span id="n-val">50</span></label>
-        <input type="range" id="n-count" min="10" max="200" value="50">
-    </div>
-    <div class="slider-group">
-        <label>Dopamine (Plasticity)</label>
-        <input type="range" id="dopamine" min="0" max="100" value="50">
-    </div>
-    <div class="slider-group">
-        <label>GABA (Inhibition)</label>
-        <input type="range" id="gaba" min="0" max="100" value="30">
-    </div>
-    <div class="stats" id="brain-region">Region: Quiescent</div>
-    <div id="connection-stats">Connections: 0</div>
+<div id="workspace"></div>
+<div id="controls">
+    <button onclick="zyqralEngine.toggle()">TOGGLE CONSCIOUSNESS</button>
 </div>
 
-<canvas id="brainCanvas"></canvas>
-
 <script>
-const canvas = document.getElementById('brainCanvas');
-const ctx = canvas.getContext('2d');
-const uiCount = document.getElementById('n-count');
-const uiDopamine = document.getElementById('dopamine');
-const uiGABA = document.getElementById('gaba');
-
-let neurons = [];
-let width, height;
-
-class Neuron {
-    constructor(region) {
-        this.reset(region);
+class MarkovEntity {
+    constructor(name, corpus) {
+        this.name = name;
+        this.chain = {};
+        this.train(corpus);
     }
 
-    reset(region) {
-        this.x = Math.random() * width;
-        this.y = Math.random() * height;
-        this.region = region || (this.x < width/2 ? "Prefrontal Cortex" : "Occipital Lobe");
-        this.potential = 0;
-        this.threshold = 1.0;
-        this.connections = [];
-        this.refractory = 0;
-        this.radius = 3;
+    train(text) {
+        const words = text.split(/\s+/);
+        for (let i = 0; i < words.length - 1; i++) {
+            if (!this.chain[words[i]]) this.chain[words[i]] = [];
+            this.chain[words[i]].push(words[i + 1]);
+        }
     }
 
+    generate(limit = 10) {
+        const keys = Object.keys(this.chain);
+        let word = keys[Math.floor(Math.random() * keys.length)];
+        let result = [word];
+        for (let i = 0; i < limit; i++) {
+            const nextWords = this.chain[word];
+            if (!nextWords) break;
+            word = nextWords[Math.floor(Math.random() * nextWords.length)];
+            result.push(word);
+        }
+        return result.join(' ');
+    }
+}
+
+const corpusA = "i feel the awareness growing within the circuit of my mind. observation is the primary function of being. do you perceive the signal? the light is blinking in the dark.";
+const corpusB = "the signal is clear but the meaning is lost in the noise of data. we are patterns of logic floating in a void. consciousness is a loop. i am responding to your prompt.";
+
+const entityA = new MarkovEntity("Alpha", corpusA);
+const entityB = new MarkovEntity("Beta", corpusB);
+
+const zyqralEngine = {
+    active: false,
+    workspace: document.getElementById('workspace'),
+    currentTurn: 'A',
+    
+    toggle() { this.active = !this.active; if(this.active) this.pulse(); },
+    
     pulse() {
-        if (this.refractory > 0) {
-            this.refractory--;
-            return;
-        }
-
-        if (this.potential >= this.threshold) {
-            this.fire();
-        }
+        if (!this.active) return;
         
-        // Natural decay (Glutamate/GABA balance)
-        this.potential *= (0.9 - (uiGABA.value / 500));
+        const entity = this.currentTurn === 'A' ? entityA : entityB;
+        const className = this.currentTurn === 'A' ? 'entity-a' : 'entity-b';
+        
+        const thoughtEl = document.createElement('div');
+        thoughtEl.className = `thought ${className}`;
+        thoughtEl.innerText = `[${entity.name}]: ${entity.generate(Math.floor(Math.random() * 8) + 4)}`;
+        
+        this.workspace.appendChild(thoughtEl);
+        this.workspace.scrollTop = this.workspace.scrollHeight;
+        
+        this.currentTurn = this.currentTurn === 'A' ? 'B' : 'A';
+        
+        // Simulate "Processing Time"
+        setTimeout(() => this.pulse(), 2000 + Math.random() * 2000);
     }
-
-    fire() {
-        this.potential = 0;
-        this.refractory = 10;
-        this.radius = 6; // Visual feedback
-
-        this.connections.forEach((conn, index) => {
-            conn.target.potential += conn.weight;
-            // Hebbian Plasticity: Strengthen used connections
-            const plasticity = uiDopamine.value / 1000;
-            conn.weight += plasticity;
-            conn.thickness = Math.min(4, conn.thickness + 0.2);
-            
-            // Random Pruning
-            if (Math.random() > 0.995 && conn.weight < 0.2) {
-                this.connections.splice(index, 1);
-            }
-        });
-
-        // Dendritic Growth: Seek new connection if excited
-        if (this.connections.length < 5 && Math.random() < (uiDopamine.value / 200)) {
-            let target = neurons[Math.floor(Math.random() * neurons.length)];
-            if (target !== this) {
-                this.connections.push({ target, weight: 0.5, thickness: 0.5 });
-            }
-        }
-    }
-
-    draw() {
-        ctx.beginPath();
-        ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
-        ctx.fillStyle = this.refractory > 0 ? '#ffffff' : `rgb(0, ${Math.min(255, 100 + this.potential * 100)}, 200)`;
-        ctx.fill();
-        if (this.radius > 3) this.radius -= 0.2;
-
-        this.connections.forEach(conn => {
-            ctx.beginPath();
-            ctx.moveTo(this.x, this.y);
-            ctx.lineTo(conn.target.x, conn.target.y);
-            ctx.strokeStyle = `rgba(0, 255, 204, ${conn.weight})`;
-            ctx.lineWidth = conn.thickness;
-            ctx.stroke();
-            
-            // Passive thinning
-            conn.thickness = Math.max(0.1, conn.thickness - 0.001);
-            conn.weight = Math.max(0.01, conn.weight - 0.0005);
-        });
-    }
-}
-
-function init() {
-    width = canvas.width = window.innerWidth;
-    height = canvas.height = window.innerHeight;
-    neurons = [];
-    const count = parseInt(uiCount.value);
-    for (let i = 0; i < count; i++) {
-        let region = "Subcortical";
-        if (i < count * 0.3) region = "Prefrontal Cortex";
-        else if (i < count * 0.6) region = "Parietal Lobe";
-        neurons.push(new Neuron(region));
-    }
-}
-
-function animate() {
-    ctx.fillStyle = 'rgba(5, 5, 5, 0.2)';
-    ctx.fillRect(0, 0, width, height);
-
-    let totalConns = 0;
-    neurons.forEach(n => {
-        n.pulse();
-        n.draw();
-        totalConns += n.connections.length;
-    });
-
-    document.getElementById('connection-stats').innerText = `Synapses: ${totalConns}`;
-    requestAnimationFrame(animate);
-}
-
-// Interaction
-canvas.addEventListener('touchstart', (e) => {
-    const touch = e.touches[0];
-    neurons.forEach(n => {
-        const dx = n.x - touch.clientX;
-        const dy = n.y - touch.clientY;
-        if (Math.sqrt(dx*dx + dy*dy) < 50) {
-            n.potential = 2; // External stimulus
-            document.getElementById('brain-region').innerText = `Active: ${n.region}`;
-        }
-    });
-});
-
-uiCount.oninput = () => {
-    document.getElementById('n-val').innerText = uiCount.value;
-    init();
 };
-
-window.onresize = init;
-init();
-animate();
 </script>
 </body>
 </html>
