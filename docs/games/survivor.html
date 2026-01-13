@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Markov Chain Chatbot</title>
+<title>Intelligent Markov Chain Chatbot</title>
 <style>
 * { margin: 0; padding: 0; box-sizing: border-box; }
 body {
@@ -17,14 +17,14 @@ body {
 }
 .container {
   width: 100%;
-  max-width: 600px;
+  max-width: 800px;
   background: white;
   border-radius: 1rem;
   box-shadow: 0 20px 60px rgba(0,0,0,0.3);
   display: flex;
   flex-direction: column;
-  height: 90vh;
-  max-height: 700px;
+  height: 95vh;
+  max-height: 900px;
 }
 .header {
   padding: 1.5rem;
@@ -49,6 +49,31 @@ body {
   align-items: center;
   gap: 0.25rem;
   color: #555;
+}
+.thinking-panel {
+  background: #f8f9fa;
+  border-bottom: 1px solid #e0e0e0;
+  padding: 0.75rem 1rem;
+  font-size: 0.85rem;
+  color: #666;
+  max-height: 200px;
+  overflow-y: auto;
+  border-left: 4px solid #667eea;
+}
+.thinking-step {
+  padding: 0.25rem 0;
+  margin: 0.25rem 0;
+  opacity: 0;
+  animation: fadeInStep 0.3s forwards;
+}
+.thinking-step:nth-child(1) { animation-delay: 0.1s; }
+.thinking-step:nth-child(2) { animation-delay: 0.3s; }
+.thinking-step:nth-child(3) { animation-delay: 0.5s; }
+.thinking-step:nth-child(4) { animation-delay: 0.7s; }
+.thinking-step:nth-child(5) { animation-delay: 0.9s; }
+@keyframes fadeInStep {
+  from { opacity: 0; transform: translateX(-10px); }
+  to { opacity: 1; transform: translateX(0); }
 }
 .chat {
   flex: 1;
@@ -218,36 +243,102 @@ button:active { transform: translateY(0); }
   align-items: center;
   gap: 0.25rem;
 }
+.reasoning-tag {
+  display: inline-block;
+  background: rgba(102, 126, 234, 0.1);
+  color: #667eea;
+  padding: 0.2rem 0.5rem;
+  border-radius: 0.25rem;
+  font-size: 0.8rem;
+  margin: 0.2rem;
+  font-family: monospace;
+}
+.confidence-meter {
+  height: 4px;
+  background: #e0e0e0;
+  border-radius: 2px;
+  margin-top: 0.5rem;
+  overflow: hidden;
+}
+.confidence-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #4caf50, #8bc34a);
+  width: 0%;
+  transition: width 1s ease;
+}
+.insight-badge {
+  background: linear-gradient(135deg, #ff9800, #ff5722);
+  color: white;
+  padding: 0.25rem 0.5rem;
+  border-radius: 1rem;
+  font-size: 0.75rem;
+  margin-left: 0.5rem;
+  animation: pulse 2s infinite;
+}
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.7; }
+}
 </style>
 </head>
 <body>
 <div class="container">
   <div class="header">
-    <h1>🤖 True Next-Word Markov Bot</h1>
-    <p>Pure word-by-word probabilistic generation</p>
+    <h1>🧠 Intelligent Markov Chain Bot</h1>
+    <p>With multi-step reasoning and cognitive simulation</p>
   </div>
   <div class="stats" id="stats"></div>
+  <div class="thinking-panel" id="thinkingPanel"></div>
   <div class="chat" id="chat"></div>
   <div class="input-area">
-    <input type="text" id="userInput" placeholder="Type a message..." />
+    <input type="text" id="userInput" placeholder="Ask me anything..." />
     <button onclick="send()">Send</button>
   </div>
 </div>
 
 <script>
-class TrueMarkovChain {
+class IntelligentMarkovChain {
   constructor(order = 2) {
     this.order = order;
-    this.transitions = new Map(); // word -> {nextWord: count}
+    this.transitions = new Map();
     this.rewardWeights = new Map();
     this.feedbackHistory = [];
     this.responseHistory = [];
     this.totalWords = 0;
+    this.conversationMemory = [];
+    this.cognitivePatterns = new Map();
+    this.knowledgeBase = new Map();
+    this.reasoningSteps = [];
+    this.maxMemorySize = 20;
+  }
+
+  // Enhanced tokenization with stemming
+  tokenize(text) {
+    return text.toLowerCase()
+      .replace(/([.!?])/g, ' $1')
+      .replace(/[^\w\s.!?]/g, '')
+      .split(/\s+/)
+      .filter(t => t.length > 0)
+      .map(word => this.stemWord(word));
+  }
+
+  stemWord(word) {
+    // Simple stemming for common suffixes
+    const suffixes = ['ing', 'ed', 's', 'es', 'ly', 'ment', 'ness', 'tion'];
+    for (const suffix of suffixes) {
+      if (word.endsWith(suffix) && word.length > suffix.length + 2) {
+        return word.slice(0, -suffix.length);
+      }
+    }
+    return word;
   }
 
   train(text, rewardMultiplier = 1.0) {
     const words = this.tokenize(text);
     if (words.length < this.order + 1) return;
+
+    // Extract and store knowledge patterns
+    this.extractKnowledgePatterns(words);
 
     for (let i = 0; i <= words.length - this.order - 1; i++) {
       const context = words.slice(i, i + this.order).join(' ');
@@ -261,18 +352,227 @@ class TrueMarkovChain {
       nextMap.set(next, (nextMap.get(next) || 0) + 1);
       this.totalWords++;
       
-      // Initialize reward weight
       const key = `${context}→${next}`;
       const current = this.rewardWeights.get(key) || 1.0;
       this.rewardWeights.set(key, current * rewardMultiplier);
     }
   }
 
-  tokenize(text) {
-    return text.toLowerCase()
-      .replace(/([.!?])/g, ' $1')
-      .split(/\s+/)
-      .filter(t => t.length > 0);
+  extractKnowledgePatterns(words) {
+    // Look for subject-verb-object patterns
+    for (let i = 0; i < words.length - 2; i++) {
+      const triple = words.slice(i, i + 3);
+      const pattern = triple.join(' ');
+      const count = this.knowledgeBase.get(pattern) || 0;
+      this.knowledgeBase.set(pattern, count + 1);
+    }
+  }
+
+  // Cognitive reasoning layer
+  think(input) {
+    this.reasoningSteps = [];
+    const thoughts = [];
+    
+    // Step 1: Understand the input
+    thoughts.push(this.analyzeInput(input));
+    
+    // Step 2: Retrieve relevant knowledge
+    const relevantKnowledge = this.retrieveKnowledge(input);
+    if (relevantKnowledge.length > 0) {
+      thoughts.push(`Found ${relevantKnowledge.length} relevant knowledge patterns`);
+    }
+    
+    // Step 3: Consider conversation context
+    if (this.conversationMemory.length > 0) {
+      thoughts.push(`Considering ${this.conversationMemory.length} previous exchanges`);
+    }
+    
+    // Step 4: Plan response structure
+    thoughts.push(this.planResponse(input));
+    
+    // Step 5: Evaluate potential responses
+    thoughts.push(this.evaluateResponseOptions(input));
+    
+    this.reasoningSteps = thoughts;
+    return thoughts;
+  }
+
+  analyzeInput(input) {
+    const words = this.tokenize(input);
+    const wordCount = words.length;
+    const uniqueWords = new Set(words).size;
+    
+    // Detect question type
+    const isQuestion = input.includes('?');
+    const isWhatQuestion = /what|how|why|when|where/i.test(input);
+    const isOpinionQuestion = /think|believe|opinion|feel/i.test(input);
+    
+    let analysis = `Analyzing: ${wordCount} words, ${uniqueWords} unique`;
+    if (isQuestion) {
+      analysis += ` | Question detected`;
+      if (isWhatQuestion) analysis += ` (factual)`;
+      if (isOpinionQuestion) analysis += ` (opinion-based)`;
+    }
+    
+    // Detect topic
+    const topics = this.detectTopics(words);
+    if (topics.length > 0) {
+      analysis += ` | Topics: ${topics.join(', ')}`;
+    }
+    
+    return analysis;
+  }
+
+  detectTopics(words) {
+    const topicKeywords = {
+      'philosophy': ['think', 'mind', 'conscious', 'truth', 'meaning', 'exist'],
+      'science': ['science', 'experiment', 'theory', 'data', 'research', 'study'],
+      'technology': ['tech', 'computer', 'code', 'digital', 'system', 'algorithm'],
+      'learning': ['learn', 'teach', 'study', 'knowledge', 'educat', 'understand'],
+      'emotion': ['feel', 'emotion', 'love', 'happy', 'sad', 'anger'],
+      'language': ['word', 'speak', 'language', 'communicat', 'mean', 'express']
+    };
+    
+    const detected = [];
+    for (const [topic, keywords] of Object.entries(topicKeywords)) {
+      if (keywords.some(keyword => 
+        words.some(word => word.includes(keyword))
+      )) {
+        detected.push(topic);
+      }
+    }
+    
+    return detected.length > 0 ? detected : ['general'];
+  }
+
+  retrieveKnowledge(input) {
+    const words = this.tokenize(input);
+    const knowledge = [];
+    
+    // Look for matching patterns in knowledge base
+    for (const [pattern, count] of this.knowledgeBase.entries()) {
+      const patternWords = pattern.split(' ');
+      const matches = patternWords.filter(pw => 
+        words.some(w => this.similarity(pw, w) > 0.7)
+      ).length;
+      
+      if (matches >= 2 && count > 1) {
+        knowledge.push({
+          pattern,
+          confidence: Math.min(matches / patternWords.length, 1),
+          frequency: count
+        });
+      }
+    }
+    
+    return knowledge.sort((a, b) => b.confidence - a.confidence).slice(0, 5);
+  }
+
+  planResponse(input) {
+    const words = this.tokenize(input);
+    const isQuestion = input.includes('?');
+    
+    if (isQuestion) {
+      if (words.some(w => ['who', 'what', 'when', 'where'].includes(w))) {
+        return "Planning: Factual response with specific details";
+      } else if (words.some(w => ['why', 'how'].includes(w))) {
+        return "Planning: Explanatory response with reasoning steps";
+      } else if (words.some(w => ['would', 'could', 'should'].includes(w))) {
+        return "Planning: Conditional/hypothetical response";
+      }
+      return "Planning: Direct answer followed by elaboration";
+    }
+    
+    if (words.length < 4) {
+      return "Planning: Expansive response to elaborate on brief input";
+    }
+    
+    return "Planning: Thematic continuation with novel connections";
+  }
+
+  evaluateResponseOptions(input) {
+    const options = [];
+    
+    // Generate candidate starts
+    for (let i = 0; i < 3; i++) {
+      const start = this.getStartContext(input);
+      const firstWord = this.generateNextWord(start);
+      if (firstWord) {
+        options.push({
+          start,
+          firstWord,
+          coherence: this.assessCoherence(start, firstWord),
+          novelty: this.assessNovelty(start, firstWord)
+        });
+      }
+    }
+    
+    if (options.length > 0) {
+      const best = options.sort((a, b) => 
+        (b.coherence * 0.7 + b.novelty * 0.3) - (a.coherence * 0.7 + a.novelty * 0.3)
+      )[0];
+      
+      return `Evaluation: Selected path with ${Math.round(best.coherence * 100)}% coherence, ${Math.round(best.novelty * 100)}% novelty`;
+    }
+    
+    return "Evaluation: Using fallback generation strategy";
+  }
+
+  assessCoherence(context, nextWord) {
+    const nextMap = this.transitions.get(context);
+    if (!nextMap) return 0.5;
+    
+    const count = nextMap.get(nextWord) || 0;
+    const total = Array.from(nextMap.values()).reduce((a, b) => a + b, 0);
+    
+    // Base coherence on frequency
+    const frequencyScore = count / Math.max(total, 1);
+    
+    // Boost for sentence structure
+    const structureBonus = /^[.!?]/.test(nextWord) ? 0.2 : 0;
+    
+    return Math.min(frequencyScore + structureBonus + 0.3, 1);
+  }
+
+  assessNovelty(context, nextWord) {
+    const key = `${context}→${nextWord}`;
+    const weight = this.rewardWeights.get(key) || 1.0;
+    
+    // Novelty is inverse of weight (heavily reinforced paths are less novel)
+    return Math.max(0, 1 - (weight - 1) * 0.5);
+  }
+
+  similarity(a, b) {
+    if (a === b) return 1;
+    const longer = a.length > b.length ? a : b;
+    const shorter = a.length > b.length ? b : a;
+    
+    if (longer.startsWith(shorter)) return 0.9;
+    if (shorter.length === 0) return 0;
+    
+    // Simple Levenshtein-based similarity
+    const distance = this.levenshtein(a, b);
+    return 1 - distance / Math.max(a.length, b.length);
+  }
+
+  levenshtein(a, b) {
+    const matrix = [];
+    for (let i = 0; i <= b.length; i++) matrix[i] = [i];
+    for (let j = 0; j <= a.length; j++) matrix[0][j] = j;
+    
+    for (let i = 1; i <= b.length; i++) {
+      for (let j = 1; j <= a.length; j++) {
+        matrix[i][j] = b.charAt(i-1) === a.charAt(j-1) 
+          ? matrix[i-1][j-1]
+          : Math.min(
+              matrix[i-1][j-1] + 1,
+              matrix[i][j-1] + 1,
+              matrix[i-1][j] + 1
+            );
+      }
+    }
+    
+    return matrix[b.length][a.length];
   }
 
   getStartContext(seed) {
@@ -282,18 +582,34 @@ class TrueMarkovChain {
     }
     
     const seedWords = this.tokenize(seed);
-    const contexts = Array.from(this.transitions.keys());
+    if (seedWords.length === 0) {
+      const contexts = Array.from(this.transitions.keys());
+      return contexts[Math.floor(Math.random() * contexts.length)];
+    }
     
-    // Find contexts that contain seed words
+    // Try to find matching contexts
+    const contexts = Array.from(this.transitions.keys());
     let bestContext = null;
-    let maxOverlap = 0;
+    let bestScore = -1;
     
     for (const ctx of contexts) {
       const ctxWords = ctx.split(' ');
-      const overlap = ctxWords.filter(w => seedWords.includes(w)).length;
+      let score = 0;
       
-      if (overlap > maxOverlap || (overlap === maxOverlap && Math.random() > 0.5)) {
-        maxOverlap = overlap;
+      // Exact matches
+      seedWords.forEach(sw => {
+        if (ctxWords.includes(sw)) score += 2;
+      });
+      
+      // Similarity matches
+      ctxWords.forEach(cw => {
+        seedWords.forEach(sw => {
+          if (this.similarity(cw, sw) > 0.8) score += 1;
+        });
+      });
+      
+      if (score > bestScore) {
+        bestScore = score;
         bestContext = ctx;
       }
     }
@@ -311,14 +627,18 @@ class TrueMarkovChain {
       const reward = this.rewardWeights.get(key) || 1.0;
       const freq = count / this.totalWords;
       const rarity = 1 / (freq * 1000 + 1);
-      const exploration = 0.7 + Math.random() * 0.6;
+      const exploration = 0.5 + Math.random() * 0.5;
       
-      return (count + 1) * reward * rarity * exploration;
+      // Apply cognitive weighting based on recent reasoning
+      const cognitiveWeight = this.reasoningSteps.length > 0 ? 1.2 : 1.0;
+      
+      return (count + 1) * reward * rarity * exploration * cognitiveWeight;
     });
     
     const total = weights.reduce((a, b) => a + b, 0);
-    let rand = Math.random() * total;
+    if (total === 0) return candidates[0][0];
     
+    let rand = Math.random() * total;
     for (let i = 0; i < candidates.length; i++) {
       rand -= weights[i];
       if (rand <= 0) return candidates[i][0];
@@ -327,73 +647,113 @@ class TrueMarkovChain {
     return candidates[0][0];
   }
 
-  generate(seed = null, minWords = 10, maxWords = 40) {
+  generateWithReasoning(seed = null, minWords = 10, maxWords = 50) {
     if (this.transitions.size === 0) {
-      return { text: "I need training data first!", id: null };
+      return { 
+        text: "I need more training data to generate meaningful responses!", 
+        id: null,
+        confidence: 0.3 
+      };
     }
+    
+    // Perform cognitive reasoning
+    this.think(seed || "");
     
     const responseId = Date.now() + Math.random();
     const transitions = [];
     
-    // Start with seed-based context
+    // Get initial context based on reasoning
     let context = this.getStartContext(seed);
     const result = context.split(' ');
     
     let attempts = 0;
     let sentenceEnded = false;
+    let totalConfidence = 0;
+    let wordCount = 0;
     
-    while (result.length < maxWords && attempts < maxWords * 2) {
+    while (result.length < maxWords && attempts < maxWords * 3) {
       attempts++;
       
-      // Get current context window
       const currentContext = result.slice(-this.order).join(' ');
-      
-      // Generate next word
       const nextWord = this.generateNextWord(currentContext);
       
       if (!nextWord) {
-        // Fallback: get a random context
-        const randomContext = Array.from(this.transitions.keys())[
-          Math.floor(Math.random() * this.transitions.size)
-        ];
-        const fallbackWord = this.generateNextWord(randomContext);
-        if (fallbackWord) {
-          result.push(fallbackWord);
-          transitions.push(`${randomContext}→${fallbackWord}`);
-        } else {
-          break;
+        // Creative leap - find related context
+        const relatedContexts = Array.from(this.transitions.keys())
+          .filter(ctx => {
+            const ctxWords = ctx.split(' ');
+            const lastWords = currentContext.split(' ');
+            return ctxWords.some(cw => 
+              lastWords.some(lw => this.similarity(cw, lw) > 0.7)
+            );
+          });
+        
+        if (relatedContexts.length > 0) {
+          const randomRelated = relatedContexts[
+            Math.floor(Math.random() * relatedContexts.length)
+          ];
+          const fallbackWord = this.generateNextWord(randomRelated);
+          if (fallbackWord) {
+            result.push(fallbackWord);
+            transitions.push(`${randomRelated}→${fallbackWord}`);
+            totalConfidence += 0.6;
+          }
         }
         continue;
       }
       
       result.push(nextWord);
       transitions.push(`${currentContext}→${nextWord}`);
+      wordCount++;
+      
+      // Calculate word-level confidence
+      const nextMap = this.transitions.get(currentContext);
+      const count = nextMap ? (nextMap.get(nextWord) || 0) : 0;
+      const total = nextMap ? Array.from(nextMap.values()).reduce((a, b) => a + b, 0) : 1;
+      const wordConfidence = count / total;
+      totalConfidence += wordConfidence;
       
       // Check for sentence ending
       if (nextWord.match(/[.!?]/)) {
         sentenceEnded = true;
-        if (result.length >= minWords && Math.random() > 0.3) {
+        if (result.length >= minWords && (result.length >= maxWords * 0.7 || Math.random() > 0.4)) {
           break;
         }
       }
     }
     
+    // Post-process the generated text
     let text = result.join(' ')
       .replace(/\s+([.!?,])/g, '$1')
       .replace(/\s+/g, ' ')
       .trim();
     
+    // Capitalize and ensure proper punctuation
     text = text.charAt(0).toUpperCase() + text.slice(1);
-    
-    // Ensure it ends with punctuation
     if (!text.match(/[.!?]$/)) {
-      text += '.';
+      text += Math.random() > 0.5 ? '.' : '!';
     }
     
+    // Calculate overall confidence
+    const avgConfidence = wordCount > 0 ? totalConfidence / wordCount : 0.5;
+    const finalConfidence = avgConfidence * 0.7 + 
+      (this.reasoningSteps.length > 2 ? 0.2 : 0.1) + 
+      (sentenceEnded ? 0.1 : 0);
+    
+    // Store in memory
     this.responseHistory.push({
       id: responseId,
       text: text,
       transitions: transitions,
+      reasoning: this.reasoningSteps,
+      confidence: finalConfidence,
+      timestamp: Date.now()
+    });
+    
+    // Update conversation memory
+    this.conversationMemory.push({
+      input: seed,
+      response: text,
       timestamp: Date.now()
     });
     
@@ -401,7 +761,16 @@ class TrueMarkovChain {
       this.responseHistory.shift();
     }
     
-    return { text, id: responseId };
+    if (this.conversationMemory.length > this.maxMemorySize) {
+      this.conversationMemory.shift();
+    }
+    
+    return { 
+      text, 
+      id: responseId,
+      confidence: finalConfidence,
+      reasoning: this.reasoningSteps 
+    };
   }
 
   applyFeedback(responseId, isPositive) {
@@ -418,7 +787,15 @@ class TrueMarkovChain {
       this.rewardWeights.set(transition, current * multiplier);
     });
     
-    if (isPositive) {
+    // Also reinforce the reasoning pattern if positive
+    if (isPositive && response.reasoning) {
+      response.reasoning.forEach(step => {
+        const stepKey = `reasoning:${step.substring(0, 50)}`;
+        const current = this.cognitivePatterns.get(stepKey) || 0;
+        this.cognitivePatterns.set(stepKey, current + 1);
+      });
+      
+      // Retrain with enhanced reward
       this.train(response.text, 1.3);
     }
     
@@ -426,68 +803,119 @@ class TrueMarkovChain {
       this.feedbackHistory.shift();
     }
   }
+
+  getInsights() {
+    const totalResponses = this.responseHistory.length;
+    if (totalResponses === 0) return [];
+    
+    const avgConfidence = this.responseHistory.reduce((sum, r) => 
+      sum + (r.confidence || 0.5), 0) / totalResponses;
+    
+    const commonPatterns = new Map();
+    this.responseHistory.forEach(r => {
+      r.transitions.forEach(t => {
+        commonPatterns.set(t, (commonPatterns.get(t) || 0) + 1);
+      });
+    });
+    
+    const topPatterns = Array.from(commonPatterns.entries())
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 3)
+      .map(([pattern, count]) => `${pattern} (${count}x)`);
+    
+    return [
+      `Average confidence: ${(avgConfidence * 100).toFixed(1)}%`,
+      `Top patterns: ${topPatterns.join(', ')}`,
+      `Knowledge base: ${this.knowledgeBase.size} patterns`
+    ];
+  }
 }
 
-const bot = new TrueMarkovChain(2);
+const bot = new IntelligentMarkovChain(3); // Higher order for more context
 let messageCounter = 0;
-const conversationPairs = new Map(); // Track user message -> bot response pairs
+const conversationPairs = new Map();
 
+// Enhanced training corpus with more complex patterns
 const corpus = [
-  "Intelligence means the ability to learn understand and apply knowledge effectively.",
-  "Wisdom comes from experience reflection and deep understanding of life.",
-  "Consciousness refers to awareness of thoughts feelings and surroundings.",
-  "Empathy allows us to understand and share the feelings of others.",
-  "Creativity drives innovation through imagination and original thinking.",
-  "Logic helps us reason systematically and draw valid conclusions.",
-  "Learning is a continuous process that expands our knowledge and skills.",
-  "Communication enables us to share ideas and connect with others meaningfully.",
-  "Curiosity motivates us to explore discover and ask questions.",
-  "Philosophy examines fundamental questions about existence reality and meaning.",
-  "Science uses systematic methods to understand the natural world.",
-  "Technology advances rapidly and transforms how we live and work.",
-  "Art expresses emotions and ideas through creative visual forms.",
-  "Music connects people across cultures through rhythm melody and harmony.",
-  "Language evolves constantly as new words and expressions emerge.",
-  "Memory stores our experiences and shapes our identity over time.",
-  "Emotion influences our decisions behaviors and relationships profoundly.",
-  "Perception filters how we interpret sensory information from our environment.",
-  "Imagination allows us to envision possibilities beyond current reality.",
-  "Reasoning enables us to analyze problems and find solutions logically.",
-  "Mathematics describes patterns relationships and abstract structures precisely.",
-  "Beauty inspires appreciation through harmony elegance and meaningful form.",
-  "Truth corresponds to facts and reality without distortion or bias.",
-  "Knowledge accumulates through observation study and critical thinking.",
-  "Understanding develops when we grasp concepts and see connections clearly.",
-  "Thinking involves mental processes like analyzing comparing and evaluating.",
-  "Ideas emerge from combining existing knowledge in novel ways.",
-  "Concepts represent abstract categories that organize our understanding.",
-  "Patterns reveal underlying structure in seemingly random information.",
-  "Relationships connect different elements and create meaningful associations.",
-  "Context provides background information that helps interpret meaning accurately.",
-  "Insight arises suddenly when we perceive things in a new light.",
-  "Analysis breaks down complex subjects into understandable components.",
-  "Synthesis combines separate elements into coherent unified wholes.",
-  "Abstraction focuses on essential features while ignoring specific details.",
-  "Inference draws conclusions from evidence and logical reasoning.",
-  "Intuition provides immediate understanding without conscious deliberation.",
-  "Experience teaches valuable lessons through direct participation and observation.",
-  "Practice develops skills through repeated application and refinement.",
-  "Attention focuses mental resources on specific information or tasks.",
-  "Awareness encompasses conscious recognition of internal and external states.",
-  "Reflection examines past experiences to extract meaning and lessons.",
-  "Growth happens through challenges learning and continuous development.",
-  "Change represents transformation from one state to another over time.",
-  "Adaptation helps organisms adjust to new environments and circumstances.",
-  "Evolution produces gradual changes through natural selection and variation.",
-  "Progress moves toward improvement and advancement in various domains.",
-  "Development unfolds through stages of increasing complexity and capability.",
-  "Transformation fundamentally alters form appearance or character.",
-  "Innovation introduces new methods ideas or products that solve problems.",
+  "Cognitive thinking involves systematic reasoning about concepts and their relationships.",
+  "Artificial intelligence systems process information through layered neural networks.",
+  "Human consciousness emerges from complex interactions between billions of neurons.",
+  "Learning algorithms adapt their parameters based on feedback and experience.",
+  "Natural language understanding requires semantic analysis of word meanings in context.",
+  "Philosophical inquiry examines fundamental questions about existence and knowledge.",
+  "Scientific methodology relies on hypothesis testing and empirical verification.",
+  "Creative problem solving often involves connecting disparate ideas in novel ways.",
+  "Emotional intelligence encompasses self-awareness and empathy toward others.",
+  "Logical reasoning follows deductive and inductive patterns of inference.",
+  "Memory systems encode store and retrieve information through neural pathways.",
+  "Perceptual systems interpret sensory data to construct meaningful experiences.",
+  "Decision making balances rational analysis with intuitive judgments.",
+  "Communication effectiveness depends on clarity context and shared understanding.",
+  "Metacognition involves thinking about one's own thinking processes.",
+  "Cognitive biases systematically influence human judgment and decision making.",
+  "Neural plasticity allows brain networks to reorganize based on experience.",
+  "Attention mechanisms filter relevant information from environmental stimuli.",
+  "Concept formation organizes experiences into meaningful categories and schemas.",
+  "Problem representation influences how challenges are understood and solved.",
+  "Analogical reasoning transfers knowledge from familiar to novel situations.",
+  "Critical thinking evaluates arguments evidence and underlying assumptions.",
+  "Divergent thinking generates multiple creative solutions to open-ended problems.",
+  "Convergent thinking narrows possibilities to find the optimal solution.",
+  "Systems thinking examines complex interrelationships and feedback loops.",
+  "Abstract reasoning manipulates concepts independent of concrete examples.",
+  "Spatial reasoning mentally manipulates objects and navigates environments.",
+  "Temporal reasoning understands sequences durations and causal relationships.",
+  "Quantitative reasoning applies mathematical concepts to real-world situations.",
+  "Verbal reasoning comprehends and analyzes written and spoken language.",
+  "Visual thinking processes and interprets images patterns and diagrams.",
+  "Auditory reasoning distinguishes patterns in sounds music and speech.",
+  "Kinesthetic thinking involves physical movement and spatial awareness.",
+  "Interpersonal reasoning understands social dynamics and relationships.",
+  "Intrapersonal reasoning reflects on one's own thoughts and emotions.",
+  "Existential reasoning contemplates meaning purpose and human condition.",
+  "Ethical reasoning evaluates moral principles and right conduct.",
+  "Aesthetic reasoning appreciates beauty harmony and artistic expression.",
+  "Practical reasoning applies knowledge to everyday situations and problems.",
+  "Strategic thinking plans long-term actions to achieve desired outcomes.",
+  "Tactical thinking executes immediate actions within strategic frameworks.",
+  "Lateral thinking approaches problems from unexpected angles and perspectives.",
+  "Vertical thinking progresses logically step by step through problems.",
+  "Holistic thinking considers entire systems rather than isolated parts.",
+  "Reductionist thinking analyzes complex phenomena into simpler components.",
+  "Synthetic thinking combines elements into coherent unified wholes.",
+  "Analytical thinking breaks down information into constituent parts.",
+  "Intuitive thinking reaches conclusions without conscious reasoning steps.",
+  "Deliberative thinking carefully weighs alternatives before deciding.",
+  "Heuristic thinking uses mental shortcuts to make efficient judgments."
 ];
 
 corpus.forEach(text => bot.train(text));
 
-function addMessage(text, isUser, responseId = null, messageId = null) {
+// Initialize with some reasoning
+bot.think("initialization");
+
+function showThinking(reasoningSteps) {
+  const panel = document.getElementById('thinkingPanel');
+  panel.innerHTML = '<strong>🤔 Thinking Process:</strong>';
+  
+  reasoningSteps.forEach((step, index) => {
+    const stepDiv = document.createElement('div');
+    stepDiv.className = 'thinking-step';
+    stepDiv.innerHTML = `→ ${step}`;
+    panel.appendChild(stepDiv);
+  });
+  
+  panel.style.display = 'block';
+  panel.scrollTop = panel.scrollHeight;
+}
+
+function hideThinking() {
+  const panel = document.getElementById('thinkingPanel');
+  panel.style.display = 'none';
+  panel.innerHTML = '';
+}
+
+function addMessage(text, isUser, responseId = null, messageId = null, confidence = null, reasoning = null) {
   const chat = document.getElementById('chat');
   const msg = document.createElement('div');
   msg.className = `msg ${isUser ? 'user' : 'bot'}`;
@@ -507,6 +935,36 @@ function addMessage(text, isUser, responseId = null, messageId = null) {
   textSpan.textContent = text;
   textSpan.className = 'message-text';
   bubble.appendChild(textSpan);
+  
+  // Add confidence meter for bot messages
+  if (!isUser && confidence !== null) {
+    const confidenceDiv = document.createElement('div');
+    confidenceDiv.className = 'confidence-meter';
+    const fill = document.createElement('div');
+    fill.className = 'confidence-fill';
+    setTimeout(() => {
+      fill.style.width = `${confidence * 100}%`;
+    }, 100);
+    confidenceDiv.appendChild(fill);
+    bubble.appendChild(confidenceDiv);
+    
+    // Add confidence percentage
+    const confidenceText = document.createElement('div');
+    confidenceText.style.fontSize = '0.8rem';
+    confidenceText.style.color = '#666';
+    confidenceText.style.marginTop = '0.25rem';
+    confidenceText.textContent = `Confidence: ${(confidence * 100).toFixed(1)}%`;
+    bubble.appendChild(confidenceText);
+    
+    // Show reasoning insights button
+    if (reasoning && reasoning.length > 0) {
+      const insightBtn = document.createElement('button');
+      insightBtn.className = 'edit-btn';
+      insightBtn.textContent = '🧠 Show Reasoning';
+      insightBtn.onclick = () => showReasoningDetails(reasoning);
+      bubble.appendChild(insightBtn);
+    }
+  }
   
   msg.appendChild(avatar);
   msg.appendChild(bubble);
@@ -555,6 +1013,35 @@ function addMessage(text, isUser, responseId = null, messageId = null) {
   return messageId;
 }
 
+function showReasoningDetails(reasoning) {
+  const details = document.createElement('div');
+  details.style.padding = '1rem';
+  details.style.background = '#f8f9fa';
+  details.style.borderRadius = '0.5rem';
+  details.style.marginTop = '0.5rem';
+  details.style.border = '1px solid #e0e0e0';
+  
+  details.innerHTML = '<strong>Reasoning Steps:</strong><br>';
+  reasoning.forEach((step, i) => {
+    details.innerHTML += `${i + 1}. ${step}<br>`;
+  });
+  
+  // Find the message and add details
+  const messages = document.querySelectorAll('.msg.bot');
+  const lastMsg = messages[messages.length - 1];
+  if (lastMsg) {
+    const bubble = lastMsg.querySelector('.bubble');
+    bubble.appendChild(details);
+    
+    // Add close button
+    const closeBtn = document.createElement('button');
+    closeBtn.textContent = 'Close';
+    closeBtn.style.marginTop = '0.5rem';
+    closeBtn.onclick = () => details.remove();
+    details.appendChild(closeBtn);
+  }
+}
+
 function editMessage(messageId) {
   const msg = document.querySelector(`[data-message-id="${messageId}"]`);
   if (!msg) return;
@@ -563,7 +1050,6 @@ function editMessage(messageId) {
   const textSpan = bubble.querySelector('.message-text');
   const currentText = textSpan.textContent;
   
-  // Create edit interface
   const editInput = document.createElement('textarea');
   editInput.className = 'edit-input';
   editInput.value = currentText;
@@ -584,11 +1070,9 @@ function editMessage(messageId) {
   editActions.appendChild(saveBtn);
   editActions.appendChild(cancelBtn);
   
-  // Hide original text and edit button
   textSpan.style.display = 'none';
   bubble.querySelector('.edit-btn').style.display = 'none';
   
-  // Add edit interface
   bubble.insertBefore(editInput, textSpan.nextSibling);
   bubble.insertBefore(editActions, editInput.nextSibling);
   
@@ -622,37 +1106,33 @@ function saveEdit(messageId, newText) {
   const editInput = bubble.querySelector('.edit-input');
   const editActions = bubble.querySelector('.edit-actions');
   
-  // Update text
   textSpan.textContent = newText;
   textSpan.style.display = '';
   bubble.querySelector('.edit-btn').style.display = '';
   editInput.remove();
   editActions.remove();
   
-  // Train on new text
   bot.train(newText, 1.0);
   
-  // Remove old bot response and regenerate
   const pair = conversationPairs.get(messageId);
   if (pair) {
     const botMsg = document.querySelector(`[data-message-id="${pair.botMessageId}"]`);
     if (botMsg) botMsg.remove();
   }
   
-  // Generate new response
-  showTyping();
+  showThinking(["Re-thinking based on edited input..."]);
+  
   setTimeout(() => {
-    removeTyping();
-    const result = bot.generate(newText, 10, 40);
+    hideThinking();
+    const result = bot.generateWithReasoning(newText, 12, 50);
     const botMessageId = messageCounter++;
     conversationPairs.set(messageId, { botMessageId, userText: newText });
-    addMessage(result.text, false, result.id, botMessageId);
+    addMessage(result.text, false, result.id, botMessageId, result.confidence, result.reasoning);
     updateStats();
-  }, 800 + Math.random() * 700);
+  }, 1000 + Math.random() * 800);
 }
 
 function regenerateResponse(botMessageId) {
-  // Find the user message that prompted this response
   let userMessageId = null;
   let userText = '';
   
@@ -666,20 +1146,19 @@ function regenerateResponse(botMessageId) {
   
   if (!userText) return;
   
-  // Remove old bot message
   const botMsg = document.querySelector(`[data-message-id="${botMessageId}"]`);
   if (botMsg) botMsg.remove();
   
-  // Generate new response
-  showTyping();
+  showThinking(["Re-evaluating and generating alternative response..."]);
+  
   setTimeout(() => {
-    removeTyping();
-    const result = bot.generate(userText, 10, 40);
+    hideThinking();
+    const result = bot.generateWithReasoning(userText, 12, 50);
     const newBotMessageId = messageCounter++;
     conversationPairs.set(userMessageId, { botMessageId: newBotMessageId, userText });
-    addMessage(result.text, false, result.id, newBotMessageId);
+    addMessage(result.text, false, result.id, newBotMessageId, result.confidence, result.reasoning);
     updateStats();
-  }, 800 + Math.random() * 700);
+  }, 1000 + Math.random() * 800);
 }
 
 function giveFeedback(responseId, isPositive) {
@@ -694,10 +1173,12 @@ function giveFeedback(responseId, isPositive) {
   const chat = document.getElementById('chat');
   const notification = document.createElement('div');
   notification.className = 'learning-notification';
-  notification.textContent = isPositive ? '✓ Reinforcing this pattern!' : '✓ Reducing this pattern!';
+  notification.textContent = isPositive 
+    ? '✓ Reinforcing successful reasoning patterns!' 
+    : '✓ Adjusting cognitive patterns based on feedback!';
   chat.appendChild(notification);
   
-  setTimeout(() => notification.remove(), 2000);
+  setTimeout(() => notification.remove(), 3000);
   updateStats();
 }
 
@@ -741,16 +1222,22 @@ function send() {
   bot.train(text, 1.0);
   input.value = '';
   
+  showThinking(["Processing your message...", "Activating cognitive reasoning..."]);
   showTyping();
   
   setTimeout(() => {
+    showThinking(bot.think(text));
+  }, 500);
+  
+  setTimeout(() => {
     removeTyping();
-    const result = bot.generate(text, 10, 40);
+    hideThinking();
+    const result = bot.generateWithReasoning(text, 12, 50);
     const botMessageId = messageCounter++;
     conversationPairs.set(userMessageId, { botMessageId, userText: text });
-    addMessage(result.text, false, result.id, botMessageId);
+    addMessage(result.text, false, result.id, botMessageId, result.confidence, result.reasoning);
     updateStats();
-  }, 800 + Math.random() * 700);
+  }, 1500 + Math.random() * 1000);
 }
 
 function updateStats() {
@@ -761,12 +1248,15 @@ function updateStats() {
   const positive = bot.feedbackHistory.filter(f => f.isPositive).length;
   const satisfaction = totalFeedback > 0 ? Math.round((positive / totalFeedback) * 100) : 0;
   
+  const insights = bot.getInsights();
+  
   statsDiv.innerHTML = `
-    <div class="stat">🔗 Contexts: ${bot.transitions.size}</div>
-    <div class="stat">📝 Words: ${bot.totalWords}</div>
+    <div class="stat">🧠 Contexts: ${bot.transitions.size}</div>
+    <div class="stat">📚 Knowledge: ${bot.knowledgeBase.size}</div>
+    <div class="stat">💭 Memory: ${bot.conversationMemory.length}</div>
     <div class="stat">👍 ${positive}/${totalFeedback}</div>
     <div class="stat">✨ ${satisfaction}%</div>
-    <div class="stat">🎯 Patterns: ${bot.rewardWeights.size}</div>
+    ${insights.length > 0 ? `<div class="stat insight-badge">${insights[0]}</div>` : ''}
   `;
 }
 
@@ -774,7 +1264,14 @@ document.getElementById('userInput').addEventListener('keypress', (e) => {
   if (e.key === 'Enter') send();
 });
 
-addMessage("Hello! I'm a true next-word Markov chain bot. I generate responses one word at a time based on learned probabilities. Chat with me and use feedback to train me!", false);
+// Initial greeting with reasoning
+setTimeout(() => {
+  addMessage("Hello! I'm an intelligent Markov chain bot with cognitive reasoning capabilities. I think through multiple steps before responding. Try asking me complex questions!", false, null, null, 0.85, [
+    "Initializing cognitive systems...",
+    "Loading reasoning patterns...",
+    "Ready for meaningful conversation!"
+  ]);
+}, 500);
 
 setTimeout(updateStats, 100);
 </script>
