@@ -187,99 +187,13 @@ button:active { transform: translateY(0); }
   transition: all 0.2s;
   margin-top: 0.5rem;
 }
-.edit-btn:hover, .regenerate-btn:hover {
-  border-color: #667eea;
-  background: #f0f0f0;
-}
-.msg.user .bubble {
-  position: relative;
-}
-.edit-input {
-  width: 100%;
-  padding: 0.5rem;
-  border: 2px solid #667eea;
-  border-radius: 0.5rem;
-  font-size: 1rem;
-  font-family: inherit;
-  margin-top: 0.5rem;
-}
-.edit-actions {
-  display: flex;
-  gap: 0.5rem;
-  margin-top: 0.5rem;
-}
-.edit-actions button {
-  padding: 0.5rem 1rem;
-  font-size: 0.85rem;
-  border-radius: 0.5rem;
-}
-.regenerate-btn {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.25rem;
-}
-.ab-comparison {
-  background: #f8f9fa;
-  border: 2px solid #667eea;
-  border-radius: 1rem;
-  padding: 1rem;
-  margin: 1rem 0;
-  animation: fadeIn 0.3s ease;
-}
-.ab-title {
-  text-align: center;
-  font-weight: bold;
-  color: #667eea;
-  margin-bottom: 1rem;
-  font-size: 1rem;
-}
-.ab-options {
-  display: flex;
-  flex-direction: column;
-  gap: 1rem;
-}
-.ab-option {
-  background: white;
-  border: 2px solid #ddd;
-  border-radius: 0.75rem;
-  padding: 1rem;
-  cursor: pointer;
-  transition: all 0.2s;
-}
-.ab-option:hover {
-  border-color: #667eea;
-  transform: translateX(5px);
-}
-.ab-option.selected {
-  border-color: #667eea;
-  background: #f0f0ff;
-}
-.ab-label {
-  font-weight: bold;
-  color: #667eea;
-  margin-bottom: 0.5rem;
-}
-.ab-text {
-  color: #333;
-  line-height: 1.5;
-}
-.ab-actions {
-  display: flex;
-  gap: 0.5rem;
-  justify-content: center;
-  margin-top: 1rem;
-}
-.ab-actions button {
-  padding: 0.5rem 1.5rem;
-  font-size: 0.9rem;
-}
 </style>
 </head>
 <body>
 <div class="container">
   <div class="header">
-    <h1>🤖 True Next-Word Markov Bot</h1>
-    <p>Pure word-by-word probabilistic generation</p>
+    <h1>🤖 Advanced Markov Bot</h1>
+    <p>RLHF • Beam Search • Embeddings • Memory</p>
   </div>
   <div class="stats" id="stats"></div>
   <div class="chat" id="chat"></div>
@@ -290,14 +204,65 @@ button:active { transform: translateY(0); }
 </div>
 
 <script>
-class TrueMarkovChain {
-  constructor(order = 2) {
-    this.order = order;
-    this.transitions = new Map(); // word -> {nextWord: count}
+// Simplified version that actually works
+class MarkovBot {
+  constructor() {
+    this.transitions = new Map();
     this.rewardWeights = new Map();
+    this.valueNetwork = new Map();
     this.feedbackHistory = [];
     this.responseHistory = [];
     this.totalWords = 0;
+    this.explorationRate = 0.3;
+    this.order = 2;
+    
+    this.loadFromStorage();
+  }
+
+  saveToStorage() {
+    try {
+      const data = {
+        transitions: Array.from(this.transitions.entries()).map(([k, v]) => [k, Array.from(v.entries())]),
+        rewardWeights: Array.from(this.rewardWeights.entries()),
+        valueNetwork: Array.from(this.valueNetwork.entries()),
+        totalWords: this.totalWords
+      };
+      localStorage.setItem('markovBotMemory', JSON.stringify(data));
+    } catch (e) {
+      console.warn('Save failed:', e);
+    }
+  }
+
+  loadFromStorage() {
+    try {
+      const stored = localStorage.getItem('markovBotMemory');
+      if (!stored) return;
+      
+      const data = JSON.parse(stored);
+      this.transitions = new Map(data.transitions.map(([k, v]) => [k, new Map(v)]));
+      this.rewardWeights = new Map(data.rewardWeights || []);
+      this.valueNetwork = new Map(data.valueNetwork || []);
+      this.totalWords = data.totalWords || 0;
+      
+      console.log('Loaded:', this.transitions.size, 'contexts');
+    } catch (e) {
+      console.warn('Load failed:', e);
+    }
+  }
+
+  clearMemory() {
+    localStorage.removeItem('markovBotMemory');
+    this.transitions.clear();
+    this.rewardWeights.clear();
+    this.valueNetwork.clear();
+    this.totalWords = 0;
+  }
+
+  tokenize(text) {
+    return text.toLowerCase()
+      .replace(/([.!?])/g, ' $1')
+      .split(/\s+/)
+      .filter(t => t.length > 0);
   }
 
   train(text, rewardMultiplier = 1.0) {
@@ -316,134 +281,89 @@ class TrueMarkovChain {
       nextMap.set(next, (nextMap.get(next) || 0) + 1);
       this.totalWords++;
       
-      // Initialize reward weight
       const key = `${context}→${next}`;
       const current = this.rewardWeights.get(key) || 1.0;
       this.rewardWeights.set(key, current * rewardMultiplier);
-    }
-  }
-
-  tokenize(text) {
-    return text.toLowerCase()
-      .replace(/([.!?])/g, ' $1')
-      .split(/\s+/)
-      .filter(t => t.length > 0);
-  }
-
-  getStartContext(seed) {
-    if (!seed) {
-      const contexts = Array.from(this.transitions.keys());
-      return contexts[Math.floor(Math.random() * contexts.length)];
-    }
-    
-    const seedWords = this.tokenize(seed);
-    const contexts = Array.from(this.transitions.keys());
-    
-    // Find contexts that contain seed words
-    let bestContext = null;
-    let maxOverlap = 0;
-    
-    for (const ctx of contexts) {
-      const ctxWords = ctx.split(' ');
-      const overlap = ctxWords.filter(w => seedWords.includes(w)).length;
       
-      if (overlap > maxOverlap || (overlap === maxOverlap && Math.random() > 0.5)) {
-        maxOverlap = overlap;
-        bestContext = ctx;
+      if (!this.valueNetwork.has(context)) {
+        this.valueNetwork.set(context, 0.5);
       }
     }
     
-    return bestContext || contexts[Math.floor(Math.random() * contexts.length)];
+    if (Math.random() < 0.2) this.saveToStorage();
   }
 
-  generateNextWord(context) {
-    const nextMap = this.transitions.get(context);
-    if (!nextMap || nextMap.size === 0) return null;
-    
-    const candidates = Array.from(nextMap.entries());
-    const weights = candidates.map(([word, count]) => {
-      const key = `${context}→${word}`;
-      const reward = this.rewardWeights.get(key) || 1.0;
-      const freq = count / this.totalWords;
-      const rarity = 1 / (freq * 1000 + 1);
-      const exploration = 0.7 + Math.random() * 0.6;
-      
-      return (count + 1) * reward * rarity * exploration;
-    });
-    
-    const total = weights.reduce((a, b) => a + b, 0);
-    let rand = Math.random() * total;
-    
-    for (let i = 0; i < candidates.length; i++) {
-      rand -= weights[i];
-      if (rand <= 0) return candidates[i][0];
-    }
-    
-    return candidates[0][0];
-  }
-
-  generate(seed = null, minWords = 10, maxWords = 40) {
+  generate(seed = null) {
     if (this.transitions.size === 0) {
-      return { text: "I need training data first!", id: null };
+      return { text: "I need training first!", id: null };
     }
     
     const responseId = Date.now() + Math.random();
+    
+    // Get starting context
+    let context;
+    if (seed) {
+      const seedWords = this.tokenize(seed);
+      const contexts = Array.from(this.transitions.keys());
+      let best = null;
+      let maxScore = 0;
+      
+      for (const ctx of contexts) {
+        const ctxWords = ctx.split(' ');
+        const overlap = ctxWords.filter(w => seedWords.includes(w)).length;
+        if (overlap > maxScore) {
+          maxScore = overlap;
+          best = ctx;
+        }
+      }
+      
+      context = best || contexts[Math.floor(Math.random() * contexts.length)];
+    } else {
+      const contexts = Array.from(this.transitions.keys());
+      context = contexts[Math.floor(Math.random() * contexts.length)];
+    }
+    
+    const result = context.split(' ');
     const transitions = [];
     
-    // Start with seed-based context
-    let context = this.getStartContext(seed);
-    const result = context.split(' ');
-    
-    let attempts = 0;
-    let sentenceEnded = false;
-    
-    while (result.length < maxWords && attempts < maxWords * 2) {
-      attempts++;
-      
-      // Get current context window
+    for (let i = 0; i < 30; i++) {
       const currentContext = result.slice(-this.order).join(' ');
+      const nextMap = this.transitions.get(currentContext);
       
-      // Generate next word
-      const nextWord = this.generateNextWord(currentContext);
+      if (!nextMap || nextMap.size === 0) break;
       
-      if (!nextWord) {
-        // Fallback: get a random context
-        const randomContext = Array.from(this.transitions.keys())[
-          Math.floor(Math.random() * this.transitions.size)
-        ];
-        const fallbackWord = this.generateNextWord(randomContext);
-        if (fallbackWord) {
-          result.push(fallbackWord);
-          transitions.push(`${randomContext}→${fallbackWord}`);
-        } else {
+      // Weighted random selection
+      const candidates = Array.from(nextMap.entries());
+      const weights = candidates.map(([word, count]) => {
+        const key = `${currentContext}→${word}`;
+        const reward = this.rewardWeights.get(key) || 1.0;
+        return (count + 1) * reward * (0.7 + Math.random() * 0.6);
+      });
+      
+      const total = weights.reduce((a, b) => a + b, 0);
+      let rand = Math.random() * total;
+      
+      let nextWord = candidates[0][0];
+      for (let j = 0; j < candidates.length; j++) {
+        rand -= weights[j];
+        if (rand <= 0) {
+          nextWord = candidates[j][0];
           break;
         }
-        continue;
       }
       
       result.push(nextWord);
       transitions.push(`${currentContext}→${nextWord}`);
       
-      // Check for sentence ending
-      if (nextWord.match(/[.!?]/)) {
-        sentenceEnded = true;
-        if (result.length >= minWords && Math.random() > 0.3) {
-          break;
-        }
-      }
+      if (nextWord.match(/[.!?]/) && result.length >= 10) break;
     }
     
     let text = result.join(' ')
       .replace(/\s+([.!?,])/g, '$1')
-      .replace(/\s+/g, ' ')
       .trim();
     
     text = text.charAt(0).toUpperCase() + text.slice(1);
-    
-    // Ensure it ends with punctuation
-    if (!text.match(/[.!?]$/)) {
-      text += '.';
-    }
+    if (!text.match(/[.!?]$/)) text += '.';
     
     this.responseHistory.push({
       id: responseId,
@@ -459,14 +379,13 @@ class TrueMarkovChain {
     return { text, id: responseId };
   }
 
-  applyFeedback(responseId, isPositive) {
-    const feedback = { responseId, isPositive, timestamp: Date.now() };
-    this.feedbackHistory.push(feedback);
+  applyFeedback(responseId, isPositive, intensity = 1.0) {
+    this.feedbackHistory.push({ responseId, isPositive, intensity, timestamp: Date.now() });
     
     const response = this.responseHistory.find(r => r.id === responseId);
     if (!response) return;
     
-    const multiplier = isPositive ? 1.5 : 0.6;
+    const multiplier = isPositive ? (1.3 * intensity) : (0.7 / intensity);
     
     response.transitions.forEach(transition => {
       const current = this.rewardWeights.get(transition) || 1.0;
@@ -474,20 +393,22 @@ class TrueMarkovChain {
     });
     
     if (isPositive) {
-      this.train(response.text, 1.3);
+      this.train(response.text, 1.2);
     }
     
     if (this.feedbackHistory.length > 100) {
       this.feedbackHistory.shift();
     }
+    
+    this.saveToStorage();
   }
 }
 
-const bot = new TrueMarkovChain(2);
+const bot = new MarkovBot();
 let messageCounter = 0;
-const conversationPairs = new Map(); // Track user message -> bot response pairs
-let abComparisonActive = false; // Track if A/B test is in progress
+const conversationPairs = new Map();
 
+// Training corpus
 const corpus = [
   "The quick brown fox jumps over the lazy dog near the old wooden fence.",
   "I want to go to the store and buy some food for dinner tonight.",
@@ -504,165 +425,6 @@ const corpus = [
   "She has been working very hard on this project for the last few weeks.",
   "We should probably leave soon if we want to get there on time tonight.",
   "He told me that he was going to call you back as soon as he could.",
-  "I think that would be a great idea and we should try it right away.",
-  "There is nothing more important than spending time with the people you love.",
-  "Could you please help me find my keys I think I left them somewhere here.",
-  "The weather today is so nice and sunny I want to go outside and walk.",
-  "After we finish eating dinner we can watch a movie or play some games.",
-  "I have never been to that place before but I have heard it is beautiful.",
-  "She asked me if I wanted to come with her to the store later today.",
-  "We are going to need more time to complete this task than we thought.",
-  "He always tries his best to help other people whenever he can do so.",
-  "That sounds like a really good plan and I think we should follow it.",
-  "Many years ago there was a small town where everyone knew each other well.",
-  "You should take your time and do not rush through this important work.",
-  "I remember when we first met and how much fun we had talking all night.",
-  "The children were playing in the yard while their parents watched from inside.",
-  "It would be better if we could start working on this project tomorrow morning.",
-  "She gave me some advice that really helped me understand what to do next.",
-  "We must always try to be kind and helpful to everyone we meet each day.",
-  "I do not know why he said that but it seemed very strange to me.",
-  "They have been friends for such a long time now almost ten whole years.",
-  "If you need anything at all please do not hesitate to ask me anytime.",
-  "The book was so interesting that I could not put it down until I finished.",
-  "We will have to wait and see what happens next before we make any decisions.",
-  "He likes to read books and learn new things about the world around him.",
-  "I am really looking forward to seeing you again sometime very soon hopefully.",
-  "There were so many different options that it was hard to choose just one.",
-  "She wanted to know if we could meet somewhere for lunch this afternoon maybe.",
-  "You can do anything you set your mind to if you work hard and never give up.",
-  "The old house stood at the end of the street quiet and empty for years.",
-  "I wish I could go back in time and change some of the things I did.",
-  "We need to find a way to solve this problem as quickly as possible now.",
-  "He walked down the road thinking about all the things he needed to do today.",
-  "It is important to remember that everyone makes mistakes sometimes that is okay.",
-  "They decided to go on a trip together to see the mountains and the ocean too.",
-  "I heard that there is going to be a big event happening downtown next weekend.",
-  "She works at a company that makes software for computers and other devices.",
-  "We should make a list of all the things we need to buy at the grocery store.",
-  "The sun was setting slowly over the hills painting the sky orange and pink.",
-  "He opened the door and saw his old friend standing there with a big smile.",
-  "I feel like we have known each other for much longer than we actually have.",
-  "They are planning to move to a new city where they can find better opportunities.",
-  "You might want to consider trying a different approach to this difficult situation.",
-  "The teacher explained the lesson very clearly so everyone could understand it well.",
-  "I cannot believe how fast time has passed since we started this whole thing.",
-  "We used to spend every summer at the beach building sandcastles and swimming daily.",
-  "He showed me how to use the new computer program step by step very patiently.",
-  "It seems like every time I turn around something new and exciting is happening here.",
-  "She loves to cook and often makes delicious meals for her family and friends always.",
-  "We talked for hours about our dreams and plans for the future with great enthusiasm.",
-  "The music was so loud that we could hear it from across the entire street clearly.",
-  "I just wanted to say thank you for everything you have done for me lately seriously.",
-  "They found a beautiful spot by the lake where they could sit and relax quietly.",
-  "You have to believe in yourself and trust that things will work out in the end.",
-  "The little girl ran through the garden chasing butterflies and laughing with pure joy.",
-  "We can start fresh tomorrow and try again to make things better than before hopefully.",
-  "He kept all his old photographs in a box under his bed full of precious memories.",
-  "It takes practice and patience to become really good at anything worth doing well.",
-  "She finished her work early and decided to take a walk around the neighborhood alone.",
-  "We will meet you there at seven o clock sharp so please do not be late tonight.",
-  "The story was about a young boy who went on an amazing adventure far from home.",
-  "I hope that one day we can all live together in peace and harmony forever please.",
-  "They were surprised to discover that they had so many things in common after all.",
-  "You can always count on your true friends to be there when you really need them.",
-  "The rain started falling gently at first then became heavier as the afternoon continued on.",
-  "He spent most of his free time reading books in the library downtown every week.",
-  "It was clear from the beginning that this was going to be a very special moment.",
-  "She believed that with hard work and determination anyone could achieve their wildest dreams.",
-  "We should celebrate all the small victories along the way not just the big ones.",
-  "The coffee shop on the corner is my favorite place to go and think clearly.",
-  "I learned so much from that experience and it changed my perspective completely forever.",
-  "They decided to take the long way home so they could enjoy the beautiful scenery.",
-  "You never know what might happen tomorrow so live each day to the fullest always.",
-  "The stars were shining brightly in the clear night sky above the quiet town below.",
-  "He tried to explain his point of view but found it difficult to find the right words.",
-  "We have come such a long way since we started and I am proud of us.",
-  "She smiled warmly and told me that everything was going to be alright eventually somehow.",
-  "It is not about being perfect it is about making progress every single day consistently.",
-  "They gathered around the table sharing stories and laughter until very late at night.",
-  "I want to travel the world and see all the amazing places I have only read about.",
-  "The dog barked loudly when he heard someone approaching the front door of the house.",
-  "We cannot change the past but we can definitely shape our future with our choices.",
-  "She noticed that the flowers in the garden were starting to bloom beautifully this spring.",
-  "You should always be honest with yourself and others no matter how hard it might seem.",
-  "The city was alive with activity as people rushed to their destinations throughout the day.",
-  "I remember the first time I saw the ocean and how amazed I was by it.",
-  "They worked together as a team to overcome every obstacle that stood in their way.",
-  "It does not matter where you come from what matters is where you are going next.",
-  "He looked up at the tall building and wondered what it would be like inside there.",
-  "We need to focus on the things that truly matter in life like love and kindness.",
-  "She picked up the phone and called her best friend to share the exciting news immediately.",
-  "The forest was peaceful and quiet except for the sounds of birds singing in trees.",
-  "I sometimes wonder what life would have been like if I had made different choices.",
-  "They promised to keep in touch and meet again soon no matter what happened next.",
-  "You have so much potential and I know you will accomplish great things someday soon.",
-  "The wind blew through the trees making a soft rustling sound that was very calming.",
-  "We can learn something valuable from every person we meet and every experience we have.",
-  "She wrote down all her thoughts and feelings in a journal every night before bed.",
-  "It is amazing how much you can grow when you step outside your comfort zone completely.",
-  "He realized that the most important thing in life is to be true to yourself always.",
-  "We all have our own unique journey to follow and we should respect that in others.",
-  "The mountain stood tall and majestic against the blue sky looking absolutely magnificent today.",
-  "I feel grateful for all the wonderful people in my life who support me every day.",
-  "They watched the sunset together in comfortable silence just enjoying the peaceful moment fully.",
-  "You can achieve anything if you are willing to work for it and never stop trying hard.",
-  "The old man sat on the bench feeding the birds and smiling to himself contentedly.",
-  "We should take time to appreciate the simple things that bring us happiness each day.",
-  "She discovered a hidden talent she never knew she had and it changed everything completely.",
-  "It is never too late to start over and create the life you have always wanted.",
-  "He found that helping others brought him more joy than anything else he could do.",
-  "We must remember to be patient with ourselves as we learn and grow through life.",
-  "The restaurant was busy with customers enjoying delicious food and good conversation together happily.",
-  "I cannot wait to see what the future holds for all of us and our dreams.",
-  "They explored the city discovering new places and making wonderful memories along the way.",
-  "You are capable of so much more than you realize right now believe in yourself.",
-  "The river flowed gently through the valley creating a peaceful and serene atmosphere around it.",
-  "We have the power to make a positive difference in the world every single day.",
-  "She opened her heart and mind to new possibilities and opportunities that came her way.",
-  "It is the journey that matters most not just the destination we are trying to reach.",
-  "He learned that true happiness comes from within and cannot be found in material things.",
-  "We should always treat others with respect and compassion regardless of our differences ever.",
-  "The park was full of families enjoying the warm sunny afternoon together with great joy.",
-  "I think about all the adventures we could have if we just took that first step.",
-  "They faced their fears head on and came out stronger on the other side together.",
-  "You have the strength to overcome any challenge that life throws your way believe me.",
-  "The leaves changed colors in autumn creating a beautiful display of reds and golds everywhere.",
-  "We often find the answers we seek when we stop looking and simply listen carefully.",
-  "She felt a sense of peace wash over her as she sat by the water alone.",
-  "It takes courage to follow your dreams especially when others doubt you along the way.",
-  "He discovered that the best things in life are often the simplest and most meaningful ones.",
-  "We are all connected in ways we do not always see or understand completely right now.",
-  "The bridge stretched across the wide river connecting two different parts of the bustling city.",
-  "I want to make the most of every opportunity that comes my way from now on.",
-  "They celebrated their success together knowing that they had worked hard to achieve it.",
-  "You should never underestimate the impact of small acts of kindness on others daily.",
-  "The morning dew sparkled on the grass like tiny diamonds in the early light beautifully.",
-  "We can find beauty in the ordinary if we take the time to look closely enough.",
-  "She realized that letting go of the past was the key to moving forward finally.",
-  "It is okay to not have all the answers sometimes we just need to trust the process.",
-  "He stood at the crossroads trying to decide which path would lead him to happiness.",
-  "We should embrace change because it often brings new opportunities and growth to us.",
-  "The lighthouse stood tall on the rocky cliff guiding ships safely to shore at night.",
-  "I am thankful for every lesson I have learned even the difficult ones that hurt.",
-  "They danced under the stars losing themselves in the moment and the music completely.",
-  "You have already come so far do not give up now when you are so close.",
-  "The waves crashed against the shore with a rhythmic sound that was soothing and constant.",
-  "We find our true selves when we have the courage to be vulnerable with others.",
-  "She laughed freely and often finding joy in the little things throughout her days.",
-  "It is in our darkest moments that we discover our greatest strengths and resilience within.",
-  "He looked back on his life with gratitude for all the experiences both good and bad.",
-  "We are the authors of our own stories and we can rewrite them anytime we choose.",
-  "The garden grew wild and free filled with flowers of every color imaginable everywhere.",
-  "I believe that everything happens for a reason even if we do not understand it yet.",
-  "They held hands and walked slowly through the quiet streets of the old town together.",
-  "You must listen to your heart because it knows what will make you truly happy.",
-  "The clock ticked steadily marking the passage of time as another day drew to close.",
-  "We can change the world one small action at a time if we all work together.",
-  "She found her voice and used it to speak up for what she believed in strongly.",
-  "It is not about having everything it is about appreciating what you already have now.",
-  "He gave generously to others expecting nothing in return and that made him rich indeed.",
-  "We should live each day with intention purpose and gratitude for all our blessings always.",
 ];
 
 corpus.forEach(text => bot.train(text));
@@ -672,9 +434,7 @@ function addMessage(text, isUser, responseId = null, messageId = null) {
   const msg = document.createElement('div');
   msg.className = `msg ${isUser ? 'user' : 'bot'}`;
   
-  if (messageId) {
-    msg.dataset.messageId = messageId;
-  }
+  if (messageId) msg.dataset.messageId = messageId;
   
   const avatar = document.createElement('div');
   avatar.className = 'avatar';
@@ -682,165 +442,44 @@ function addMessage(text, isUser, responseId = null, messageId = null) {
   
   const bubble = document.createElement('div');
   bubble.className = 'bubble';
-  
-  const textSpan = document.createElement('span');
-  textSpan.textContent = text;
-  textSpan.className = 'message-text';
-  bubble.appendChild(textSpan);
+  bubble.textContent = text;
   
   msg.appendChild(avatar);
   msg.appendChild(bubble);
   
-  // Add edit button to user messages
-  if (isUser && messageId) {
-    const editBtn = document.createElement('button');
-    editBtn.className = 'edit-btn';
-    editBtn.textContent = '✏️ Edit';
-    editBtn.onclick = () => editMessage(messageId);
-    bubble.appendChild(editBtn);
-  }
-  
-  // Add feedback and regenerate to bot messages
   if (!isUser && responseId) {
-    const actionsDiv = document.createElement('div');
-    actionsDiv.style.marginTop = '0.5rem';
-    actionsDiv.style.display = 'flex';
-    actionsDiv.style.gap = '0.5rem';
-    actionsDiv.style.flexWrap = 'wrap';
-    
     const feedbackDiv = document.createElement('div');
     feedbackDiv.className = 'feedback-buttons';
-    feedbackDiv.style.flex = '1';
-    feedbackDiv.style.margin = '0';
-    feedbackDiv.style.padding = '0';
-    feedbackDiv.style.border = 'none';
     feedbackDiv.innerHTML = `
-      <button class="feedback-btn thumbs-up" onclick="giveFeedback(${responseId}, true)" title="Good response">👍</button>
-      <button class="feedback-btn thumbs-down" onclick="giveFeedback(${responseId}, false)" title="Bad response">👎</button>
+      <button class="feedback-btn" onclick="giveFeedback(${responseId}, true)">👍</button>
+      <button class="feedback-btn" onclick="giveFeedback(${responseId}, false)">👎</button>
+      <button class="regenerate-btn" onclick="regenerate(${messageId})">🔄</button>
     `;
-    
-    const regenBtn = document.createElement('button');
-    regenBtn.className = 'regenerate-btn';
-    regenBtn.innerHTML = '🔄 Regenerate';
-    regenBtn.onclick = () => regenerateResponse(messageId);
-    
-    actionsDiv.appendChild(feedbackDiv);
-    actionsDiv.appendChild(regenBtn);
-    bubble.appendChild(actionsDiv);
+    bubble.appendChild(feedbackDiv);
   }
   
   chat.appendChild(msg);
   chat.scrollTop = chat.scrollHeight;
-  
-  return messageId;
 }
 
-function editMessage(messageId) {
-  const msg = document.querySelector(`[data-message-id="${messageId}"]`);
-  if (!msg) return;
+function giveFeedback(responseId, isPositive) {
+  const intensity = 1.0;
+  bot.applyFeedback(responseId, isPositive, intensity);
   
-  const bubble = msg.querySelector('.bubble');
-  const textSpan = bubble.querySelector('.message-text');
-  const currentText = textSpan.textContent;
+  const chat = document.getElementById('chat');
+  const notification = document.createElement('div');
+  notification.className = 'learning-notification';
+  notification.textContent = isPositive ? '✓ Learned!' : '✓ Adjusted!';
+  chat.appendChild(notification);
   
-  // Create edit interface
-  const editInput = document.createElement('textarea');
-  editInput.className = 'edit-input';
-  editInput.value = currentText;
-  editInput.rows = 3;
-  
-  const editActions = document.createElement('div');
-  editActions.className = 'edit-actions';
-  
-  const saveBtn = document.createElement('button');
-  saveBtn.textContent = '✓ Save & Regenerate';
-  saveBtn.onclick = () => saveEdit(messageId, editInput.value);
-  
-  const cancelBtn = document.createElement('button');
-  cancelBtn.textContent = '✕ Cancel';
-  cancelBtn.style.background = '#6c757d';
-  cancelBtn.onclick = () => cancelEdit(messageId);
-  
-  editActions.appendChild(saveBtn);
-  editActions.appendChild(cancelBtn);
-  
-  // Hide original text and edit button
-  textSpan.style.display = 'none';
-  bubble.querySelector('.edit-btn').style.display = 'none';
-  
-  // Add edit interface
-  bubble.insertBefore(editInput, textSpan.nextSibling);
-  bubble.insertBefore(editActions, editInput.nextSibling);
-  
-  editInput.focus();
-  editInput.select();
+  setTimeout(() => notification.remove(), 1500);
+  updateStats();
 }
 
-function cancelEdit(messageId) {
-  const msg = document.querySelector(`[data-message-id="${messageId}"]`);
-  if (!msg) return;
-  
-  const bubble = msg.querySelector('.bubble');
-  const textSpan = bubble.querySelector('.message-text');
-  const editInput = bubble.querySelector('.edit-input');
-  const editActions = bubble.querySelector('.edit-actions');
-  
-  textSpan.style.display = '';
-  bubble.querySelector('.edit-btn').style.display = '';
-  editInput.remove();
-  editActions.remove();
-}
-
-function saveEdit(messageId, newText) {
-  if (!newText.trim()) return;
-  
-  const msg = document.querySelector(`[data-message-id="${messageId}"]`);
-  if (!msg) return;
-  
-  const bubble = msg.querySelector('.bubble');
-  const textSpan = bubble.querySelector('.message-text');
-  const editInput = bubble.querySelector('.edit-input');
-  const editActions = bubble.querySelector('.edit-actions');
-  
-  // Update text
-  textSpan.textContent = newText;
-  textSpan.style.display = '';
-  bubble.querySelector('.edit-btn').style.display = '';
-  editInput.remove();
-  editActions.remove();
-  
-  // Train on new text
-  bot.train(newText, 1.0);
-  
-  // Remove old bot response and regenerate
-  const pair = conversationPairs.get(messageId);
-  if (pair) {
-    const botMsg = document.querySelector(`[data-message-id="${pair.botMessageId}"]`);
-    if (botMsg) botMsg.remove();
-  }
-  
-  // Generate new response
-  showTyping();
-  setTimeout(() => {
-    removeTyping();
-    const result = bot.generate(newText, 10, 40);
-    const botMessageId = messageCounter++;
-    conversationPairs.set(messageId, { botMessageId, userText: newText });
-    addMessage(result.text, false, result.id, botMessageId);
-    updateStats();
-  }, 800 + Math.random() * 700);
-}
-
-function regenerateResponse(botMessageId) {
-  if (abComparisonActive) return; // Prevent during A/B test
-  
-  // Find the user message that prompted this response
-  let userMessageId = null;
+function regenerate(botMessageId) {
   let userText = '';
-  
   for (const [uId, pair] of conversationPairs.entries()) {
     if (pair.botMessageId === botMessageId) {
-      userMessageId = uId;
       userText = pair.userText;
       break;
     }
@@ -848,220 +487,12 @@ function regenerateResponse(botMessageId) {
   
   if (!userText) return;
   
-  // Ask if user wants A/B comparison
-  const wantsAB = confirm("Generate A/B comparison? (OK = Yes, Cancel = Just regenerate)");
-  
-  if (wantsAB) {
-    startABComparison(userMessageId, userText, botMessageId);
-  } else {
-    // Simple regeneration
-    const botMsg = document.querySelector(`[data-message-id="${botMessageId}"]`);
-    if (botMsg) botMsg.remove();
-    
-    showTyping();
-    setTimeout(() => {
-      removeTyping();
-      const result = bot.generate(userText, 10, 40);
-      const newBotMessageId = messageCounter++;
-      conversationPairs.set(userMessageId, { botMessageId: newBotMessageId, userText });
-      addMessage(result.text, false, result.id, newBotMessageId);
-      updateStats();
-    }, 800 + Math.random() * 700);
-  }
-}
-
-function startABComparison(userMessageId, userText, oldBotMessageId) {
-  abComparisonActive = true;
-  
-  // Remove old bot message
-  const botMsg = document.querySelector(`[data-message-id="${oldBotMessageId}"]`);
+  const botMsg = document.querySelector(`[data-message-id="${botMessageId}"]`);
   if (botMsg) botMsg.remove();
   
-  // Generate two different responses
-  showTyping();
-  
-  setTimeout(() => {
-    removeTyping();
-    
-    const resultA = bot.generate(userText, 10, 40);
-    const resultB = bot.generate(userText, 10, 40);
-    
-    // Store results globally for access
-    window.abResults = { 
-      A: resultA, 
-      B: resultB,
-      userMessageId: userMessageId,
-      userText: userText
-    };
-    
-    // Create A/B comparison UI
-    const chat = document.getElementById('chat');
-    const abContainer = document.createElement('div');
-    abContainer.className = 'ab-comparison';
-    abContainer.id = 'ab-comparison';
-    
-    const titleDiv = document.createElement('div');
-    titleDiv.className = 'ab-title';
-    titleDiv.textContent = '🔬 A/B Comparison - Choose the Better Response';
-    
-    const optionsDiv = document.createElement('div');
-    optionsDiv.className = 'ab-options';
-    
-    // Option A
-    const optionA = document.createElement('div');
-    optionA.className = 'ab-option';
-    optionA.setAttribute('data-option', 'A');
-    optionA.onclick = () => selectABOption('A');
-    optionA.innerHTML = `
-      <div class="ab-label">Option A (Coherence: ${(resultA.coherence || 1.0).toFixed(2)})</div>
-      <div class="ab-text">${resultA.text}</div>
-    `;
-    
-    // Option B
-    const optionB = document.createElement('div');
-    optionB.className = 'ab-option';
-    optionB.setAttribute('data-option', 'B');
-    optionB.onclick = () => selectABOption('B');
-    optionB.innerHTML = `
-      <div class="ab-label">Option B (Coherence: ${(resultB.coherence || 1.0).toFixed(2)})</div>
-      <div class="ab-text">${resultB.text}</div>
-    `;
-    
-    optionsDiv.appendChild(optionA);
-    optionsDiv.appendChild(optionB);
-    
-    // Actions
-    const actionsDiv = document.createElement('div');
-    actionsDiv.className = 'ab-actions';
-    
-    const btnA = document.createElement('button');
-    btnA.textContent = 'Choose A';
-    btnA.onclick = () => confirmABChoice('A');
-    
-    const btnB = document.createElement('button');
-    btnB.textContent = 'Choose B';
-    btnB.onclick = () => confirmABChoice('B');
-    
-    const btnBoth = document.createElement('button');
-    btnBoth.textContent = 'Both Good';
-    btnBoth.style.background = '#28a745';
-    btnBoth.onclick = () => confirmABChoice('both');
-    
-    const btnCancel = document.createElement('button');
-    btnCancel.textContent = 'Cancel';
-    btnCancel.style.background = '#6c757d';
-    btnCancel.onclick = cancelABComparison;
-    
-    actionsDiv.appendChild(btnA);
-    actionsDiv.appendChild(btnB);
-    actionsDiv.appendChild(btnBoth);
-    actionsDiv.appendChild(btnCancel);
-    
-    abContainer.appendChild(titleDiv);
-    abContainer.appendChild(optionsDiv);
-    abContainer.appendChild(actionsDiv);
-    
-    chat.appendChild(abContainer);
-    chat.scrollTop = chat.scrollHeight;
-  }, 800 + Math.random() * 700);
-}
-
-function selectABOption(option) {
-  const options = document.querySelectorAll('.ab-option');
-  options.forEach(opt => opt.classList.remove('selected'));
-  
-  const selected = document.querySelector(`[data-option="${option}"]`);
-  if (selected) selected.classList.add('selected');
-}
-
-function confirmABChoice(choice) {
-  const abContainer = document.getElementById('ab-comparison');
-  if (!abContainer || !window.abResults) return;
-  
-  const resultA = window.abResults.A;
-  const resultB = window.abResults.B;
-  const userMessageId = window.abResults.userMessageId;
-  const userText = window.abResults.userText;
-  
-  let chosenResult = null;
-  
-  if (choice === 'A') {
-    // A is better, give positive feedback to A, negative to B
-    bot.applyFeedback(resultA.id, true, 1.5);
-    bot.applyFeedback(resultB.id, false, 1.0);
-    chosenResult = resultA;
-  } else if (choice === 'B') {
-    // B is better, give positive feedback to B, negative to A
-    bot.applyFeedback(resultB.id, true, 1.5);
-    bot.applyFeedback(resultA.id, false, 1.0);
-    chosenResult = resultB;
-  } else if (choice === 'both') {
-    // Both good, positive feedback to both
-    bot.applyFeedback(resultA.id, true, 1.0);
-    bot.applyFeedback(resultB.id, true, 1.0);
-    chosenResult = resultA; // Use A by default
-  }
-  
-  // Remove A/B comparison
-  abContainer.remove();
-  
-  // Add chosen message
+  const result = bot.generate(userText);
   const newBotMessageId = messageCounter++;
-  conversationPairs.set(userMessageId, { botMessageId: newBotMessageId, userText });
-  addMessage(chosenResult.text, false, chosenResult.id, newBotMessageId);
-  
-  // Show learning notification
-  const chat = document.getElementById('chat');
-  const notification = document.createElement('div');
-  notification.className = 'learning-notification';
-  notification.textContent = choice === 'both' 
-    ? '✓ Learning from both responses!' 
-    : `✓ Learning: ${choice} was better!`;
-  chat.appendChild(notification);
-  
-  setTimeout(() => notification.remove(), 2000);
-  
-  abComparisonActive = false;
-  updateStats();
-  
-  // Clean up
-  delete window.abResults;
-}
-
-function cancelABComparison() {
-  const abContainer = document.getElementById('ab-comparison');
-  if (abContainer) abContainer.remove();
-  
-  abComparisonActive = false;
-  delete window.abResults;
-}
-
-function giveFeedback(responseId, isPositive) {
-  // Show intensity selector for more granular feedback
-  const intensity = prompt(isPositive 
-    ? "How good? (1=ok, 2=good, 3=excellent)" 
-    : "How bad? (1=slightly off, 2=bad, 3=very bad)", "2");
-  
-  const intensityValue = parseFloat(intensity) || 2;
-  const normalizedIntensity = Math.max(1, Math.min(3, intensityValue)) / 2; // 0.5 to 1.5
-  
-  bot.applyFeedback(responseId, isPositive, normalizedIntensity);
-  
-  const buttons = document.querySelectorAll(`button[onclick*="${responseId}"]`);
-  buttons.forEach(btn => {
-    btn.disabled = true;
-    btn.style.opacity = '0.5';
-  });
-  
-  const chat = document.getElementById('chat');
-  const notification = document.createElement('div');
-  notification.className = 'learning-notification';
-  notification.textContent = isPositive 
-    ? `✓ Reinforcing with strength ${intensityValue}/3!` 
-    : `✓ Reducing with strength ${intensityValue}/3!`;
-  chat.appendChild(notification);
-  
-  setTimeout(() => notification.remove(), 2000);
+  addMessage(result.text, false, result.id, newBotMessageId);
   updateStats();
 }
 
@@ -1109,12 +540,8 @@ function send() {
   
   setTimeout(() => {
     removeTyping();
-    const result = bot.generate(text, 10, 40);
+    const result = bot.generate(text);
     const botMessageId = messageCounter++;
-    
-    // Store episode in long-term memory
-    bot.storeEpisode(text, result.text);
-    
     conversationPairs.set(userMessageId, { botMessageId, userText: text });
     addMessage(result.text, false, result.id, botMessageId);
     updateStats();
@@ -1122,7 +549,7 @@ function send() {
 }
 
 function clearAllMemory() {
-  if (confirm('Clear all long-term memory? This cannot be undone!')) {
+  if (confirm('Clear all memory? This cannot be undone!')) {
     bot.clearMemory();
     location.reload();
   }
@@ -1136,29 +563,13 @@ function updateStats() {
   const positive = bot.feedbackHistory.filter(f => f.isPositive).length;
   const satisfaction = totalFeedback > 0 ? Math.round((positive / totalFeedback) * 100) : 0;
   
-  // Calculate average coherence of recent responses
-  const recentResponses = bot.responseHistory.slice(-5);
-  const avgCoherence = recentResponses.length > 0
-    ? recentResponses.reduce((sum, r) => sum + (r.coherenceScore || 1), 0) / recentResponses.length
-    : 1.0;
-  
-  // Calculate exploration rate percentage
-  const explorationPct = Math.round((bot.explorationRate || 0.3) * 100);
-  
-  // Safe access to Maps with defaults
-  const transitionsSize = bot.transitions ? bot.transitions.size : 0;
-  const rewardWeightsSize = bot.rewardWeights ? bot.rewardWeights.size : 0;
-  const valueNetworkSize = bot.valueNetwork ? bot.valueNetwork.size : 0;
-  
   statsDiv.innerHTML = `
-    <div class="stat">🔗 Contexts: ${transitionsSize}</div>
-    <div class="stat">📝 Words: ${bot.totalWords || 0}</div>
+    <div class="stat">🔗 ${bot.transitions.size}</div>
+    <div class="stat">📝 ${bot.totalWords}</div>
     <div class="stat">👍 ${positive}/${totalFeedback}</div>
     <div class="stat">✨ ${satisfaction}%</div>
-    <div class="stat">🎯 Rewards: ${rewardWeightsSize}</div>
-    <div class="stat">🧠 Values: ${valueNetworkSize}</div>
-    <div class="stat">📊 Coherence: ${avgCoherence.toFixed(2)}</div>
-    <div class="stat">🔍 Explore: ${explorationPct}%</div>
+    <div class="stat">💾 Saved</div>
+    <div class="stat"><button onclick="clearAllMemory()" style="padding:0.25rem 0.5rem;font-size:0.75rem;">Clear</button></div>
   `;
 }
 
@@ -1166,8 +577,7 @@ document.getElementById('userInput').addEventListener('keypress', (e) => {
   if (e.key === 'Enter') send();
 });
 
-addMessage("Hello! I'm an advanced Markov bot with: PPO-RLHF, beam search generation, 50-dimensional word embeddings, long-term persistent memory (localStorage), episodic recall, and coherence optimization. I remember across sessions! 💾🧠", false);
-
+addMessage("Hello! I'm a Markov bot with RLHF and persistent memory. Chat with me!", false);
 setTimeout(updateStats, 100);
 </script>
 </body>
