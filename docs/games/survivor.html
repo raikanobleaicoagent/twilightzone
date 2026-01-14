@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Intelligent Markov Chain Chatbot</title>
+<title>Markov Chain Chatbot</title>
 <style>
 * { margin: 0; padding: 0; box-sizing: border-box; }
 body {
@@ -17,14 +17,14 @@ body {
 }
 .container {
   width: 100%;
-  max-width: 800px;
+  max-width: 600px;
   background: white;
   border-radius: 1rem;
   box-shadow: 0 20px 60px rgba(0,0,0,0.3);
   display: flex;
   flex-direction: column;
-  height: 95vh;
-  max-height: 900px;
+  height: 90vh;
+  max-height: 700px;
 }
 .header {
   padding: 1.5rem;
@@ -49,31 +49,6 @@ body {
   align-items: center;
   gap: 0.25rem;
   color: #555;
-}
-.thinking-panel {
-  background: #f8f9fa;
-  border-bottom: 1px solid #e0e0e0;
-  padding: 0.75rem 1rem;
-  font-size: 0.85rem;
-  color: #666;
-  max-height: 200px;
-  overflow-y: auto;
-  border-left: 4px solid #667eea;
-}
-.thinking-step {
-  padding: 0.25rem 0;
-  margin: 0.25rem 0;
-  opacity: 0;
-  animation: fadeInStep 0.3s forwards;
-}
-.thinking-step:nth-child(1) { animation-delay: 0.1s; }
-.thinking-step:nth-child(2) { animation-delay: 0.3s; }
-.thinking-step:nth-child(3) { animation-delay: 0.5s; }
-.thinking-step:nth-child(4) { animation-delay: 0.7s; }
-.thinking-step:nth-child(5) { animation-delay: 0.9s; }
-@keyframes fadeInStep {
-  from { opacity: 0; transform: translateX(-10px); }
-  to { opacity: 1; transform: translateX(0); }
 }
 .chat {
   flex: 1;
@@ -243,102 +218,91 @@ button:active { transform: translateY(0); }
   align-items: center;
   gap: 0.25rem;
 }
-.reasoning-tag {
-  display: inline-block;
-  background: rgba(102, 126, 234, 0.1);
-  color: #667eea;
-  padding: 0.2rem 0.5rem;
-  border-radius: 0.25rem;
-  font-size: 0.8rem;
-  margin: 0.2rem;
-  font-family: monospace;
-}
-.confidence-meter {
-  height: 4px;
-  background: #e0e0e0;
-  border-radius: 2px;
-  margin-top: 0.5rem;
-  overflow: hidden;
-}
-.confidence-fill {
-  height: 100%;
-  background: linear-gradient(90deg, #4caf50, #8bc34a);
-  width: 0%;
-  transition: width 1s ease;
-}
-.insight-badge {
-  background: linear-gradient(135deg, #ff9800, #ff5722);
-  color: white;
-  padding: 0.25rem 0.5rem;
+.ab-comparison {
+  background: #f8f9fa;
+  border: 2px solid #667eea;
   border-radius: 1rem;
-  font-size: 0.75rem;
-  margin-left: 0.5rem;
-  animation: pulse 2s infinite;
+  padding: 1rem;
+  margin: 1rem 0;
+  animation: fadeIn 0.3s ease;
 }
-@keyframes pulse {
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0.7; }
+.ab-title {
+  text-align: center;
+  font-weight: bold;
+  color: #667eea;
+  margin-bottom: 1rem;
+  font-size: 1rem;
+}
+.ab-options {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+.ab-option {
+  background: white;
+  border: 2px solid #ddd;
+  border-radius: 0.75rem;
+  padding: 1rem;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+.ab-option:hover {
+  border-color: #667eea;
+  transform: translateX(5px);
+}
+.ab-option.selected {
+  border-color: #667eea;
+  background: #f0f0ff;
+}
+.ab-label {
+  font-weight: bold;
+  color: #667eea;
+  margin-bottom: 0.5rem;
+}
+.ab-text {
+  color: #333;
+  line-height: 1.5;
+}
+.ab-actions {
+  display: flex;
+  gap: 0.5rem;
+  justify-content: center;
+  margin-top: 1rem;
+}
+.ab-actions button {
+  padding: 0.5rem 1.5rem;
+  font-size: 0.9rem;
 }
 </style>
 </head>
 <body>
 <div class="container">
   <div class="header">
-    <h1>🧠 Intelligent Markov Chain Bot</h1>
-    <p>With multi-step reasoning and cognitive simulation</p>
+    <h1>🤖 True Next-Word Markov Bot</h1>
+    <p>Pure word-by-word probabilistic generation</p>
   </div>
   <div class="stats" id="stats"></div>
-  <div class="thinking-panel" id="thinkingPanel"></div>
   <div class="chat" id="chat"></div>
   <div class="input-area">
-    <input type="text" id="userInput" placeholder="Ask me anything..." />
+    <input type="text" id="userInput" placeholder="Type a message..." />
     <button onclick="send()">Send</button>
   </div>
 </div>
 
 <script>
-class IntelligentMarkovChain {
+class TrueMarkovChain {
   constructor(order = 2) {
     this.order = order;
-    this.transitions = new Map();
+    this.transitions = new Map(); // word -> {nextWord: count}
     this.rewardWeights = new Map();
     this.feedbackHistory = [];
     this.responseHistory = [];
     this.totalWords = 0;
-    this.conversationMemory = [];
-    this.cognitivePatterns = new Map();
-    this.knowledgeBase = new Map();
-    this.reasoningSteps = [];
-    this.maxMemorySize = 20;
-  }
-
-  // Enhanced tokenization with stemming
-  tokenize(text) {
-    return text.toLowerCase()
-      .replace(/([.!?])/g, ' $1')
-      .replace(/[^\w\s.!?]/g, '')
-      .split(/\s+/)
-      .filter(t => t.length > 0)
-      .map(word => this.stemWord(word));
-  }
-
-  stemWord(word) {
-    // Simple stemming for common suffixes
-    const suffixes = ['ing', 'ed', 's', 'es', 'ly', 'ment', 'ness', 'tion'];
-    for (const suffix of suffixes) {
-      if (word.endsWith(suffix) && word.length > suffix.length + 2) {
-        return word.slice(0, -suffix.length);
-      }
-    }
-    return word;
   }
 
   train(text, rewardMultiplier = 1.0) {
     const words = this.tokenize(text);
     if (words.length < this.order + 1) return;
-
-    // Extract and store knowledge patterns
-    this.extractKnowledgePatterns(words);
 
     for (let i = 0; i <= words.length - this.order - 1; i++) {
       const context = words.slice(i, i + this.order).join(' ');
@@ -352,227 +316,18 @@ class IntelligentMarkovChain {
       nextMap.set(next, (nextMap.get(next) || 0) + 1);
       this.totalWords++;
       
+      // Initialize reward weight
       const key = `${context}→${next}`;
       const current = this.rewardWeights.get(key) || 1.0;
       this.rewardWeights.set(key, current * rewardMultiplier);
     }
   }
 
-  extractKnowledgePatterns(words) {
-    // Look for subject-verb-object patterns
-    for (let i = 0; i < words.length - 2; i++) {
-      const triple = words.slice(i, i + 3);
-      const pattern = triple.join(' ');
-      const count = this.knowledgeBase.get(pattern) || 0;
-      this.knowledgeBase.set(pattern, count + 1);
-    }
-  }
-
-  // Cognitive reasoning layer
-  think(input) {
-    this.reasoningSteps = [];
-    const thoughts = [];
-    
-    // Step 1: Understand the input
-    thoughts.push(this.analyzeInput(input));
-    
-    // Step 2: Retrieve relevant knowledge
-    const relevantKnowledge = this.retrieveKnowledge(input);
-    if (relevantKnowledge.length > 0) {
-      thoughts.push(`Found ${relevantKnowledge.length} relevant knowledge patterns`);
-    }
-    
-    // Step 3: Consider conversation context
-    if (this.conversationMemory.length > 0) {
-      thoughts.push(`Considering ${this.conversationMemory.length} previous exchanges`);
-    }
-    
-    // Step 4: Plan response structure
-    thoughts.push(this.planResponse(input));
-    
-    // Step 5: Evaluate potential responses
-    thoughts.push(this.evaluateResponseOptions(input));
-    
-    this.reasoningSteps = thoughts;
-    return thoughts;
-  }
-
-  analyzeInput(input) {
-    const words = this.tokenize(input);
-    const wordCount = words.length;
-    const uniqueWords = new Set(words).size;
-    
-    // Detect question type
-    const isQuestion = input.includes('?');
-    const isWhatQuestion = /what|how|why|when|where/i.test(input);
-    const isOpinionQuestion = /think|believe|opinion|feel/i.test(input);
-    
-    let analysis = `Analyzing: ${wordCount} words, ${uniqueWords} unique`;
-    if (isQuestion) {
-      analysis += ` | Question detected`;
-      if (isWhatQuestion) analysis += ` (factual)`;
-      if (isOpinionQuestion) analysis += ` (opinion-based)`;
-    }
-    
-    // Detect topic
-    const topics = this.detectTopics(words);
-    if (topics.length > 0) {
-      analysis += ` | Topics: ${topics.join(', ')}`;
-    }
-    
-    return analysis;
-  }
-
-  detectTopics(words) {
-    const topicKeywords = {
-      'philosophy': ['think', 'mind', 'conscious', 'truth', 'meaning', 'exist'],
-      'science': ['science', 'experiment', 'theory', 'data', 'research', 'study'],
-      'technology': ['tech', 'computer', 'code', 'digital', 'system', 'algorithm'],
-      'learning': ['learn', 'teach', 'study', 'knowledge', 'educat', 'understand'],
-      'emotion': ['feel', 'emotion', 'love', 'happy', 'sad', 'anger'],
-      'language': ['word', 'speak', 'language', 'communicat', 'mean', 'express']
-    };
-    
-    const detected = [];
-    for (const [topic, keywords] of Object.entries(topicKeywords)) {
-      if (keywords.some(keyword => 
-        words.some(word => word.includes(keyword))
-      )) {
-        detected.push(topic);
-      }
-    }
-    
-    return detected.length > 0 ? detected : ['general'];
-  }
-
-  retrieveKnowledge(input) {
-    const words = this.tokenize(input);
-    const knowledge = [];
-    
-    // Look for matching patterns in knowledge base
-    for (const [pattern, count] of this.knowledgeBase.entries()) {
-      const patternWords = pattern.split(' ');
-      const matches = patternWords.filter(pw => 
-        words.some(w => this.similarity(pw, w) > 0.7)
-      ).length;
-      
-      if (matches >= 2 && count > 1) {
-        knowledge.push({
-          pattern,
-          confidence: Math.min(matches / patternWords.length, 1),
-          frequency: count
-        });
-      }
-    }
-    
-    return knowledge.sort((a, b) => b.confidence - a.confidence).slice(0, 5);
-  }
-
-  planResponse(input) {
-    const words = this.tokenize(input);
-    const isQuestion = input.includes('?');
-    
-    if (isQuestion) {
-      if (words.some(w => ['who', 'what', 'when', 'where'].includes(w))) {
-        return "Planning: Factual response with specific details";
-      } else if (words.some(w => ['why', 'how'].includes(w))) {
-        return "Planning: Explanatory response with reasoning steps";
-      } else if (words.some(w => ['would', 'could', 'should'].includes(w))) {
-        return "Planning: Conditional/hypothetical response";
-      }
-      return "Planning: Direct answer followed by elaboration";
-    }
-    
-    if (words.length < 4) {
-      return "Planning: Expansive response to elaborate on brief input";
-    }
-    
-    return "Planning: Thematic continuation with novel connections";
-  }
-
-  evaluateResponseOptions(input) {
-    const options = [];
-    
-    // Generate candidate starts
-    for (let i = 0; i < 3; i++) {
-      const start = this.getStartContext(input);
-      const firstWord = this.generateNextWord(start);
-      if (firstWord) {
-        options.push({
-          start,
-          firstWord,
-          coherence: this.assessCoherence(start, firstWord),
-          novelty: this.assessNovelty(start, firstWord)
-        });
-      }
-    }
-    
-    if (options.length > 0) {
-      const best = options.sort((a, b) => 
-        (b.coherence * 0.7 + b.novelty * 0.3) - (a.coherence * 0.7 + a.novelty * 0.3)
-      )[0];
-      
-      return `Evaluation: Selected path with ${Math.round(best.coherence * 100)}% coherence, ${Math.round(best.novelty * 100)}% novelty`;
-    }
-    
-    return "Evaluation: Using fallback generation strategy";
-  }
-
-  assessCoherence(context, nextWord) {
-    const nextMap = this.transitions.get(context);
-    if (!nextMap) return 0.5;
-    
-    const count = nextMap.get(nextWord) || 0;
-    const total = Array.from(nextMap.values()).reduce((a, b) => a + b, 0);
-    
-    // Base coherence on frequency
-    const frequencyScore = count / Math.max(total, 1);
-    
-    // Boost for sentence structure
-    const structureBonus = /^[.!?]/.test(nextWord) ? 0.2 : 0;
-    
-    return Math.min(frequencyScore + structureBonus + 0.3, 1);
-  }
-
-  assessNovelty(context, nextWord) {
-    const key = `${context}→${nextWord}`;
-    const weight = this.rewardWeights.get(key) || 1.0;
-    
-    // Novelty is inverse of weight (heavily reinforced paths are less novel)
-    return Math.max(0, 1 - (weight - 1) * 0.5);
-  }
-
-  similarity(a, b) {
-    if (a === b) return 1;
-    const longer = a.length > b.length ? a : b;
-    const shorter = a.length > b.length ? b : a;
-    
-    if (longer.startsWith(shorter)) return 0.9;
-    if (shorter.length === 0) return 0;
-    
-    // Simple Levenshtein-based similarity
-    const distance = this.levenshtein(a, b);
-    return 1 - distance / Math.max(a.length, b.length);
-  }
-
-  levenshtein(a, b) {
-    const matrix = [];
-    for (let i = 0; i <= b.length; i++) matrix[i] = [i];
-    for (let j = 0; j <= a.length; j++) matrix[0][j] = j;
-    
-    for (let i = 1; i <= b.length; i++) {
-      for (let j = 1; j <= a.length; j++) {
-        matrix[i][j] = b.charAt(i-1) === a.charAt(j-1) 
-          ? matrix[i-1][j-1]
-          : Math.min(
-              matrix[i-1][j-1] + 1,
-              matrix[i][j-1] + 1,
-              matrix[i-1][j] + 1
-            );
-      }
-    }
-    
-    return matrix[b.length][a.length];
+  tokenize(text) {
+    return text.toLowerCase()
+      .replace(/([.!?])/g, ' $1')
+      .split(/\s+/)
+      .filter(t => t.length > 0);
   }
 
   getStartContext(seed) {
@@ -582,34 +337,18 @@ class IntelligentMarkovChain {
     }
     
     const seedWords = this.tokenize(seed);
-    if (seedWords.length === 0) {
-      const contexts = Array.from(this.transitions.keys());
-      return contexts[Math.floor(Math.random() * contexts.length)];
-    }
-    
-    // Try to find matching contexts
     const contexts = Array.from(this.transitions.keys());
+    
+    // Find contexts that contain seed words
     let bestContext = null;
-    let bestScore = -1;
+    let maxOverlap = 0;
     
     for (const ctx of contexts) {
       const ctxWords = ctx.split(' ');
-      let score = 0;
+      const overlap = ctxWords.filter(w => seedWords.includes(w)).length;
       
-      // Exact matches
-      seedWords.forEach(sw => {
-        if (ctxWords.includes(sw)) score += 2;
-      });
-      
-      // Similarity matches
-      ctxWords.forEach(cw => {
-        seedWords.forEach(sw => {
-          if (this.similarity(cw, sw) > 0.8) score += 1;
-        });
-      });
-      
-      if (score > bestScore) {
-        bestScore = score;
+      if (overlap > maxOverlap || (overlap === maxOverlap && Math.random() > 0.5)) {
+        maxOverlap = overlap;
         bestContext = ctx;
       }
     }
@@ -627,18 +366,14 @@ class IntelligentMarkovChain {
       const reward = this.rewardWeights.get(key) || 1.0;
       const freq = count / this.totalWords;
       const rarity = 1 / (freq * 1000 + 1);
-      const exploration = 0.5 + Math.random() * 0.5;
+      const exploration = 0.7 + Math.random() * 0.6;
       
-      // Apply cognitive weighting based on recent reasoning
-      const cognitiveWeight = this.reasoningSteps.length > 0 ? 1.2 : 1.0;
-      
-      return (count + 1) * reward * rarity * exploration * cognitiveWeight;
+      return (count + 1) * reward * rarity * exploration;
     });
     
     const total = weights.reduce((a, b) => a + b, 0);
-    if (total === 0) return candidates[0][0];
-    
     let rand = Math.random() * total;
+    
     for (let i = 0; i < candidates.length; i++) {
       rand -= weights[i];
       if (rand <= 0) return candidates[i][0];
@@ -647,113 +382,73 @@ class IntelligentMarkovChain {
     return candidates[0][0];
   }
 
-  generateWithReasoning(seed = null, minWords = 10, maxWords = 50) {
+  generate(seed = null, minWords = 10, maxWords = 40) {
     if (this.transitions.size === 0) {
-      return { 
-        text: "I need more training data to generate meaningful responses!", 
-        id: null,
-        confidence: 0.3 
-      };
+      return { text: "I need training data first!", id: null };
     }
-    
-    // Perform cognitive reasoning
-    this.think(seed || "");
     
     const responseId = Date.now() + Math.random();
     const transitions = [];
     
-    // Get initial context based on reasoning
+    // Start with seed-based context
     let context = this.getStartContext(seed);
     const result = context.split(' ');
     
     let attempts = 0;
     let sentenceEnded = false;
-    let totalConfidence = 0;
-    let wordCount = 0;
     
-    while (result.length < maxWords && attempts < maxWords * 3) {
+    while (result.length < maxWords && attempts < maxWords * 2) {
       attempts++;
       
+      // Get current context window
       const currentContext = result.slice(-this.order).join(' ');
+      
+      // Generate next word
       const nextWord = this.generateNextWord(currentContext);
       
       if (!nextWord) {
-        // Creative leap - find related context
-        const relatedContexts = Array.from(this.transitions.keys())
-          .filter(ctx => {
-            const ctxWords = ctx.split(' ');
-            const lastWords = currentContext.split(' ');
-            return ctxWords.some(cw => 
-              lastWords.some(lw => this.similarity(cw, lw) > 0.7)
-            );
-          });
-        
-        if (relatedContexts.length > 0) {
-          const randomRelated = relatedContexts[
-            Math.floor(Math.random() * relatedContexts.length)
-          ];
-          const fallbackWord = this.generateNextWord(randomRelated);
-          if (fallbackWord) {
-            result.push(fallbackWord);
-            transitions.push(`${randomRelated}→${fallbackWord}`);
-            totalConfidence += 0.6;
-          }
+        // Fallback: get a random context
+        const randomContext = Array.from(this.transitions.keys())[
+          Math.floor(Math.random() * this.transitions.size)
+        ];
+        const fallbackWord = this.generateNextWord(randomContext);
+        if (fallbackWord) {
+          result.push(fallbackWord);
+          transitions.push(`${randomContext}→${fallbackWord}`);
+        } else {
+          break;
         }
         continue;
       }
       
       result.push(nextWord);
       transitions.push(`${currentContext}→${nextWord}`);
-      wordCount++;
-      
-      // Calculate word-level confidence
-      const nextMap = this.transitions.get(currentContext);
-      const count = nextMap ? (nextMap.get(nextWord) || 0) : 0;
-      const total = nextMap ? Array.from(nextMap.values()).reduce((a, b) => a + b, 0) : 1;
-      const wordConfidence = count / total;
-      totalConfidence += wordConfidence;
       
       // Check for sentence ending
       if (nextWord.match(/[.!?]/)) {
         sentenceEnded = true;
-        if (result.length >= minWords && (result.length >= maxWords * 0.7 || Math.random() > 0.4)) {
+        if (result.length >= minWords && Math.random() > 0.3) {
           break;
         }
       }
     }
     
-    // Post-process the generated text
     let text = result.join(' ')
       .replace(/\s+([.!?,])/g, '$1')
       .replace(/\s+/g, ' ')
       .trim();
     
-    // Capitalize and ensure proper punctuation
     text = text.charAt(0).toUpperCase() + text.slice(1);
+    
+    // Ensure it ends with punctuation
     if (!text.match(/[.!?]$/)) {
-      text += Math.random() > 0.5 ? '.' : '!';
+      text += '.';
     }
     
-    // Calculate overall confidence
-    const avgConfidence = wordCount > 0 ? totalConfidence / wordCount : 0.5;
-    const finalConfidence = avgConfidence * 0.7 + 
-      (this.reasoningSteps.length > 2 ? 0.2 : 0.1) + 
-      (sentenceEnded ? 0.1 : 0);
-    
-    // Store in memory
     this.responseHistory.push({
       id: responseId,
       text: text,
       transitions: transitions,
-      reasoning: this.reasoningSteps,
-      confidence: finalConfidence,
-      timestamp: Date.now()
-    });
-    
-    // Update conversation memory
-    this.conversationMemory.push({
-      input: seed,
-      response: text,
       timestamp: Date.now()
     });
     
@@ -761,16 +456,7 @@ class IntelligentMarkovChain {
       this.responseHistory.shift();
     }
     
-    if (this.conversationMemory.length > this.maxMemorySize) {
-      this.conversationMemory.shift();
-    }
-    
-    return { 
-      text, 
-      id: responseId,
-      confidence: finalConfidence,
-      reasoning: this.reasoningSteps 
-    };
+    return { text, id: responseId };
   }
 
   applyFeedback(responseId, isPositive) {
@@ -787,15 +473,7 @@ class IntelligentMarkovChain {
       this.rewardWeights.set(transition, current * multiplier);
     });
     
-    // Also reinforce the reasoning pattern if positive
-    if (isPositive && response.reasoning) {
-      response.reasoning.forEach(step => {
-        const stepKey = `reasoning:${step.substring(0, 50)}`;
-        const current = this.cognitivePatterns.get(stepKey) || 0;
-        this.cognitivePatterns.set(stepKey, current + 1);
-      });
-      
-      // Retrain with enhanced reward
+    if (isPositive) {
       this.train(response.text, 1.3);
     }
     
@@ -803,119 +481,193 @@ class IntelligentMarkovChain {
       this.feedbackHistory.shift();
     }
   }
-
-  getInsights() {
-    const totalResponses = this.responseHistory.length;
-    if (totalResponses === 0) return [];
-    
-    const avgConfidence = this.responseHistory.reduce((sum, r) => 
-      sum + (r.confidence || 0.5), 0) / totalResponses;
-    
-    const commonPatterns = new Map();
-    this.responseHistory.forEach(r => {
-      r.transitions.forEach(t => {
-        commonPatterns.set(t, (commonPatterns.get(t) || 0) + 1);
-      });
-    });
-    
-    const topPatterns = Array.from(commonPatterns.entries())
-      .sort((a, b) => b[1] - a[1])
-      .slice(0, 3)
-      .map(([pattern, count]) => `${pattern} (${count}x)`);
-    
-    return [
-      `Average confidence: ${(avgConfidence * 100).toFixed(1)}%`,
-      `Top patterns: ${topPatterns.join(', ')}`,
-      `Knowledge base: ${this.knowledgeBase.size} patterns`
-    ];
-  }
 }
 
-const bot = new IntelligentMarkovChain(3); // Higher order for more context
+const bot = new TrueMarkovChain(2);
 let messageCounter = 0;
-const conversationPairs = new Map();
+const conversationPairs = new Map(); // Track user message -> bot response pairs
+let abComparisonActive = false; // Track if A/B test is in progress
 
-// Enhanced training corpus with more complex patterns
 const corpus = [
-  "Cognitive thinking involves systematic reasoning about concepts and their relationships.",
-  "Artificial intelligence systems process information through layered neural networks.",
-  "Human consciousness emerges from complex interactions between billions of neurons.",
-  "Learning algorithms adapt their parameters based on feedback and experience.",
-  "Natural language understanding requires semantic analysis of word meanings in context.",
-  "Philosophical inquiry examines fundamental questions about existence and knowledge.",
-  "Scientific methodology relies on hypothesis testing and empirical verification.",
-  "Creative problem solving often involves connecting disparate ideas in novel ways.",
-  "Emotional intelligence encompasses self-awareness and empathy toward others.",
-  "Logical reasoning follows deductive and inductive patterns of inference.",
-  "Memory systems encode store and retrieve information through neural pathways.",
-  "Perceptual systems interpret sensory data to construct meaningful experiences.",
-  "Decision making balances rational analysis with intuitive judgments.",
-  "Communication effectiveness depends on clarity context and shared understanding.",
-  "Metacognition involves thinking about one's own thinking processes.",
-  "Cognitive biases systematically influence human judgment and decision making.",
-  "Neural plasticity allows brain networks to reorganize based on experience.",
-  "Attention mechanisms filter relevant information from environmental stimuli.",
-  "Concept formation organizes experiences into meaningful categories and schemas.",
-  "Problem representation influences how challenges are understood and solved.",
-  "Analogical reasoning transfers knowledge from familiar to novel situations.",
-  "Critical thinking evaluates arguments evidence and underlying assumptions.",
-  "Divergent thinking generates multiple creative solutions to open-ended problems.",
-  "Convergent thinking narrows possibilities to find the optimal solution.",
-  "Systems thinking examines complex interrelationships and feedback loops.",
-  "Abstract reasoning manipulates concepts independent of concrete examples.",
-  "Spatial reasoning mentally manipulates objects and navigates environments.",
-  "Temporal reasoning understands sequences durations and causal relationships.",
-  "Quantitative reasoning applies mathematical concepts to real-world situations.",
-  "Verbal reasoning comprehends and analyzes written and spoken language.",
-  "Visual thinking processes and interprets images patterns and diagrams.",
-  "Auditory reasoning distinguishes patterns in sounds music and speech.",
-  "Kinesthetic thinking involves physical movement and spatial awareness.",
-  "Interpersonal reasoning understands social dynamics and relationships.",
-  "Intrapersonal reasoning reflects on one's own thoughts and emotions.",
-  "Existential reasoning contemplates meaning purpose and human condition.",
-  "Ethical reasoning evaluates moral principles and right conduct.",
-  "Aesthetic reasoning appreciates beauty harmony and artistic expression.",
-  "Practical reasoning applies knowledge to everyday situations and problems.",
-  "Strategic thinking plans long-term actions to achieve desired outcomes.",
-  "Tactical thinking executes immediate actions within strategic frameworks.",
-  "Lateral thinking approaches problems from unexpected angles and perspectives.",
-  "Vertical thinking progresses logically step by step through problems.",
-  "Holistic thinking considers entire systems rather than isolated parts.",
-  "Reductionist thinking analyzes complex phenomena into simpler components.",
-  "Synthetic thinking combines elements into coherent unified wholes.",
-  "Analytical thinking breaks down information into constituent parts.",
-  "Intuitive thinking reaches conclusions without conscious reasoning steps.",
-  "Deliberative thinking carefully weighs alternatives before deciding.",
-  "Heuristic thinking uses mental shortcuts to make efficient judgments."
+  "The quick brown fox jumps over the lazy dog near the old wooden fence.",
+  "I want to go to the store and buy some food for dinner tonight.",
+  "She said that he would come back later in the day to help us.",
+  "We need to make sure that everything is ready before they arrive here.",
+  "Can you tell me what time it is right now please thank you very much.",
+  "There are many people who live in this city and work every single day.",
+  "When you see him can you ask if he knows where she went yesterday.",
+  "They will have to do all of the work by themselves without any help.",
+  "It was a very good day and we had so much fun at the park together.",
+  "How are you doing today I hope you are feeling well and happy now.",
+  "This is the best thing that has ever happened to me in my whole life.",
+  "Do you know how to get there from here because I am not sure at all.",
+  "She has been working very hard on this project for the last few weeks.",
+  "We should probably leave soon if we want to get there on time tonight.",
+  "He told me that he was going to call you back as soon as he could.",
+  "I think that would be a great idea and we should try it right away.",
+  "There is nothing more important than spending time with the people you love.",
+  "Could you please help me find my keys I think I left them somewhere here.",
+  "The weather today is so nice and sunny I want to go outside and walk.",
+  "After we finish eating dinner we can watch a movie or play some games.",
+  "I have never been to that place before but I have heard it is beautiful.",
+  "She asked me if I wanted to come with her to the store later today.",
+  "We are going to need more time to complete this task than we thought.",
+  "He always tries his best to help other people whenever he can do so.",
+  "That sounds like a really good plan and I think we should follow it.",
+  "Many years ago there was a small town where everyone knew each other well.",
+  "You should take your time and do not rush through this important work.",
+  "I remember when we first met and how much fun we had talking all night.",
+  "The children were playing in the yard while their parents watched from inside.",
+  "It would be better if we could start working on this project tomorrow morning.",
+  "She gave me some advice that really helped me understand what to do next.",
+  "We must always try to be kind and helpful to everyone we meet each day.",
+  "I do not know why he said that but it seemed very strange to me.",
+  "They have been friends for such a long time now almost ten whole years.",
+  "If you need anything at all please do not hesitate to ask me anytime.",
+  "The book was so interesting that I could not put it down until I finished.",
+  "We will have to wait and see what happens next before we make any decisions.",
+  "He likes to read books and learn new things about the world around him.",
+  "I am really looking forward to seeing you again sometime very soon hopefully.",
+  "There were so many different options that it was hard to choose just one.",
+  "She wanted to know if we could meet somewhere for lunch this afternoon maybe.",
+  "You can do anything you set your mind to if you work hard and never give up.",
+  "The old house stood at the end of the street quiet and empty for years.",
+  "I wish I could go back in time and change some of the things I did.",
+  "We need to find a way to solve this problem as quickly as possible now.",
+  "He walked down the road thinking about all the things he needed to do today.",
+  "It is important to remember that everyone makes mistakes sometimes that is okay.",
+  "They decided to go on a trip together to see the mountains and the ocean too.",
+  "I heard that there is going to be a big event happening downtown next weekend.",
+  "She works at a company that makes software for computers and other devices.",
+  "We should make a list of all the things we need to buy at the grocery store.",
+  "The sun was setting slowly over the hills painting the sky orange and pink.",
+  "He opened the door and saw his old friend standing there with a big smile.",
+  "I feel like we have known each other for much longer than we actually have.",
+  "They are planning to move to a new city where they can find better opportunities.",
+  "You might want to consider trying a different approach to this difficult situation.",
+  "The teacher explained the lesson very clearly so everyone could understand it well.",
+  "I cannot believe how fast time has passed since we started this whole thing.",
+  "We used to spend every summer at the beach building sandcastles and swimming daily.",
+  "He showed me how to use the new computer program step by step very patiently.",
+  "It seems like every time I turn around something new and exciting is happening here.",
+  "She loves to cook and often makes delicious meals for her family and friends always.",
+  "We talked for hours about our dreams and plans for the future with great enthusiasm.",
+  "The music was so loud that we could hear it from across the entire street clearly.",
+  "I just wanted to say thank you for everything you have done for me lately seriously.",
+  "They found a beautiful spot by the lake where they could sit and relax quietly.",
+  "You have to believe in yourself and trust that things will work out in the end.",
+  "The little girl ran through the garden chasing butterflies and laughing with pure joy.",
+  "We can start fresh tomorrow and try again to make things better than before hopefully.",
+  "He kept all his old photographs in a box under his bed full of precious memories.",
+  "It takes practice and patience to become really good at anything worth doing well.",
+  "She finished her work early and decided to take a walk around the neighborhood alone.",
+  "We will meet you there at seven o clock sharp so please do not be late tonight.",
+  "The story was about a young boy who went on an amazing adventure far from home.",
+  "I hope that one day we can all live together in peace and harmony forever please.",
+  "They were surprised to discover that they had so many things in common after all.",
+  "You can always count on your true friends to be there when you really need them.",
+  "The rain started falling gently at first then became heavier as the afternoon continued on.",
+  "He spent most of his free time reading books in the library downtown every week.",
+  "It was clear from the beginning that this was going to be a very special moment.",
+  "She believed that with hard work and determination anyone could achieve their wildest dreams.",
+  "We should celebrate all the small victories along the way not just the big ones.",
+  "The coffee shop on the corner is my favorite place to go and think clearly.",
+  "I learned so much from that experience and it changed my perspective completely forever.",
+  "They decided to take the long way home so they could enjoy the beautiful scenery.",
+  "You never know what might happen tomorrow so live each day to the fullest always.",
+  "The stars were shining brightly in the clear night sky above the quiet town below.",
+  "He tried to explain his point of view but found it difficult to find the right words.",
+  "We have come such a long way since we started and I am proud of us.",
+  "She smiled warmly and told me that everything was going to be alright eventually somehow.",
+  "It is not about being perfect it is about making progress every single day consistently.",
+  "They gathered around the table sharing stories and laughter until very late at night.",
+  "I want to travel the world and see all the amazing places I have only read about.",
+  "The dog barked loudly when he heard someone approaching the front door of the house.",
+  "We cannot change the past but we can definitely shape our future with our choices.",
+  "She noticed that the flowers in the garden were starting to bloom beautifully this spring.",
+  "You should always be honest with yourself and others no matter how hard it might seem.",
+  "The city was alive with activity as people rushed to their destinations throughout the day.",
+  "I remember the first time I saw the ocean and how amazed I was by it.",
+  "They worked together as a team to overcome every obstacle that stood in their way.",
+  "It does not matter where you come from what matters is where you are going next.",
+  "He looked up at the tall building and wondered what it would be like inside there.",
+  "We need to focus on the things that truly matter in life like love and kindness.",
+  "She picked up the phone and called her best friend to share the exciting news immediately.",
+  "The forest was peaceful and quiet except for the sounds of birds singing in trees.",
+  "I sometimes wonder what life would have been like if I had made different choices.",
+  "They promised to keep in touch and meet again soon no matter what happened next.",
+  "You have so much potential and I know you will accomplish great things someday soon.",
+  "The wind blew through the trees making a soft rustling sound that was very calming.",
+  "We can learn something valuable from every person we meet and every experience we have.",
+  "She wrote down all her thoughts and feelings in a journal every night before bed.",
+  "It is amazing how much you can grow when you step outside your comfort zone completely.",
+  "He realized that the most important thing in life is to be true to yourself always.",
+  "We all have our own unique journey to follow and we should respect that in others.",
+  "The mountain stood tall and majestic against the blue sky looking absolutely magnificent today.",
+  "I feel grateful for all the wonderful people in my life who support me every day.",
+  "They watched the sunset together in comfortable silence just enjoying the peaceful moment fully.",
+  "You can achieve anything if you are willing to work for it and never stop trying hard.",
+  "The old man sat on the bench feeding the birds and smiling to himself contentedly.",
+  "We should take time to appreciate the simple things that bring us happiness each day.",
+  "She discovered a hidden talent she never knew she had and it changed everything completely.",
+  "It is never too late to start over and create the life you have always wanted.",
+  "He found that helping others brought him more joy than anything else he could do.",
+  "We must remember to be patient with ourselves as we learn and grow through life.",
+  "The restaurant was busy with customers enjoying delicious food and good conversation together happily.",
+  "I cannot wait to see what the future holds for all of us and our dreams.",
+  "They explored the city discovering new places and making wonderful memories along the way.",
+  "You are capable of so much more than you realize right now believe in yourself.",
+  "The river flowed gently through the valley creating a peaceful and serene atmosphere around it.",
+  "We have the power to make a positive difference in the world every single day.",
+  "She opened her heart and mind to new possibilities and opportunities that came her way.",
+  "It is the journey that matters most not just the destination we are trying to reach.",
+  "He learned that true happiness comes from within and cannot be found in material things.",
+  "We should always treat others with respect and compassion regardless of our differences ever.",
+  "The park was full of families enjoying the warm sunny afternoon together with great joy.",
+  "I think about all the adventures we could have if we just took that first step.",
+  "They faced their fears head on and came out stronger on the other side together.",
+  "You have the strength to overcome any challenge that life throws your way believe me.",
+  "The leaves changed colors in autumn creating a beautiful display of reds and golds everywhere.",
+  "We often find the answers we seek when we stop looking and simply listen carefully.",
+  "She felt a sense of peace wash over her as she sat by the water alone.",
+  "It takes courage to follow your dreams especially when others doubt you along the way.",
+  "He discovered that the best things in life are often the simplest and most meaningful ones.",
+  "We are all connected in ways we do not always see or understand completely right now.",
+  "The bridge stretched across the wide river connecting two different parts of the bustling city.",
+  "I want to make the most of every opportunity that comes my way from now on.",
+  "They celebrated their success together knowing that they had worked hard to achieve it.",
+  "You should never underestimate the impact of small acts of kindness on others daily.",
+  "The morning dew sparkled on the grass like tiny diamonds in the early light beautifully.",
+  "We can find beauty in the ordinary if we take the time to look closely enough.",
+  "She realized that letting go of the past was the key to moving forward finally.",
+  "It is okay to not have all the answers sometimes we just need to trust the process.",
+  "He stood at the crossroads trying to decide which path would lead him to happiness.",
+  "We should embrace change because it often brings new opportunities and growth to us.",
+  "The lighthouse stood tall on the rocky cliff guiding ships safely to shore at night.",
+  "I am thankful for every lesson I have learned even the difficult ones that hurt.",
+  "They danced under the stars losing themselves in the moment and the music completely.",
+  "You have already come so far do not give up now when you are so close.",
+  "The waves crashed against the shore with a rhythmic sound that was soothing and constant.",
+  "We find our true selves when we have the courage to be vulnerable with others.",
+  "She laughed freely and often finding joy in the little things throughout her days.",
+  "It is in our darkest moments that we discover our greatest strengths and resilience within.",
+  "He looked back on his life with gratitude for all the experiences both good and bad.",
+  "We are the authors of our own stories and we can rewrite them anytime we choose.",
+  "The garden grew wild and free filled with flowers of every color imaginable everywhere.",
+  "I believe that everything happens for a reason even if we do not understand it yet.",
+  "They held hands and walked slowly through the quiet streets of the old town together.",
+  "You must listen to your heart because it knows what will make you truly happy.",
+  "The clock ticked steadily marking the passage of time as another day drew to close.",
+  "We can change the world one small action at a time if we all work together.",
+  "She found her voice and used it to speak up for what she believed in strongly.",
+  "It is not about having everything it is about appreciating what you already have now.",
+  "He gave generously to others expecting nothing in return and that made him rich indeed.",
+  "We should live each day with intention purpose and gratitude for all our blessings always.",
 ];
 
 corpus.forEach(text => bot.train(text));
 
-// Initialize with some reasoning
-bot.think("initialization");
-
-function showThinking(reasoningSteps) {
-  const panel = document.getElementById('thinkingPanel');
-  panel.innerHTML = '<strong>🤔 Thinking Process:</strong>';
-  
-  reasoningSteps.forEach((step, index) => {
-    const stepDiv = document.createElement('div');
-    stepDiv.className = 'thinking-step';
-    stepDiv.innerHTML = `→ ${step}`;
-    panel.appendChild(stepDiv);
-  });
-  
-  panel.style.display = 'block';
-  panel.scrollTop = panel.scrollHeight;
-}
-
-function hideThinking() {
-  const panel = document.getElementById('thinkingPanel');
-  panel.style.display = 'none';
-  panel.innerHTML = '';
-}
-
-function addMessage(text, isUser, responseId = null, messageId = null, confidence = null, reasoning = null) {
+function addMessage(text, isUser, responseId = null, messageId = null) {
   const chat = document.getElementById('chat');
   const msg = document.createElement('div');
   msg.className = `msg ${isUser ? 'user' : 'bot'}`;
@@ -935,36 +687,6 @@ function addMessage(text, isUser, responseId = null, messageId = null, confidenc
   textSpan.textContent = text;
   textSpan.className = 'message-text';
   bubble.appendChild(textSpan);
-  
-  // Add confidence meter for bot messages
-  if (!isUser && confidence !== null) {
-    const confidenceDiv = document.createElement('div');
-    confidenceDiv.className = 'confidence-meter';
-    const fill = document.createElement('div');
-    fill.className = 'confidence-fill';
-    setTimeout(() => {
-      fill.style.width = `${confidence * 100}%`;
-    }, 100);
-    confidenceDiv.appendChild(fill);
-    bubble.appendChild(confidenceDiv);
-    
-    // Add confidence percentage
-    const confidenceText = document.createElement('div');
-    confidenceText.style.fontSize = '0.8rem';
-    confidenceText.style.color = '#666';
-    confidenceText.style.marginTop = '0.25rem';
-    confidenceText.textContent = `Confidence: ${(confidence * 100).toFixed(1)}%`;
-    bubble.appendChild(confidenceText);
-    
-    // Show reasoning insights button
-    if (reasoning && reasoning.length > 0) {
-      const insightBtn = document.createElement('button');
-      insightBtn.className = 'edit-btn';
-      insightBtn.textContent = '🧠 Show Reasoning';
-      insightBtn.onclick = () => showReasoningDetails(reasoning);
-      bubble.appendChild(insightBtn);
-    }
-  }
   
   msg.appendChild(avatar);
   msg.appendChild(bubble);
@@ -1013,35 +735,6 @@ function addMessage(text, isUser, responseId = null, messageId = null, confidenc
   return messageId;
 }
 
-function showReasoningDetails(reasoning) {
-  const details = document.createElement('div');
-  details.style.padding = '1rem';
-  details.style.background = '#f8f9fa';
-  details.style.borderRadius = '0.5rem';
-  details.style.marginTop = '0.5rem';
-  details.style.border = '1px solid #e0e0e0';
-  
-  details.innerHTML = '<strong>Reasoning Steps:</strong><br>';
-  reasoning.forEach((step, i) => {
-    details.innerHTML += `${i + 1}. ${step}<br>`;
-  });
-  
-  // Find the message and add details
-  const messages = document.querySelectorAll('.msg.bot');
-  const lastMsg = messages[messages.length - 1];
-  if (lastMsg) {
-    const bubble = lastMsg.querySelector('.bubble');
-    bubble.appendChild(details);
-    
-    // Add close button
-    const closeBtn = document.createElement('button');
-    closeBtn.textContent = 'Close';
-    closeBtn.style.marginTop = '0.5rem';
-    closeBtn.onclick = () => details.remove();
-    details.appendChild(closeBtn);
-  }
-}
-
 function editMessage(messageId) {
   const msg = document.querySelector(`[data-message-id="${messageId}"]`);
   if (!msg) return;
@@ -1050,6 +743,7 @@ function editMessage(messageId) {
   const textSpan = bubble.querySelector('.message-text');
   const currentText = textSpan.textContent;
   
+  // Create edit interface
   const editInput = document.createElement('textarea');
   editInput.className = 'edit-input';
   editInput.value = currentText;
@@ -1070,9 +764,11 @@ function editMessage(messageId) {
   editActions.appendChild(saveBtn);
   editActions.appendChild(cancelBtn);
   
+  // Hide original text and edit button
   textSpan.style.display = 'none';
   bubble.querySelector('.edit-btn').style.display = 'none';
   
+  // Add edit interface
   bubble.insertBefore(editInput, textSpan.nextSibling);
   bubble.insertBefore(editActions, editInput.nextSibling);
   
@@ -1106,33 +802,39 @@ function saveEdit(messageId, newText) {
   const editInput = bubble.querySelector('.edit-input');
   const editActions = bubble.querySelector('.edit-actions');
   
+  // Update text
   textSpan.textContent = newText;
   textSpan.style.display = '';
   bubble.querySelector('.edit-btn').style.display = '';
   editInput.remove();
   editActions.remove();
   
+  // Train on new text
   bot.train(newText, 1.0);
   
+  // Remove old bot response and regenerate
   const pair = conversationPairs.get(messageId);
   if (pair) {
     const botMsg = document.querySelector(`[data-message-id="${pair.botMessageId}"]`);
     if (botMsg) botMsg.remove();
   }
   
-  showThinking(["Re-thinking based on edited input..."]);
-  
+  // Generate new response
+  showTyping();
   setTimeout(() => {
-    hideThinking();
-    const result = bot.generateWithReasoning(newText, 12, 50);
+    removeTyping();
+    const result = bot.generate(newText, 10, 40);
     const botMessageId = messageCounter++;
     conversationPairs.set(messageId, { botMessageId, userText: newText });
-    addMessage(result.text, false, result.id, botMessageId, result.confidence, result.reasoning);
+    addMessage(result.text, false, result.id, botMessageId);
     updateStats();
-  }, 1000 + Math.random() * 800);
+  }, 800 + Math.random() * 700);
 }
 
 function regenerateResponse(botMessageId) {
+  if (abComparisonActive) return; // Prevent during A/B test
+  
+  // Find the user message that prompted this response
   let userMessageId = null;
   let userText = '';
   
@@ -1146,23 +848,204 @@ function regenerateResponse(botMessageId) {
   
   if (!userText) return;
   
-  const botMsg = document.querySelector(`[data-message-id="${botMessageId}"]`);
+  // Ask if user wants A/B comparison
+  const wantsAB = confirm("Generate A/B comparison? (OK = Yes, Cancel = Just regenerate)");
+  
+  if (wantsAB) {
+    startABComparison(userMessageId, userText, botMessageId);
+  } else {
+    // Simple regeneration
+    const botMsg = document.querySelector(`[data-message-id="${botMessageId}"]`);
+    if (botMsg) botMsg.remove();
+    
+    showTyping();
+    setTimeout(() => {
+      removeTyping();
+      const result = bot.generate(userText, 10, 40);
+      const newBotMessageId = messageCounter++;
+      conversationPairs.set(userMessageId, { botMessageId: newBotMessageId, userText });
+      addMessage(result.text, false, result.id, newBotMessageId);
+      updateStats();
+    }, 800 + Math.random() * 700);
+  }
+}
+
+function startABComparison(userMessageId, userText, oldBotMessageId) {
+  abComparisonActive = true;
+  
+  // Remove old bot message
+  const botMsg = document.querySelector(`[data-message-id="${oldBotMessageId}"]`);
   if (botMsg) botMsg.remove();
   
-  showThinking(["Re-evaluating and generating alternative response..."]);
+  // Generate two different responses
+  showTyping();
   
   setTimeout(() => {
-    hideThinking();
-    const result = bot.generateWithReasoning(userText, 12, 50);
-    const newBotMessageId = messageCounter++;
-    conversationPairs.set(userMessageId, { botMessageId: newBotMessageId, userText });
-    addMessage(result.text, false, result.id, newBotMessageId, result.confidence, result.reasoning);
-    updateStats();
-  }, 1000 + Math.random() * 800);
+    removeTyping();
+    
+    const resultA = bot.generate(userText, 10, 40);
+    const resultB = bot.generate(userText, 10, 40);
+    
+    // Store results globally for access
+    window.abResults = { 
+      A: resultA, 
+      B: resultB,
+      userMessageId: userMessageId,
+      userText: userText
+    };
+    
+    // Create A/B comparison UI
+    const chat = document.getElementById('chat');
+    const abContainer = document.createElement('div');
+    abContainer.className = 'ab-comparison';
+    abContainer.id = 'ab-comparison';
+    
+    const titleDiv = document.createElement('div');
+    titleDiv.className = 'ab-title';
+    titleDiv.textContent = '🔬 A/B Comparison - Choose the Better Response';
+    
+    const optionsDiv = document.createElement('div');
+    optionsDiv.className = 'ab-options';
+    
+    // Option A
+    const optionA = document.createElement('div');
+    optionA.className = 'ab-option';
+    optionA.setAttribute('data-option', 'A');
+    optionA.onclick = () => selectABOption('A');
+    optionA.innerHTML = `
+      <div class="ab-label">Option A (Coherence: ${(resultA.coherence || 1.0).toFixed(2)})</div>
+      <div class="ab-text">${resultA.text}</div>
+    `;
+    
+    // Option B
+    const optionB = document.createElement('div');
+    optionB.className = 'ab-option';
+    optionB.setAttribute('data-option', 'B');
+    optionB.onclick = () => selectABOption('B');
+    optionB.innerHTML = `
+      <div class="ab-label">Option B (Coherence: ${(resultB.coherence || 1.0).toFixed(2)})</div>
+      <div class="ab-text">${resultB.text}</div>
+    `;
+    
+    optionsDiv.appendChild(optionA);
+    optionsDiv.appendChild(optionB);
+    
+    // Actions
+    const actionsDiv = document.createElement('div');
+    actionsDiv.className = 'ab-actions';
+    
+    const btnA = document.createElement('button');
+    btnA.textContent = 'Choose A';
+    btnA.onclick = () => confirmABChoice('A');
+    
+    const btnB = document.createElement('button');
+    btnB.textContent = 'Choose B';
+    btnB.onclick = () => confirmABChoice('B');
+    
+    const btnBoth = document.createElement('button');
+    btnBoth.textContent = 'Both Good';
+    btnBoth.style.background = '#28a745';
+    btnBoth.onclick = () => confirmABChoice('both');
+    
+    const btnCancel = document.createElement('button');
+    btnCancel.textContent = 'Cancel';
+    btnCancel.style.background = '#6c757d';
+    btnCancel.onclick = cancelABComparison;
+    
+    actionsDiv.appendChild(btnA);
+    actionsDiv.appendChild(btnB);
+    actionsDiv.appendChild(btnBoth);
+    actionsDiv.appendChild(btnCancel);
+    
+    abContainer.appendChild(titleDiv);
+    abContainer.appendChild(optionsDiv);
+    abContainer.appendChild(actionsDiv);
+    
+    chat.appendChild(abContainer);
+    chat.scrollTop = chat.scrollHeight;
+  }, 800 + Math.random() * 700);
+}
+
+function selectABOption(option) {
+  const options = document.querySelectorAll('.ab-option');
+  options.forEach(opt => opt.classList.remove('selected'));
+  
+  const selected = document.querySelector(`[data-option="${option}"]`);
+  if (selected) selected.classList.add('selected');
+}
+
+function confirmABChoice(choice) {
+  const abContainer = document.getElementById('ab-comparison');
+  if (!abContainer || !window.abResults) return;
+  
+  const resultA = window.abResults.A;
+  const resultB = window.abResults.B;
+  const userMessageId = window.abResults.userMessageId;
+  const userText = window.abResults.userText;
+  
+  let chosenResult = null;
+  
+  if (choice === 'A') {
+    // A is better, give positive feedback to A, negative to B
+    bot.applyFeedback(resultA.id, true, 1.5);
+    bot.applyFeedback(resultB.id, false, 1.0);
+    chosenResult = resultA;
+  } else if (choice === 'B') {
+    // B is better, give positive feedback to B, negative to A
+    bot.applyFeedback(resultB.id, true, 1.5);
+    bot.applyFeedback(resultA.id, false, 1.0);
+    chosenResult = resultB;
+  } else if (choice === 'both') {
+    // Both good, positive feedback to both
+    bot.applyFeedback(resultA.id, true, 1.0);
+    bot.applyFeedback(resultB.id, true, 1.0);
+    chosenResult = resultA; // Use A by default
+  }
+  
+  // Remove A/B comparison
+  abContainer.remove();
+  
+  // Add chosen message
+  const newBotMessageId = messageCounter++;
+  conversationPairs.set(userMessageId, { botMessageId: newBotMessageId, userText });
+  addMessage(chosenResult.text, false, chosenResult.id, newBotMessageId);
+  
+  // Show learning notification
+  const chat = document.getElementById('chat');
+  const notification = document.createElement('div');
+  notification.className = 'learning-notification';
+  notification.textContent = choice === 'both' 
+    ? '✓ Learning from both responses!' 
+    : `✓ Learning: ${choice} was better!`;
+  chat.appendChild(notification);
+  
+  setTimeout(() => notification.remove(), 2000);
+  
+  abComparisonActive = false;
+  updateStats();
+  
+  // Clean up
+  delete window.abResults;
+}
+
+function cancelABComparison() {
+  const abContainer = document.getElementById('ab-comparison');
+  if (abContainer) abContainer.remove();
+  
+  abComparisonActive = false;
+  delete window.abResults;
 }
 
 function giveFeedback(responseId, isPositive) {
-  bot.applyFeedback(responseId, isPositive);
+  // Show intensity selector for more granular feedback
+  const intensity = prompt(isPositive 
+    ? "How good? (1=ok, 2=good, 3=excellent)" 
+    : "How bad? (1=slightly off, 2=bad, 3=very bad)", "2");
+  
+  const intensityValue = parseFloat(intensity) || 2;
+  const normalizedIntensity = Math.max(1, Math.min(3, intensityValue)) / 2; // 0.5 to 1.5
+  
+  bot.applyFeedback(responseId, isPositive, normalizedIntensity);
   
   const buttons = document.querySelectorAll(`button[onclick*="${responseId}"]`);
   buttons.forEach(btn => {
@@ -1174,11 +1057,11 @@ function giveFeedback(responseId, isPositive) {
   const notification = document.createElement('div');
   notification.className = 'learning-notification';
   notification.textContent = isPositive 
-    ? '✓ Reinforcing successful reasoning patterns!' 
-    : '✓ Adjusting cognitive patterns based on feedback!';
+    ? `✓ Reinforcing with strength ${intensityValue}/3!` 
+    : `✓ Reducing with strength ${intensityValue}/3!`;
   chat.appendChild(notification);
   
-  setTimeout(() => notification.remove(), 3000);
+  setTimeout(() => notification.remove(), 2000);
   updateStats();
 }
 
@@ -1222,22 +1105,16 @@ function send() {
   bot.train(text, 1.0);
   input.value = '';
   
-  showThinking(["Processing your message...", "Activating cognitive reasoning..."]);
   showTyping();
   
   setTimeout(() => {
-    showThinking(bot.think(text));
-  }, 500);
-  
-  setTimeout(() => {
     removeTyping();
-    hideThinking();
-    const result = bot.generateWithReasoning(text, 12, 50);
+    const result = bot.generate(text, 10, 40);
     const botMessageId = messageCounter++;
     conversationPairs.set(userMessageId, { botMessageId, userText: text });
-    addMessage(result.text, false, result.id, botMessageId, result.confidence, result.reasoning);
+    addMessage(result.text, false, result.id, botMessageId);
     updateStats();
-  }, 1500 + Math.random() * 1000);
+  }, 800 + Math.random() * 700);
 }
 
 function updateStats() {
@@ -1248,15 +1125,29 @@ function updateStats() {
   const positive = bot.feedbackHistory.filter(f => f.isPositive).length;
   const satisfaction = totalFeedback > 0 ? Math.round((positive / totalFeedback) * 100) : 0;
   
-  const insights = bot.getInsights();
+  // Calculate average coherence of recent responses
+  const recentResponses = bot.responseHistory.slice(-5);
+  const avgCoherence = recentResponses.length > 0
+    ? recentResponses.reduce((sum, r) => sum + (r.coherenceScore || 1), 0) / recentResponses.length
+    : 1.0;
+  
+  // Calculate exploration rate percentage
+  const explorationPct = Math.round((bot.explorationRate || 0.3) * 100);
+  
+  // Safe access to Maps with defaults
+  const transitionsSize = bot.transitions ? bot.transitions.size : 0;
+  const rewardWeightsSize = bot.rewardWeights ? bot.rewardWeights.size : 0;
+  const valueNetworkSize = bot.valueNetwork ? bot.valueNetwork.size : 0;
   
   statsDiv.innerHTML = `
-    <div class="stat">🧠 Contexts: ${bot.transitions.size}</div>
-    <div class="stat">📚 Knowledge: ${bot.knowledgeBase.size}</div>
-    <div class="stat">💭 Memory: ${bot.conversationMemory.length}</div>
+    <div class="stat">🔗 Contexts: ${transitionsSize}</div>
+    <div class="stat">📝 Words: ${bot.totalWords || 0}</div>
     <div class="stat">👍 ${positive}/${totalFeedback}</div>
     <div class="stat">✨ ${satisfaction}%</div>
-    ${insights.length > 0 ? `<div class="stat insight-badge">${insights[0]}</div>` : ''}
+    <div class="stat">🎯 Rewards: ${rewardWeightsSize}</div>
+    <div class="stat">🧠 Values: ${valueNetworkSize}</div>
+    <div class="stat">📊 Coherence: ${avgCoherence.toFixed(2)}</div>
+    <div class="stat">🔍 Explore: ${explorationPct}%</div>
   `;
 }
 
@@ -1264,14 +1155,7 @@ document.getElementById('userInput').addEventListener('keypress', (e) => {
   if (e.key === 'Enter') send();
 });
 
-// Initial greeting with reasoning
-setTimeout(() => {
-  addMessage("Hello! I'm an intelligent Markov chain bot with cognitive reasoning capabilities. I think through multiple steps before responding. Try asking me complex questions!", false, null, null, 0.85, [
-    "Initializing cognitive systems...",
-    "Loading reasoning patterns...",
-    "Ready for meaningful conversation!"
-  ]);
-}, 500);
+addMessage("Hello! I'm an advanced next-word Markov bot with PPO-style RLHF, value networks, advantage estimation, and coherence optimization. I learn from granular feedback and generate coherent responses. Try me out!", false);
 
 setTimeout(updateStats, 100);
 </script>
