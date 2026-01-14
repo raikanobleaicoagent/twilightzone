@@ -149,7 +149,7 @@ button:active { transform: translateY(0); }
   gap: 0.5rem;
   margin-top: 0.5rem;
   padding-top: 0.5rem;
-  border-top: 1px solid #e0e0e0;
+  border-top: 1px solid #e0e0f0;
 }
 .feedback-btn {
   padding: 0.25rem 0.5rem;
@@ -273,13 +273,22 @@ button:active { transform: translateY(0); }
   padding: 0.5rem 1.5rem;
   font-size: 0.9rem;
 }
+.clear-btn {
+  background: #dc3545;
+  padding: 0.5rem 1rem;
+  font-size: 0.8rem;
+}
+.clear-btn:hover {
+  background: #c82333;
+  box-shadow: 0 5px 15px rgba(220, 53, 69, 0.4);
+}
 </style>
 </head>
 <body>
 <div class="container">
   <div class="header">
     <h1>🤖 True Next-Word Markov Bot</h1>
-    <p>Pure word-by-word probabilistic generation</p>
+    <p>Pure word-by-word probabilistic generation with memory</p>
   </div>
   <div class="stats" id="stats"></div>
   <div class="chat" id="chat"></div>
@@ -298,6 +307,75 @@ class TrueMarkovChain {
     this.feedbackHistory = [];
     this.responseHistory = [];
     this.totalWords = 0;
+    this.episodes = [];
+    
+    // Load existing episodes from localStorage
+    this.loadEpisodes();
+  }
+
+  // Store conversation episode in long-term memory
+  storeEpisode(userInput, botResponse) {
+    const episode = {
+      user: userInput,
+      bot: botResponse,
+      timestamp: Date.now()
+    };
+    
+    this.episodes.push(episode);
+    
+    // Keep only the last 50 episodes to prevent memory issues
+    if (this.episodes.length > 50) {
+      this.episodes.shift();
+    }
+    
+    // Save to localStorage for persistence
+    this.saveEpisodes();
+    
+    return episode;
+  }
+
+  // Save episodes to localStorage
+  saveEpisodes() {
+    try {
+      localStorage.setItem('markovBotEpisodes', JSON.stringify(this.episodes));
+    } catch (e) {
+      console.warn('Failed to save episodes to localStorage:', e);
+    }
+  }
+
+  // Load episodes from localStorage
+  loadEpisodes() {
+    try {
+      const saved = localStorage.getItem('markovBotEpisodes');
+      if (saved) {
+        this.episodes = JSON.parse(saved);
+        
+        // Train on loaded episodes
+        this.episodes.forEach(episode => {
+          this.train(episode.user, 1.0);
+          this.train(episode.bot, 1.0);
+        });
+      }
+    } catch (e) {
+      console.warn('Failed to load episodes from localStorage:', e);
+      this.episodes = [];
+    }
+  }
+
+  // Clear all memory including localStorage
+  clearMemory() {
+    this.episodes = [];
+    this.transitions.clear();
+    this.rewardWeights.clear();
+    this.feedbackHistory = [];
+    this.responseHistory = [];
+    this.totalWords = 0;
+    
+    try {
+      localStorage.removeItem('markovBotEpisodes');
+    } catch (e) {
+      console.warn('Failed to clear localStorage:', e);
+    }
   }
 
   train(text, rewardMultiplier = 1.0) {
@@ -316,7 +394,7 @@ class TrueMarkovChain {
       nextMap.set(next, (nextMap.get(next) || 0) + 1);
       this.totalWords++;
       
-      // Initialize reward weight
+      // Initialize or update reward weight
       const key = `${context}→${next}`;
       const current = this.rewardWeights.get(key) || 1.0;
       this.rewardWeights.set(key, current * rewardMultiplier);
@@ -384,7 +462,7 @@ class TrueMarkovChain {
 
   generate(seed = null, minWords = 10, maxWords = 40) {
     if (this.transitions.size === 0) {
-      return { text: "I need training data first!", id: null };
+      return { text: "I need training data first!", id: null, coherence: 1.0 };
     }
     
     const responseId = Date.now() + Math.random();
@@ -445,18 +523,30 @@ class TrueMarkovChain {
       text += '.';
     }
     
-    this.responseHistory.push({
+    // Calculate coherence score based on reward weights
+    let coherenceScore = 1.0;
+    if (transitions.length > 0) {
+      const totalReward = transitions.reduce((sum, transition) => {
+        return sum + (this.rewardWeights.get(transition) || 1.0);
+      }, 0);
+      coherenceScore = totalReward / transitions.length;
+    }
+    
+    const response = {
       id: responseId,
       text: text,
       transitions: transitions,
-      timestamp: Date.now()
-    });
+      timestamp: Date.now(),
+      coherence: coherenceScore
+    };
+    
+    this.responseHistory.push(response);
     
     if (this.responseHistory.length > 50) {
       this.responseHistory.shift();
     }
     
-    return { text, id: responseId };
+    return response;
   }
 
   applyFeedback(responseId, isPositive) {
@@ -485,8 +575,8 @@ class TrueMarkovChain {
 
 const bot = new TrueMarkovChain(2);
 let messageCounter = 0;
-const conversationPairs = new Map(); // Track user message -> bot response pairs
-let abComparisonActive = false; // Track if A/B test is in progress
+const conversationPairs = new Map();
+let abComparisonActive = false;
 
 const corpus = [
   "The quick brown fox jumps over the lazy dog near the old wooden fence.",
@@ -832,7 +922,7 @@ function saveEdit(messageId, newText) {
 }
 
 function regenerateResponse(botMessageId) {
-  if (abComparisonActive) return; // Prevent during A/B test
+  if (abComparisonActive) return;
   
   // Find the user message that prompted this response
   let userMessageId = null;
@@ -913,7 +1003,7 @@ function startABComparison(userMessageId, userText, oldBotMessageId) {
     optionA.setAttribute('data-option', 'A');
     optionA.onclick = () => selectABOption('A');
     optionA.innerHTML = `
-      <div class="ab-label">Option A (Coherence: ${(resultA.coherence || 1.0).toFixed(2)})</div>
+      <div class="ab-label">Option A (Coherence: ${resultA.coherence.toFixed(2)})</div>
       <div class="ab-text">${resultA.text}</div>
     `;
     
@@ -923,7 +1013,7 @@ function startABComparison(userMessageId, userText, oldBotMessageId) {
     optionB.setAttribute('data-option', 'B');
     optionB.onclick = () => selectABOption('B');
     optionB.innerHTML = `
-      <div class="ab-label">Option B (Coherence: ${(resultB.coherence || 1.0).toFixed(2)})</div>
+      <div class="ab-label">Option B (Coherence: ${resultB.coherence.toFixed(2)})</div>
       <div class="ab-text">${resultB.text}</div>
     `;
     
@@ -986,20 +1076,17 @@ function confirmABChoice(choice) {
   let chosenResult = null;
   
   if (choice === 'A') {
-    // A is better, give positive feedback to A, negative to B
-    bot.applyFeedback(resultA.id, true, 1.5);
-    bot.applyFeedback(resultB.id, false, 1.0);
+    bot.applyFeedback(resultA.id, true);
+    bot.applyFeedback(resultB.id, false);
     chosenResult = resultA;
   } else if (choice === 'B') {
-    // B is better, give positive feedback to B, negative to A
-    bot.applyFeedback(resultB.id, true, 1.5);
-    bot.applyFeedback(resultA.id, false, 1.0);
+    bot.applyFeedback(resultB.id, true);
+    bot.applyFeedback(resultA.id, false);
     chosenResult = resultB;
   } else if (choice === 'both') {
-    // Both good, positive feedback to both
-    bot.applyFeedback(resultA.id, true, 1.0);
-    bot.applyFeedback(resultB.id, true, 1.0);
-    chosenResult = resultA; // Use A by default
+    bot.applyFeedback(resultA.id, true);
+    bot.applyFeedback(resultB.id, true);
+    chosenResult = resultA;
   }
   
   // Remove A/B comparison
@@ -1037,15 +1124,7 @@ function cancelABComparison() {
 }
 
 function giveFeedback(responseId, isPositive) {
-  // Show intensity selector for more granular feedback
-  const intensity = prompt(isPositive 
-    ? "How good? (1=ok, 2=good, 3=excellent)" 
-    : "How bad? (1=slightly off, 2=bad, 3=very bad)", "2");
-  
-  const intensityValue = parseFloat(intensity) || 2;
-  const normalizedIntensity = Math.max(1, Math.min(3, intensityValue)) / 2; // 0.5 to 1.5
-  
-  bot.applyFeedback(responseId, isPositive, normalizedIntensity);
+  bot.applyFeedback(responseId, isPositive);
   
   const buttons = document.querySelectorAll(`button[onclick*="${responseId}"]`);
   buttons.forEach(btn => {
@@ -1057,8 +1136,8 @@ function giveFeedback(responseId, isPositive) {
   const notification = document.createElement('div');
   notification.className = 'learning-notification';
   notification.textContent = isPositive 
-    ? `✓ Reinforcing with strength ${intensityValue}/3!` 
-    : `✓ Reducing with strength ${intensityValue}/3!`;
+    ? '✓ Reinforcing good response!' 
+    : '✓ Reducing bad response!';
   chat.appendChild(notification);
   
   setTimeout(() => notification.remove(), 2000);
@@ -1122,7 +1201,7 @@ function send() {
 }
 
 function clearAllMemory() {
-  if (confirm('Clear all long-term memory? This cannot be undone!')) {
+  if (confirm('Clear all long-term memory and training data? This cannot be undone!')) {
     bot.clearMemory();
     location.reload();
   }
@@ -1139,26 +1218,18 @@ function updateStats() {
   // Calculate average coherence of recent responses
   const recentResponses = bot.responseHistory.slice(-5);
   const avgCoherence = recentResponses.length > 0
-    ? recentResponses.reduce((sum, r) => sum + (r.coherenceScore || 1), 0) / recentResponses.length
+    ? recentResponses.reduce((sum, r) => sum + (r.coherence || 1), 0) / recentResponses.length
     : 1.0;
   
-  // Calculate exploration rate percentage
-  const explorationPct = Math.round((bot.explorationRate || 0.3) * 100);
-  
-  // Safe access to Maps with defaults
-  const transitionsSize = bot.transitions ? bot.transitions.size : 0;
-  const rewardWeightsSize = bot.rewardWeights ? bot.rewardWeights.size : 0;
-  const valueNetworkSize = bot.valueNetwork ? bot.valueNetwork.size : 0;
-  
   statsDiv.innerHTML = `
-    <div class="stat">🔗 Contexts: ${transitionsSize}</div>
-    <div class="stat">📝 Words: ${bot.totalWords || 0}</div>
+    <div class="stat">🔗 Contexts: ${bot.transitions.size}</div>
+    <div class="stat">📝 Words: ${bot.totalWords}</div>
+    <div class="stat">💾 Episodes: ${bot.episodes.length}</div>
     <div class="stat">👍 ${positive}/${totalFeedback}</div>
     <div class="stat">✨ ${satisfaction}%</div>
-    <div class="stat">🎯 Rewards: ${rewardWeightsSize}</div>
-    <div class="stat">🧠 Values: ${valueNetworkSize}</div>
+    <div class="stat">🎯 Rewards: ${bot.rewardWeights.size}</div>
     <div class="stat">📊 Coherence: ${avgCoherence.toFixed(2)}</div>
-    <div class="stat">🔍 Explore: ${explorationPct}%</div>
+    <button class="stat clear-btn" onclick="clearAllMemory()">🗑️ Clear</button>
   `;
 }
 
@@ -1166,9 +1237,11 @@ document.getElementById('userInput').addEventListener('keypress', (e) => {
   if (e.key === 'Enter') send();
 });
 
-addMessage("Hello! I'm an advanced Markov bot with: PPO-RLHF, beam search generation, 50-dimensional word embeddings, long-term persistent memory (localStorage), episodic recall, and coherence optimization. I remember across sessions! 💾🧠", false);
-
-setTimeout(updateStats, 100);
+// Initial greeting
+setTimeout(() => {
+  addMessage("Hello! I'm an advanced Markov bot with persistent memory! I learn from our conversations and remember them across sessions using localStorage. Try editing your messages or giving feedback with 👍👎 buttons! 💾🧠", false);
+  updateStats();
+}, 500);
 </script>
 </body>
 </html>
