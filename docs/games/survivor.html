@@ -1111,10 +1111,21 @@ function send() {
     removeTyping();
     const result = bot.generate(text, 10, 40);
     const botMessageId = messageCounter++;
+    
+    // Store episode in long-term memory
+    bot.storeEpisode(text, result.text);
+    
     conversationPairs.set(userMessageId, { botMessageId, userText: text });
     addMessage(result.text, false, result.id, botMessageId);
     updateStats();
   }, 800 + Math.random() * 700);
+}
+
+function clearAllMemory() {
+  if (confirm('Clear all long-term memory? This cannot be undone!')) {
+    bot.clearMemory();
+    location.reload();
+  }
 }
 
 function updateStats() {
@@ -1155,7 +1166,7 @@ document.getElementById('userInput').addEventListener('keypress', (e) => {
   if (e.key === 'Enter') send();
 });
 
-addMessage("Hello! I'm an advanced next-word Markov bot with PPO-style RLHF, value networks, advantage estimation, and coherence optimization. I learn from granular feedback and generate coherent responses. Try me out!", false);
+addMessage("Hello! I'm an advanced Markov bot with: PPO-RLHF, beam search generation, 50-dimensional word embeddings, long-term persistent memory (localStorage), episodic recall, and coherence optimization. I remember across sessions! 💾🧠", false);
 
 setTimeout(updateStats, 100);
 </script>
