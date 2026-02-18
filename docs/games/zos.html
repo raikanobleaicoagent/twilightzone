@@ -421,6 +421,18 @@
                     <i class="fa-solid fa-ghost"></i> CLEAR PRESENCE
                 </button>
                 <div class="action-divider">
+                    <div class="action-divider-label">SYNC</div>
+                </div>
+                <button class="action-item text-cyan-500 hover:text-cyan-400" onclick="app.executeAction('SYNC_PUSH')">
+                    <i class="fa-solid fa-cloud-arrow-up"></i> PUSH TO KV
+                </button>
+                <button class="action-item text-cyan-500 hover:text-cyan-400" onclick="app.executeAction('SYNC_PULL')">
+                    <i class="fa-solid fa-cloud-arrow-down"></i> PULL FROM KV
+                </button>
+                <button class="action-item text-gray-500 hover:text-gray-300" onclick="app.executeAction('SYNC_CONFIG')">
+                    <i class="fa-solid fa-key"></i> SET TOKEN
+                </button>
+                <div class="action-divider">
                     <div class="action-divider-label">THEMES</div>
                 </div>
                 <button class="action-item text-gray-400 hover:text-white" onclick="app.setTheme('dark')">
@@ -1542,7 +1554,143 @@ class ZyqralOS {
             const path = this.findPathByKey(this.state, 'timestamp');
             if (path) { this.injectTime(path); this.addLog(`ACTION <span class="log-hl">[UPDATE TIME]</span>`); this.toggleActions(); } 
             else { alert("SYSTEM ERROR: 'timestamp' KEY NOT FOUND."); }
+        } else if (type === 'SYNC_PUSH') {
+            this.syncPush();
+        } else if (type === 'SYNC_PULL') {
+            this.syncPull();
+        } else if (type === 'SYNC_CONFIG') {
+            this.syncSetToken();
         }
+    }
+
+    // --- SYNC SYSTEM ---
+    
+    getSyncToken() {
+        return localStorage.getItem('zos_sync_token');
+    }
+
+    syncSetToken() {
+        const current = this.getSyncToken();
+        const token = prompt('ENTER WORKER AUTH TOKEN:', current || '');
+        if (token !== null) {
+            localStorage.setItem('zos_sync_token', token.trim());
+            this.addLog(`SYNC <span class="log-hl">[CONFIG]</span> TOKEN ${token.trim() ? 'SET' : 'CLEARED'}`);
+            this.save();
+        }
+        this.toggleActions();
+    }
+
+    buildOpsState() {
+        // Extract project statuses — safe, no personal data
+        const projects = {};
+        const rawProjects = this.state.PROJECTS || this.state.projects;
+        if (rawProjects && typeof rawProjects === 'object') {
+            Object.keys(rawProjects).forEach(k => {
+                const proj = rawProjects[k];
+                if (typeof proj === 'object' && proj !== null) {
+                    projects[k] = {
+                        status: proj.STATUS || proj.status || 'UNKNOWN',
+                        objective: proj.OBJECTIVE || proj.objective || ''
+                    };
+                } else {
+                    projects[k] = String(proj);
+                }
+            });
+        }
+
+        // Extract project log
+        const projectLog = {};
+        const rawLog = this.state.PROJECT_LOG;
+        if (rawLog && typeof rawLog === 'object') {
+            Object.keys(rawLog).forEach(k => {
+                const entry = rawLog[k];
+                if (typeof entry === 'object' && entry !== null) {
+                    projectLog[k] = {
+                        timestamp: entry.timestamp || '',
+                        goal: entry.goal || '',
+                        serves: entry.serves || '',
+                        outcome: entry.outcome || ''
+                    };
+                }
+            });
+        }
+
+        return {
+            projects: projects,
+            project_log: projectLog,
+            flags: { audit_due: false },
+            infra: {
+                endpoint: 'zos-worker.rykernobleaicoagent.workers.dev',
+                source: 'zos-v8.0-github-pages'
+            }
+        };
+    }
+
+    async syncPush() {
+        const token = this.getSyncToken();
+        if (!token) {
+            alert('NO SYNC TOKEN SET. Use SET TOKEN first.');
+            this.toggleActions();
+            return;
+        }
+
+        const opsState = this.buildOpsState();
+        this.toggleActions();
+
+        try {
+            const resp = await fetch('https://zos-worker.rykernobleaicoagent.workers.dev/sync', {
+                method: 'POST',
+                headers: {
+                    'Authorization': 'Bearer ' + token,
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ ops_state: opsState })
+            });
+
+            const data = await resp.json();
+
+            if (resp.ok && data.status === 'ok') {
+                this.addLog(`SYNC <span class="log-hl">[PUSH]</span> OK @ ${data.timestamp}`);
+            } else {
+                this.addLog(`SYNC <span class="log-hl">[PUSH]</span> FAIL: ${data.error || resp.status}`);
+            }
+        } catch (e) {
+            this.addLog(`SYNC <span class="log-hl">[PUSH]</span> ERROR: ${e.message}`);
+        }
+        this.save();
+    }
+
+    async syncPull() {
+        const token = this.getSyncToken();
+        if (!token) {
+            alert('NO SYNC TOKEN SET. Use SET TOKEN first.');
+            this.toggleActions();
+            return;
+        }
+
+        this.toggleActions();
+
+        try {
+            const resp = await fetch('https://zos-worker.rykernobleaicoagent.workers.dev/sync', {
+                method: 'GET',
+                headers: { 'Authorization': 'Bearer ' + token }
+            });
+
+            const data = await resp.json();
+
+            if (resp.ok && data.status === 'ok' && data.ops_state) {
+                const state = data.ops_state;
+                const summary = Object.keys(state.projects || {}).map(k => `${k}: ${state.projects[k].status || state.projects[k]}`).join(', ');
+                this.addLog(`SYNC <span class="log-hl">[PULL]</span> OK | LAST: ${state.last_sync || 'N/A'}<br>${summary}`);
+            } else if (data.status === 'empty') {
+                this.addLog(`SYNC <span class="log-hl">[PULL]</span> KV EMPTY`);
+            } else {
+                this.addLog(`SYNC <span class="log-hl">[PULL]</span> FAIL: ${data.error || resp.status}`);
+            }
+        } catch (e) {
+            this.addLog(`SYNC <span class="log-hl">[PULL]</span> ERROR: ${e.message}`);
+        }
+        this.save();
     }
 
     // --- MOOD TRACKING ---
