@@ -10,15 +10,78 @@
         @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&family=Rajdhani:wght@600;700&display=swap');
         
         :root {
-            --bg-color: #000000;
-            --panel-color: #0a0a0a;
-            --border-color: #1f1f1f;
-            --accent-color: #00ff9d;
-            --text-color: #c0c0c0;
-            --danger-color: #ff0055;
-            --warn-color: #ffbb00;
-            --process-color: #00aaff;
+            --bg-color: #0d0d11;
+            --panel-color: #131318;
+            --border-color: #222230;
+            --accent-color: #c49a6c;
+            --accent-light: #d4ad82;
+            --accent-dim: #8a6d4a;
+            --text-color: #a8a4a0;
+            --danger-color: #b5544a;
+            --warn-color: #d4a047;
+            --process-color: #6889ad;
+            --complete-color: #6aaa7a;
         }
+
+        /* === PALETTE OVERRIDES: Remap Tailwind greens to accent === */
+        .text-green-500 { color: var(--accent-color) !important; }
+        .text-green-400 { color: var(--accent-light) !important; }
+        .text-green-700 { color: var(--accent-dim) !important; }
+        .text-green-800 { color: var(--accent-dim) !important; }
+        .border-green-900\/30 { border-color: rgba(196, 154, 108, 0.2) !important; }
+        .border-green-500 { border-color: var(--accent-color) !important; }
+        .border-green-800 { border-color: var(--accent-dim) !important; }
+        .shadow-green-900\/10 { --tw-shadow-color: rgba(196, 154, 108, 0.06) !important; }
+        .bg-green-900\/30 { background-color: rgba(196, 154, 108, 0.12) !important; }
+        .bg-green-900\/50 { background-color: rgba(196, 154, 108, 0.2) !important; }
+        .hover\:text-green-400:hover { color: var(--accent-light) !important; }
+        .hover\:bg-green-900\/50:hover { background-color: rgba(196, 154, 108, 0.2) !important; }
+        .accent-green-500 { accent-color: var(--accent-color) !important; }
+        .text-\[\#00ff9d\] { color: var(--accent-color) !important; }
+        .group-hover\:text-green-400 { color: var(--accent-dim) !important; }
+        .group:hover .group-hover\:text-green-400 { color: var(--accent-light) !important; }
+        .bg-\[\#0a1a0a\] { background-color: #18160f !important; }
+        .bg-\[\#0f2f0f\] { background-color: #1f1c14 !important; }
+
+        /* === Remap Tailwind purples to muted steel === */
+        .text-purple-400 { color: #8899bb !important; }
+        .border-purple-800 { border-color: #3a4460 !important; }
+        .bg-purple-900\/20 { background-color: rgba(70, 85, 120, 0.15) !important; }
+        .bg-purple-900\/40 { background-color: rgba(70, 85, 120, 0.3) !important; }
+        .hover\:bg-purple-900\/40:hover { background-color: rgba(70, 85, 120, 0.3) !important; }
+
+        /* === Mute the neon blues slightly === */
+        .text-blue-400 { color: var(--process-color) !important; }
+        .text-blue-500 { color: #7094b8 !important; }
+        .border-blue-900\/50 { border-color: rgba(104, 137, 173, 0.3) !important; }
+        .hover\:border-blue-500:hover { border-color: var(--process-color) !important; }
+        .hover\:text-blue-300:hover { color: #8aa8c6 !important; }
+        .hover\:text-blue-400:hover { color: #8aa8c6 !important; }
+
+        /* === Mute the reds === */
+        .text-red-800 { color: #6b3530 !important; }
+        .text-red-900 { color: #5a2d28 !important; }
+        .border-red-900\/30 { border-color: rgba(181, 84, 74, 0.2) !important; }
+        .hover\:border-red-500:hover { border-color: var(--danger-color) !important; }
+        .hover\:text-red-500:hover { color: var(--danger-color) !important; }
+        .hover\:text-red-400:hover { color: #c46a5e !important; }
+
+        /* === Mute the cyans === */
+        .text-cyan-500 { color: #6ba8b8 !important; }
+        .text-cyan-400 { color: #7dbdcc !important; }
+        .hover\:text-cyan-400:hover { color: #7dbdcc !important; }
+
+        /* === Background overrides === */
+        .bg-black { background-color: var(--bg-color) !important; }
+        .bg-\[\#050505\] { background-color: var(--panel-color) !important; }
+        .bg-\[\#0a0a0a\] { background-color: var(--panel-color) !important; }
+        .bg-\[\#030303\] { background-color: #101015 !important; }
+        .bg-\[\#111\] { background-color: #19191f !important; }
+        .bg-\[\#222\] { background-color: var(--border-color) !important; }
+        .border-\[\#222\] { border-color: var(--border-color) !important; }
+        .border-\[\#111\] { border-color: #1a1a22 !important; }
+        .border-gray-800 { border-color: #252530 !important; }
+        .border-gray-900 { border-color: #1c1c26 !important; }
 
         body {
             font-family: 'Rajdhani', sans-serif;
@@ -31,15 +94,15 @@
         .mono { font-family: 'JetBrains Mono', monospace; }
 
         .tree-line {
-            border-left: 1px solid #333;
+            border-left: 1px solid #2a2a35;
             padding-left: 6px; 
             margin-left: 3px;
         }
         
         textarea.edit-input {
-            background: #111;
+            background: #16161c;
             color: var(--accent-color);
-            border: 1px solid #333;
+            border: 1px solid #2a2a35;
             font-family: 'JetBrains Mono', monospace;
             font-size: 14px;
             padding: 4px 6px;
@@ -59,8 +122,8 @@
         }
 
         .search-input {
-            background: #111;
-            border: 1px solid #333;
+            background: #16161c;
+            border: 1px solid #2a2a35;
             color: var(--accent-color);
             font-family: 'JetBrains Mono', monospace;
             font-size: 10px;
@@ -76,7 +139,7 @@
             border-color: var(--accent-color); 
             width: 160px; 
         }
-        .search-input::placeholder { color: #444; line-height: 16px; }
+        .search-input::placeholder { color: #3a3a45; line-height: 16px; }
 
         .badge { font-size: 10px; font-weight: bold; padding: 1px 4px; border-radius: 2px; letter-spacing: 0.5px; }
 
@@ -107,21 +170,21 @@
             background: none;
             border: none;
             padding: 0;
-            color: #333; 
+            color: #2a2a35; 
             font-size: 10px;
             cursor: pointer;
             line-height: 1;
             margin: 1px 0;
         }
         .reorder-arrows button:hover { color: var(--accent-color); }
-        .reorder-arrows button:disabled { color: #1a1a1a; cursor: not-allowed; }
+        .reorder-arrows button:disabled { color: #1a1a22; cursor: not-allowed; }
 
         .node-row {
             display: flex;
             align-items: center;
             justify-content: space-between;
             padding: 4px 0;
-            border-bottom: 1px solid #111;
+            border-bottom: 1px solid #1a1a22;
             min-height: 36px;
             position: relative;
         }
@@ -147,70 +210,70 @@
             transition: background 0.2s;
             position: relative; z-index: 10;
         }
-        .val-display:hover { background: #111; }
+        .val-display:hover { background: #18181f; }
 
-        .state-switch { display: flex; border: 1px solid #222; border-radius: 4px; overflow: hidden; position: relative; z-index: 10; }
+        .state-switch { display: flex; border: 1px solid #252530; border-radius: 4px; overflow: hidden; position: relative; z-index: 10; }
         .state-btn { 
             font-size: 9px; 
             font-family: 'JetBrains Mono', monospace; 
             padding: 2px 6px; 
             cursor: pointer; 
-            background: #050505; 
+            background: #111118; 
             color: #444; 
-            border-right: 1px solid #222;
+            border-right: 1px solid #252530;
             transition: all 0.2s;
         }
         .state-btn:last-child { border-right: none; }
-        .state-btn:hover { color: #888; }
+        .state-btn:hover { color: #777; }
         
-        .state-btn-active-pend { background: rgba(255, 187, 0, 0.15); color: #ffbb00; font-weight: bold; }
-        .state-btn-active-prog { background: rgba(0, 170, 255, 0.15); color: #00aaff; font-weight: bold; }
-        .state-btn-active-comp { background: rgba(0, 255, 157, 0.15); color: #00ff9d; font-weight: bold; }
-        .state-btn-active-fail { background: rgba(255, 0, 85, 0.15); color: #ff0055; font-weight: bold; }
+        .state-btn-active-pend { background: rgba(212, 160, 71, 0.15); color: #d4a047; font-weight: bold; }
+        .state-btn-active-prog { background: rgba(104, 137, 173, 0.15); color: #6889ad; font-weight: bold; }
+        .state-btn-active-comp { background: rgba(106, 170, 122, 0.15); color: #6aaa7a; font-weight: bold; }
+        .state-btn-active-fail { background: rgba(181, 84, 74, 0.15); color: #b5544a; font-weight: bold; }
         
-        .state-btn-active-on { background: rgba(0, 255, 157, 0.15); color: #00ff9d; font-weight: bold; }
-        .state-btn-active-off { background: rgba(80, 80, 80, 0.3); color: #888; font-weight: bold; }
+        .state-btn-active-on { background: rgba(106, 170, 122, 0.15); color: #6aaa7a; font-weight: bold; }
+        .state-btn-active-off { background: rgba(80, 80, 90, 0.3); color: #777; font-weight: bold; }
         
         .state-btn-active-custom { background: rgba(160, 160, 160, 0.2); color: #bbb; font-weight: bold; }
 
-        #io-modal, #log-modal, #chart-modal { background: rgba(0,0,0,0.95); backdrop-filter: blur(5px); }
+        #io-modal, #log-modal, #chart-modal { background: rgba(13,13,17,0.96); backdrop-filter: blur(8px); }
         #viewport { overflow-x: hidden; }
         
         .stepper-btn {
             font-size: 10px; 
-            background: #111; 
-            color: #666; 
+            background: #16161c; 
+            color: #555; 
             width: 20px;
             height: 20px;
             display: flex;
             align-items: center;
             justify-content: center;
             border-radius: 2px; 
-            border: 1px solid #333;
+            border: 1px solid #2a2a35;
             transition: all 0.1s;
             flex-shrink: 0; 
             position: relative; z-index: 10;
         }
-        .stepper-btn:hover { color: white; border-color: #555; }
-        .stepper-btn:active { background: #222; }
+        .stepper-btn:hover { color: white; border-color: #444; }
+        .stepper-btn:active { background: #222230; }
         
         .log-entry {
             font-family: 'JetBrains Mono', monospace;
             font-size: 10px;
-            border-bottom: 1px solid #222;
+            border-bottom: 1px solid #1e1e28;
             padding: 8px 0;
             color: #888;
             line-height: 1.4;
             display: flex;
             flex-direction: column;
         }
-        .log-ts { color: #444; font-size: 9px; margin-bottom: 2px; }
-        .log-act { color: #aaa; word-break: break-all; }
+        .log-ts { color: #3a3a48; font-size: 9px; margin-bottom: 2px; }
+        .log-act { color: #999; word-break: break-all; }
         .log-hl { color: var(--accent-color); }
 
         footer {
-            background: #050505;
-            border-top: 1px solid #222;
+            background: var(--panel-color);
+            border-top: 1px solid #252530;
             padding: 8px;
             display: flex;
             justify-content: space-between;
@@ -218,13 +281,13 @@
             position: sticky;
             bottom: 0;
             z-index: 50;
-            box-shadow: 0 -4px 10px rgba(0,0,0,0.5);
+            box-shadow: 0 -4px 10px rgba(0,0,0,0.4);
         }
 
         .footer-btn {
-            background: #111;
-            border: 1px solid #333;
-            color: #888;
+            background: #16161c;
+            border: 1px solid #2a2a35;
+            color: #666;
             padding: 4px 12px;
             font-size: 10px;
             font-weight: bold;
@@ -233,8 +296,8 @@
             transition: all 0.2s;
             letter-spacing: 0.5px;
         }
-        .footer-btn:hover { color: var(--accent-color); border-color: var(--accent-color); background: rgba(0, 255, 157, 0.05); }
-        .footer-btn.active { color: #000; background: var(--accent-color); border-color: var(--accent-color); }
+        .footer-btn:hover { color: var(--accent-color); border-color: var(--accent-dim); background: rgba(196, 154, 108, 0.05); }
+        .footer-btn.active { color: #0d0d11; background: var(--accent-color); border-color: var(--accent-color); }
 
         .chart-container {
             width: 100%;
@@ -243,9 +306,9 @@
             font-family: 'JetBrains Mono', monospace;
         }
         .chart-line { fill: none; stroke-width: 2; opacity: 0.8; }
-        .chart-grid { stroke: #222; stroke-width: 1; stroke-dasharray: 4; }
-        .chart-axis { stroke: #444; stroke-width: 1; }
-        .chart-label { fill: #666; font-size: 9px; }
+        .chart-grid { stroke: #1e1e28; stroke-width: 1; stroke-dasharray: 4; }
+        .chart-axis { stroke: #3a3a48; stroke-width: 1; }
+        .chart-label { fill: #555; font-size: 9px; }
         .chart-dot { r: 3; stroke-width: 1; stroke: #000; cursor: pointer; transition: r 0.1s; }
         .chart-dot:hover { r: 6; stroke: #fff; }
         
@@ -259,8 +322,8 @@
             top: 100%;
             right: 0;
             margin-top: 8px;
-            background: #0a0a0a;
-            border: 1px solid #333;
+            background: var(--panel-color);
+            border: 1px solid #2a2a35;
             border-radius: 4px;
             min-width: 160px;
             box-shadow: 0 4px 12px rgba(0,0,0,0.5);
@@ -274,22 +337,22 @@
             padding: 8px 12px;
             font-size: 10px;
             font-weight: bold;
-            color: #888;
-            border-bottom: 1px solid #1a1a1a;
+            color: #777;
+            border-bottom: 1px solid #1a1a22;
             cursor: pointer;
             transition: all 0.2s;
         }
         .action-item:last-child { border-bottom: none; }
-        .action-item:hover { background: #111; color: var(--accent-color); }
+        .action-item:hover { background: #1a1a22; color: var(--accent-light); }
         .action-item i { margin-right: 8px; width: 14px; text-align: center; }
         .action-divider {
-            border-top: 1px solid #333;
+            border-top: 1px solid #2a2a35;
             margin: 4px 0;
             padding-top: 4px;
         }
         .action-divider-label {
             font-size: 8px;
-            color: #555;
+            color: #444;
             padding: 2px 12px;
             text-transform: uppercase;
             letter-spacing: 1px;
@@ -1679,11 +1742,51 @@ class ZyqralOS {
             const data = await resp.json();
 
             if (resp.ok && data.status === 'ok' && data.ops_state) {
-                const state = data.ops_state;
-                const summary = Object.keys(state.projects || {}).map(k => `${k}: ${state.projects[k].status || state.projects[k]}`).join(', ');
-                this.addLog(`SYNC <span class="log-hl">[PULL]</span> OK | LAST: ${state.last_sync || 'N/A'}<br>${summary}`);
+                const remote = data.ops_state;
+                const flags = remote.flags || {};
+                let alerts = [];
+
+                // Audit flag
+                if (flags.audit_due) {
+                    alerts.push('AUDIT DUE — review world model + system prompt');
+                }
+
+                // Sync staleness
+                if (flags.sync_stale) {
+                    const hrs = flags.hours_since_sync;
+                    alerts.push(`SYNC STALE — ${hrs !== null ? hrs + 'h' : 'never synced'} since last push`);
+                }
+
+                // Budget countdown
+                if (flags.claude_sub_days_remaining !== undefined) {
+                    const days = flags.claude_sub_days_remaining;
+                    if (flags.budget_critical) {
+                        alerts.push(`BUDGET CRITICAL — Claude sub due in ${days}d`);
+                    } else {
+                        alerts.push(`Sub runway: ${days}d remaining`);
+                    }
+                }
+
+                // Project stagnation
+                if (flags.stagnation_detected && flags.stagnant_projects && flags.stagnant_projects.length > 0) {
+                    alerts.push(`STAGNATION — no movement on: ${flags.stagnant_projects.join(', ')}`);
+                }
+
+                // Cron timestamp
+                const cronTime = remote.last_cron ? new Date(remote.last_cron).toLocaleString('en-CA', { timeZone: 'America/Edmonton', hour12: false }) : 'never';
+
+                // Build log output
+                let logMsg = `SYNC <span class="log-hl">[PULL]</span> OK | CRON: ${cronTime}`;
+                
+                if (alerts.length > 0) {
+                    logMsg += '<br>' + alerts.map(a => `• ${a}`).join('<br>');
+                } else {
+                    logMsg += '<br>ALL CLEAR — no flags raised';
+                }
+
+                this.addLog(logMsg);
             } else if (data.status === 'empty') {
-                this.addLog(`SYNC <span class="log-hl">[PULL]</span> KV EMPTY`);
+                this.addLog(`SYNC <span class="log-hl">[PULL]</span> KV EMPTY — push first or wait for cron`);
             } else {
                 this.addLog(`SYNC <span class="log-hl">[PULL]</span> FAIL: ${data.error || resp.status}`);
             }
