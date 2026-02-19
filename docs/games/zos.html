@@ -495,6 +495,9 @@
                 <button class="action-item text-gray-500 hover:text-gray-300" onclick="app.executeAction('SYNC_CONFIG')">
                     <i class="fa-solid fa-key"></i> SET TOKEN
                 </button>
+                <button class="action-item text-cyan-500 hover:text-cyan-400" onclick="app.executeAction('CRON_PROMPT')">
+                    <i class="fa-solid fa-robot"></i> CRON PROMPT
+                </button>
                 <div class="action-divider">
                     <div class="action-divider-label">THEMES</div>
                 </div>
@@ -1623,6 +1626,8 @@ class ZyqralOS {
             this.syncPull();
         } else if (type === 'SYNC_CONFIG') {
             this.syncSetToken();
+        } else if (type === 'CRON_PROMPT') {
+            this.syncEditPrompt();
         }
     }
 
@@ -1641,6 +1646,69 @@ class ZyqralOS {
             this.save();
         }
         this.toggleActions();
+    }
+
+    async syncEditPrompt() {
+        const token = this.getSyncToken();
+        if (!token) {
+            alert('NO SYNC TOKEN SET. Use SET TOKEN first.');
+            this.toggleActions();
+            return;
+        }
+
+        this.toggleActions();
+
+        try {
+            const resp = await fetch('https://zos-worker.rykernobleaicoagent.workers.dev/prompt', {
+                method: 'GET',
+                headers: { 'Authorization': 'Bearer ' + token }
+            });
+            const data = await resp.json();
+
+            if (resp.ok && data.status === 'ok') {
+                this._cronPromptSource = data.source;
+                this.toggleIO('cron_prompt');
+                const ta = document.getElementById('raw-json');
+                ta.value = data.prompt;
+                this.addLog(`SYNC <span class="log-hl">[PROMPT]</span> LOADED (source: ${data.source})`);
+            } else {
+                this.addLog(`SYNC <span class="log-hl">[PROMPT]</span> FETCH FAIL: ${data.error || resp.status}`);
+            }
+        } catch (e) {
+            this.addLog(`SYNC <span class="log-hl">[PROMPT]</span> ERROR: ${e.message}`);
+        }
+        this.save();
+    }
+
+    async saveCronPrompt() {
+        const token = this.getSyncToken();
+        if (!token) { alert('NO SYNC TOKEN SET.'); return; }
+
+        const ta = document.getElementById('raw-json');
+        const promptText = ta.value.trim();
+        if (!promptText) { alert('PROMPT CANNOT BE EMPTY.'); return; }
+
+        try {
+            const resp = await fetch('https://zos-worker.rykernobleaicoagent.workers.dev/prompt', {
+                method: 'POST',
+                headers: {
+                    'Authorization': 'Bearer ' + token,
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ prompt: promptText })
+            });
+            const data = await resp.json();
+
+            if (resp.ok && data.status === 'ok') {
+                this.addLog(`SYNC <span class="log-hl">[PROMPT]</span> SAVED (${data.length} chars)`);
+                this.toggleIO();
+            } else {
+                this.addLog(`SYNC <span class="log-hl">[PROMPT]</span> SAVE FAIL: ${data.error || resp.status}`);
+            }
+        } catch (e) {
+            this.addLog(`SYNC <span class="log-hl">[PROMPT]</span> SAVE ERROR: ${e.message}`);
+        }
+        this.save();
     }
 
     buildOpsState() {
@@ -3393,7 +3461,21 @@ class ZyqralOS {
                 header.textContent = 'DATA INJECTION'; 
                 ta.placeholder = '// PASTE WORLD MODEL HERE //'; 
                 copyBtn.classList.add('hidden'); 
-                loadBtn.classList.remove('hidden'); 
+                loadBtn.classList.remove('hidden');
+                loadBtn.textContent = 'LOAD DATA';
+                loadBtn.onclick = () => this.saveRaw();
+            }
+            else if (mode === 'cron_prompt') {
+                exportOption.classList.add('hidden');
+                
+                ta.value = '';
+                ta.readOnly = false;
+                header.textContent = 'CRON SUB-AGENT PROMPT';
+                ta.placeholder = '// LOADING PROMPT FROM KV... //';
+                copyBtn.classList.add('hidden');
+                loadBtn.classList.remove('hidden');
+                loadBtn.textContent = 'SAVE PROMPT';
+                loadBtn.onclick = () => this.saveCronPrompt();
             }
             modal.classList.remove('hidden');
         } else { 
