@@ -1772,6 +1772,17 @@ class ZyqralOS {
                     alerts.push(`STAGNATION — no movement on: ${flags.stagnant_projects.join(', ')}`);
                 }
 
+                // Advisory from cron sub-agent
+                const advisory = data.advisory;
+                if (advisory && advisory.content) {
+                    alerts.push(`─── ZOS-CRON ADVISORY ───`);
+                    advisory.content.split('\n').filter(l => l.trim()).forEach(line => {
+                        alerts.push(line);
+                    });
+                } else if (advisory && advisory.error) {
+                    alerts.push(`ADVISORY ERROR: ${advisory.error}`);
+                }
+
                 // Cron timestamp
                 const cronTime = remote.last_cron ? new Date(remote.last_cron).toLocaleString('en-CA', { timeZone: 'America/Edmonton', hour12: false }) : 'never';
 
