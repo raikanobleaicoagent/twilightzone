@@ -1646,7 +1646,8 @@ class ZyqralOS {
     buildOpsState() {
         // Extract project statuses — safe, no personal data
         const projects = {};
-        const rawProjects = this.state.PROJECTS || this.state.projects;
+        const zss = this.state.zyqral_system_status || this.state;
+        const rawProjects = zss.PROJECTS || zss.projects || this.state.PROJECTS || this.state.projects;
         if (rawProjects && typeof rawProjects === 'object') {
             Object.keys(rawProjects).forEach(k => {
                 const proj = rawProjects[k];
@@ -1663,7 +1664,7 @@ class ZyqralOS {
 
         // Extract project log
         const projectLog = {};
-        const rawLog = this.state.PROJECT_LOG;
+        const rawLog = zss.PROJECT_LOG || zss.project_log || this.state.PROJECT_LOG;
         if (rawLog && typeof rawLog === 'object') {
             Object.keys(rawLog).forEach(k => {
                 const entry = rawLog[k];
