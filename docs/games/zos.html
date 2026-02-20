@@ -1747,9 +1747,27 @@ class ZyqralOS {
             });
         }
 
+        // Extract goal outcomes (memory ledger)
+        const goalOutcomes = {};
+        const rawOutcomes = zss.GOAL_OUTCOMES || zss.goal_outcomes || this.state.GOAL_OUTCOMES;
+        if (rawOutcomes && typeof rawOutcomes === 'object') {
+            Object.keys(rawOutcomes).forEach(k => {
+                const entry = rawOutcomes[k];
+                if (typeof entry === 'object' && entry !== null) {
+                    goalOutcomes[k] = {
+                        timestamp: entry.timestamp || '',
+                        goal: entry.goal || '',
+                        serves: entry.serves || '',
+                        outcome: entry.outcome || ''
+                    };
+                }
+            });
+        }
+
         return {
             projects: projects,
             project_log: projectLog,
+            goal_outcomes: goalOutcomes,
             flags: { audit_due: false },
             infra: {
                 endpoint: 'zos-worker.rykernobleaicoagent.workers.dev',
