@@ -495,8 +495,8 @@
                 <button class="action-item text-gray-500 hover:text-gray-300" onclick="app.executeAction('SYNC_CONFIG')">
                     <i class="fa-solid fa-key"></i> SET TOKEN
                 </button>
-                <button class="action-item text-cyan-500 hover:text-cyan-400" onclick="app.executeAction('CRON_PROMPT')">
-                    <i class="fa-solid fa-robot"></i> CRON PROMPT
+                <button class="action-item text-cyan-500 hover:text-cyan-400" onclick="app.executeAction('KV_EDITOR')">
+                    <i class="fa-solid fa-database"></i> KV EDITOR
                 </button>
                 <div class="action-divider">
                     <div class="action-divider-label">THEMES</div>
@@ -559,6 +559,25 @@
                     <span class="text-[10px] text-gray-500 font-bold tracking-wider group-hover:text-cyan-400">MOOD</span>
                 </label>
             </div>
+        </div>
+        <div id="kv-selector-container" class="hidden flex flex-wrap items-center gap-2">
+            <select id="kv-key-select" class="bg-[#16161c] text-cyan-400 border border-[#2a2a35] text-[10px] font-mono font-bold tracking-wider px-2 py-1 rounded cursor-pointer focus:outline-none focus:border-cyan-500" onchange="app.onKVKeyChange(this.value)">
+                <option value="">— SELECT KEY —</option>
+                <option value="cron_prompt">cron_prompt</option>
+                <option value="dream_prompt">dream_prompt</option>
+                <option value="dream_buffer">dream_buffer</option>
+                <option value="inbox">inbox</option>
+                <option value="pending_edits">pending_edits</option>
+                <option value="goal_outcomes">goal_outcomes</option>
+                <option value="ops_state">ops_state</option>
+                <option value="ops_advisory">ops_advisory</option>
+                <option value="ops_log">ops_log</option>
+            </select>
+            <div class="flex items-center gap-1">
+                <input type="text" id="kv-custom-key" class="bg-[#16161c] text-cyan-400 border border-[#2a2a35] text-[10px] font-mono px-2 py-1 rounded w-28 focus:outline-none focus:border-cyan-500 hidden" placeholder="custom_key">
+                <button onclick="app.toggleCustomKVKey()" class="text-[9px] text-gray-500 hover:text-cyan-400 font-bold tracking-wider border border-[#2a2a35] px-2 py-1 rounded">CUSTOM</button>
+            </div>
+            <button onclick="app.deleteKVKey()" class="text-[9px] text-red-900 hover:text-red-500 font-bold tracking-wider border border-red-900/30 px-2 py-1 rounded">DEL</button>
         </div>
     </div>
     <textarea id="raw-json" class="flex-grow bg-black text-green-400 p-4 text-xs mono resize-none focus:outline-none" spellcheck="false" placeholder="// PASTE WORLD MODEL HERE //"></textarea>
@@ -1626,8 +1645,8 @@ class ZyqralOS {
             this.syncPull();
         } else if (type === 'SYNC_CONFIG') {
             this.syncSetToken();
-        } else if (type === 'CRON_PROMPT') {
-            this.syncEditPrompt();
+        } else if (type === 'KV_EDITOR') {
+            this.openKVEditor();
         }
     }
 
@@ -1648,65 +1667,150 @@ class ZyqralOS {
         this.toggleActions();
     }
 
-    async syncEditPrompt() {
+    openKVEditor() {
         const token = this.getSyncToken();
         if (!token) {
             alert('NO SYNC TOKEN SET. Use SET TOKEN first.');
             this.toggleActions();
             return;
         }
-
         this.toggleActions();
+        this.toggleIO('kv_editor');
+    }
+
+    getActiveKVKey() {
+        if (this._activeKVKey) return this._activeKVKey;
+        const custom = document.getElementById('kv-custom-key');
+        if (!custom.classList.contains('hidden') && custom.value.trim()) return custom.value.trim();
+        return document.getElementById('kv-key-select').value;
+    }
+
+    onKVKeyChange(key) {
+        if (!key) return;
+        // Hide custom input when using dropdown
+        document.getElementById('kv-custom-key').classList.add('hidden');
+        this.loadKVKey(key);
+    }
+
+    toggleCustomKVKey() {
+        const el = document.getElementById('kv-custom-key');
+        el.classList.toggle('hidden');
+        if (!el.classList.contains('hidden')) {
+            el.focus();
+            document.getElementById('kv-key-select').value = '';
+            // Allow Enter to load
+            el.onkeydown = (e) => {
+                if (e.key === 'Enter' && el.value.trim()) {
+                    this.loadKVKey(el.value.trim());
+                }
+            };
+        }
+    }
+
+    async loadKVKey(key) {
+        const token = this.getSyncToken();
+        if (!token) { alert('NO SYNC TOKEN SET.'); return; }
+
+        const ta = document.getElementById('raw-json');
+        ta.value = '';
+        ta.placeholder = `// LOADING ${key.toUpperCase()} FROM KV... //`;
+        this._activeKVKey = key;
 
         try {
-            const resp = await fetch('https://zos-worker.rykernobleaicoagent.workers.dev/prompt', {
+            const resp = await fetch(`https://zos-worker.rykernobleaicoagent.workers.dev/kv/${encodeURIComponent(key)}`, {
                 method: 'GET',
                 headers: { 'Authorization': 'Bearer ' + token }
             });
             const data = await resp.json();
 
             if (resp.ok && data.status === 'ok') {
-                this._cronPromptSource = data.source;
-                this.toggleIO('cron_prompt');
-                const ta = document.getElementById('raw-json');
-                ta.value = data.prompt;
-                this.addLog(`SYNC <span class="log-hl">[PROMPT]</span> LOADED (source: ${data.source})`);
+                // Pretty-print if JSON, raw otherwise
+                let display = data.value;
+                try {
+                    const parsed = JSON.parse(data.value);
+                    display = JSON.stringify(parsed, null, 2);
+                } catch (_) {}
+                ta.value = display || '';
+                ta.placeholder = `// ${key.toUpperCase()} — EMPTY //`;
+                this.addLog(`KV <span class="log-hl">[${key}]</span> LOADED (${(display || '').length} chars)`);
+            } else if (resp.status === 404) {
+                ta.value = '';
+                ta.placeholder = `// ${key.toUpperCase()} — KEY NOT FOUND (will create on save) //`;
+                this.addLog(`KV <span class="log-hl">[${key}]</span> NOT FOUND`);
             } else {
-                this.addLog(`SYNC <span class="log-hl">[PROMPT]</span> FETCH FAIL: ${data.error || resp.status}`);
+                ta.placeholder = `// LOAD FAILED: ${data.error || resp.status} //`;
+                this.addLog(`KV <span class="log-hl">[${key}]</span> FETCH FAIL: ${data.error || resp.status}`);
             }
         } catch (e) {
-            this.addLog(`SYNC <span class="log-hl">[PROMPT]</span> ERROR: ${e.message}`);
+            ta.placeholder = `// ERROR: ${e.message} //`;
+            this.addLog(`KV <span class="log-hl">[${key}]</span> ERROR: ${e.message}`);
         }
         this.save();
     }
 
-    async saveCronPrompt() {
+    async saveKVKey() {
         const token = this.getSyncToken();
         if (!token) { alert('NO SYNC TOKEN SET.'); return; }
 
+        const key = this.getActiveKVKey();
+        if (!key) { alert('NO KEY SELECTED. Pick a key from the dropdown or enter a custom key.'); return; }
+
         const ta = document.getElementById('raw-json');
-        const promptText = ta.value.trim();
-        if (!promptText) { alert('PROMPT CANNOT BE EMPTY.'); return; }
+        const value = ta.value;
 
         try {
-            const resp = await fetch('https://zos-worker.rykernobleaicoagent.workers.dev/prompt', {
+            const resp = await fetch(`https://zos-worker.rykernobleaicoagent.workers.dev/kv/${encodeURIComponent(key)}`, {
                 method: 'POST',
                 headers: {
                     'Authorization': 'Bearer ' + token,
                     'Content-Type': 'application/json'
                 },
-                body: JSON.stringify({ prompt: promptText })
+                body: JSON.stringify({ value: value })
             });
             const data = await resp.json();
 
             if (resp.ok && data.status === 'ok') {
-                this.addLog(`SYNC <span class="log-hl">[PROMPT]</span> SAVED (${data.length} chars)`);
-                this.toggleIO();
+                this.addLog(`KV <span class="log-hl">[${key}]</span> SAVED (${value.length} chars)`);
+                // Brief visual feedback
+                const loadBtn = document.getElementById('load-btn');
+                loadBtn.textContent = 'SAVED ✓';
+                setTimeout(() => { loadBtn.textContent = 'SAVE TO KV'; }, 1500);
             } else {
-                this.addLog(`SYNC <span class="log-hl">[PROMPT]</span> SAVE FAIL: ${data.error || resp.status}`);
+                this.addLog(`KV <span class="log-hl">[${key}]</span> SAVE FAIL: ${data.error || resp.status}`);
+                alert(`SAVE FAILED: ${data.error || resp.status}`);
             }
         } catch (e) {
-            this.addLog(`SYNC <span class="log-hl">[PROMPT]</span> SAVE ERROR: ${e.message}`);
+            this.addLog(`KV <span class="log-hl">[${key}]</span> SAVE ERROR: ${e.message}`);
+            alert(`SAVE ERROR: ${e.message}`);
+        }
+        this.save();
+    }
+
+    async deleteKVKey() {
+        const key = this.getActiveKVKey();
+        if (!key) { alert('NO KEY SELECTED.'); return; }
+        if (!confirm(`DELETE KV KEY "${key}"? This cannot be undone.`)) return;
+
+        const token = this.getSyncToken();
+        if (!token) { alert('NO SYNC TOKEN SET.'); return; }
+
+        try {
+            const resp = await fetch(`https://zos-worker.rykernobleaicoagent.workers.dev/kv/${encodeURIComponent(key)}`, {
+                method: 'DELETE',
+                headers: { 'Authorization': 'Bearer ' + token }
+            });
+            const data = await resp.json();
+
+            if (resp.ok && data.status === 'ok') {
+                this.addLog(`KV <span class="log-hl">[${key}]</span> DELETED`);
+                document.getElementById('raw-json').value = '';
+                document.getElementById('raw-json').placeholder = `// ${key.toUpperCase()} DELETED //`;
+                this._activeKVKey = null;
+            } else {
+                this.addLog(`KV <span class="log-hl">[${key}]</span> DELETE FAIL: ${data.error || resp.status}`);
+            }
+        } catch (e) {
+            this.addLog(`KV <span class="log-hl">[${key}]</span> DELETE ERROR: ${e.message}`);
         }
         this.save();
     }
@@ -3489,23 +3593,33 @@ class ZyqralOS {
                 loadBtn.textContent = 'LOAD DATA';
                 loadBtn.onclick = () => this.saveRaw();
             }
-            else if (mode === 'cron_prompt') {
+            else if (mode === 'kv_editor') {
                 exportOption.classList.add('hidden');
+                document.getElementById('kv-selector-container').classList.remove('hidden');
                 
                 ta.value = '';
                 ta.readOnly = false;
-                header.textContent = 'CRON SUB-AGENT PROMPT';
-                ta.placeholder = '// LOADING PROMPT FROM KV... //';
-                copyBtn.classList.add('hidden');
+                header.textContent = 'KV STORAGE EDITOR';
+                ta.placeholder = '// SELECT A KEY TO LOAD //';
+                copyBtn.classList.remove('hidden');
+                copyBtn.textContent = 'COPY VALUE';
                 loadBtn.classList.remove('hidden');
-                loadBtn.textContent = 'SAVE PROMPT';
-                loadBtn.onclick = () => this.saveCronPrompt();
+                loadBtn.textContent = 'SAVE TO KV';
+                loadBtn.onclick = () => this.saveKVKey();
+                
+                // Reset selector
+                document.getElementById('kv-key-select').value = '';
+                document.getElementById('kv-custom-key').value = '';
+                document.getElementById('kv-custom-key').classList.add('hidden');
+                this._activeKVKey = null;
             }
             modal.classList.remove('hidden');
         } else { 
             modal.classList.add('hidden'); 
             ta.readOnly = false; 
             exportOption.classList.add('hidden');
+            document.getElementById('kv-selector-container').classList.add('hidden');
+            this._activeKVKey = null;
         }
     }
 
