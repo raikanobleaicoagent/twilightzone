@@ -495,6 +495,9 @@
                 <button class="action-item text-gray-500 hover:text-gray-300" onclick="app.executeAction('SYNC_CONFIG')">
                     <i class="fa-solid fa-key"></i> SET TOKEN
                 </button>
+                <button class="action-item text-gray-500 hover:text-gray-300" onclick="app.executeAction('SYNC_URL')">
+                    <i class="fa-solid fa-link"></i> SET URL
+                </button>
                 <button class="action-item text-cyan-500 hover:text-cyan-400" onclick="app.executeAction('KV_EDITOR')">
                     <i class="fa-solid fa-database"></i> KV EDITOR
                 </button>
@@ -563,20 +566,34 @@
         <div id="kv-selector-container" class="hidden flex flex-wrap items-center gap-2">
             <select id="kv-key-select" class="bg-[#16161c] text-cyan-400 border border-[#2a2a35] text-[10px] font-mono font-bold tracking-wider px-2 py-1 rounded cursor-pointer focus:outline-none focus:border-cyan-500" onchange="app.onKVKeyChange(this.value)">
                 <option value="">— SELECT KEY —</option>
-                <option value="constitution">constitution</option>
-                <option value="dream_prompt">dream_prompt</option>
-                <option value="dream_buffer">dream_buffer</option>
-                <option value="inbox">inbox</option>
-                <option value="pending_edits">pending_edits</option>
-                <option value="cron_prompt">cron_prompt</option>
-                <option value="goal_outcomes">goal_outcomes</option>
-                <option value="ops_state">ops_state</option>
-                <option value="ops_advisory">ops_advisory</option>
-                <option value="ops_log">ops_log</option>
+                <optgroup label="Governance">
+                    <option value="constitution">constitution</option>
+                    <option value="dream_prompt">dream_prompt</option>
+                    <option value="governor_prompt">governor_prompt</option>
+                    <option value="pending_edits">pending_edits</option>
+                    <option value="pending_actions">pending_actions</option>
+                    <option value="inbox">inbox</option>
+                </optgroup>
+                <optgroup label="State">
+                    <option value="ops_state">ops_state</option>
+                    <option value="ops_log">ops_log</option>
+                    <option value="ops_advisory">ops_advisory</option>
+                    <option value="cron_prompt">cron_prompt</option>
+                    <option value="goal_outcomes">goal_outcomes</option>
+                    <option value="prediction_ledger">prediction_ledger</option>
+                    <option value="fitness_metrics">fitness_metrics</option>
+                </optgroup>
+                <optgroup label="Context">
+                    <option value="dream_buffer">dream_buffer</option>
+                    <option value="dream_buffer_1">dream_buffer_1</option>
+                    <option value="dream_buffer_2">dream_buffer_2</option>
+                    <option value="discord_webhook">discord_webhook</option>
+                </optgroup>
             </select>
             <div class="flex items-center gap-1">
                 <input type="text" id="kv-custom-key" class="bg-[#16161c] text-cyan-400 border border-[#2a2a35] text-[10px] font-mono px-2 py-1 rounded w-28 focus:outline-none focus:border-cyan-500 hidden" placeholder="custom_key">
                 <button onclick="app.toggleCustomKVKey()" class="text-[9px] text-gray-500 hover:text-cyan-400 font-bold tracking-wider border border-[#2a2a35] px-2 py-1 rounded">CUSTOM</button>
+                <button id="kv-load-custom-btn" onclick="app.loadCustomKVKey()" class="text-[9px] text-cyan-500 hover:text-cyan-400 font-bold tracking-wider border border-[#2a2a35] px-2 py-1 rounded hidden">LOAD</button>
             </div>
             <button onclick="app.deleteKVKey()" class="text-[9px] text-red-900 hover:text-red-500 font-bold tracking-wider border border-red-900/30 px-2 py-1 rounded">DEL</button>
         </div>
@@ -1646,6 +1663,8 @@ class ZyqralOS {
             this.syncPull();
         } else if (type === 'SYNC_CONFIG') {
             this.syncSetToken();
+        } else if (type === 'SYNC_URL') {
+            this.syncSetUrl();
         } else if (type === 'KV_EDITOR') {
             this.openKVEditor();
         }
@@ -1655,6 +1674,21 @@ class ZyqralOS {
     
     getSyncToken() {
         return localStorage.getItem('zos_sync_token');
+    }
+
+    getWorkerUrl() {
+        return localStorage.getItem('zos_worker_url') || 'https://zos-worker.rykernobleaicoagent.workers.dev';
+    }
+
+    syncSetUrl() {
+        const current = this.getWorkerUrl();
+        const url = prompt('ENTER WORKER URL (include https://):', current);
+        if (url !== null && url.trim()) {
+            localStorage.setItem('zos_worker_url', url.trim().replace(/\/$/, ''));
+            this.addLog(`SYNC <span class="log-hl">[CONFIG]</span> URL SET: ${url.trim()}`);
+            this.save();
+        }
+        this.toggleActions();
     }
 
     syncSetToken() {
@@ -1695,17 +1729,31 @@ class ZyqralOS {
 
     toggleCustomKVKey() {
         const el = document.getElementById('kv-custom-key');
+        const loadBtn = document.getElementById('kv-load-custom-btn');
         el.classList.toggle('hidden');
+        loadBtn.classList.toggle('hidden');
         if (!el.classList.contains('hidden')) {
             el.focus();
             document.getElementById('kv-key-select').value = '';
+            this._activeKVKey = null;
             // Allow Enter to load
             el.onkeydown = (e) => {
                 if (e.key === 'Enter' && el.value.trim()) {
-                    this.loadKVKey(el.value.trim());
+                    this.loadCustomKVKey();
                 }
             };
+        } else {
+            el.value = '';
+            this._activeKVKey = null;
         }
+    }
+
+    loadCustomKVKey() {
+        const el = document.getElementById('kv-custom-key');
+        const key = el.value.trim();
+        if (!key) { alert('Enter a key name first.'); return; }
+        this._activeKVKey = key;
+        this.loadKVKey(key);
     }
 
     async loadKVKey(key) {
@@ -1718,7 +1766,7 @@ class ZyqralOS {
         this._activeKVKey = key;
 
         try {
-            const resp = await fetch(`https://zos-worker.rykernobleaicoagent.workers.dev/kv/${encodeURIComponent(key)}`, {
+            const resp = await fetch(`${this.getWorkerUrl()}/kv/${encodeURIComponent(key)}`, {
                 method: 'GET',
                 headers: { 'Authorization': 'Bearer ' + token }
             });
@@ -1760,7 +1808,7 @@ class ZyqralOS {
         const value = ta.value;
 
         try {
-            const resp = await fetch(`https://zos-worker.rykernobleaicoagent.workers.dev/kv/${encodeURIComponent(key)}`, {
+            const resp = await fetch(`${this.getWorkerUrl()}/kv/${encodeURIComponent(key)}`, {
                 method: 'POST',
                 headers: {
                     'Authorization': 'Bearer ' + token,
@@ -1796,7 +1844,7 @@ class ZyqralOS {
         if (!token) { alert('NO SYNC TOKEN SET.'); return; }
 
         try {
-            const resp = await fetch(`https://zos-worker.rykernobleaicoagent.workers.dev/kv/${encodeURIComponent(key)}`, {
+            const resp = await fetch(`${this.getWorkerUrl()}/kv/${encodeURIComponent(key)}`, {
                 method: 'DELETE',
                 headers: { 'Authorization': 'Bearer ' + token }
             });
@@ -1881,7 +1929,7 @@ class ZyqralOS {
             goal_outcomes: goalOutcomes,
             flags: { audit_due: false },
             infra: {
-                endpoint: 'zos-worker.rykernobleaicoagent.workers.dev',
+                endpoint: this.getWorkerUrl().replace('https://', ''),
                 source: 'zos-v8.0-github-pages'
             }
         };
@@ -1899,7 +1947,7 @@ class ZyqralOS {
         this.toggleActions();
 
         try {
-            const resp = await fetch('https://zos-worker.rykernobleaicoagent.workers.dev/sync', {
+            const resp = await fetch(this.getWorkerUrl() + '/sync', {
                 method: 'POST',
                 headers: {
                     'Authorization': 'Bearer ' + token,
@@ -1932,7 +1980,7 @@ class ZyqralOS {
         this.toggleActions();
 
         try {
-            const resp = await fetch('https://zos-worker.rykernobleaicoagent.workers.dev/sync', {
+            const resp = await fetch(this.getWorkerUrl() + '/sync', {
                 method: 'GET',
                 headers: { 'Authorization': 'Bearer ' + token }
             });
@@ -3612,6 +3660,7 @@ class ZyqralOS {
                 document.getElementById('kv-key-select').value = '';
                 document.getElementById('kv-custom-key').value = '';
                 document.getElementById('kv-custom-key').classList.add('hidden');
+                document.getElementById('kv-load-custom-btn').classList.add('hidden');
                 this._activeKVKey = null;
             }
             modal.classList.remove('hidden');
@@ -3620,6 +3669,7 @@ class ZyqralOS {
             ta.readOnly = false; 
             exportOption.classList.add('hidden');
             document.getElementById('kv-selector-container').classList.add('hidden');
+            document.getElementById('kv-load-custom-btn').classList.add('hidden');
             this._activeKVKey = null;
         }
     }
