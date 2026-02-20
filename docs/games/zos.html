@@ -1712,6 +1712,12 @@ class ZyqralOS {
     }
 
     buildOpsState() {
+        // Strip template/UI tags from values before syncing to KV
+        const sanitize = (val) => {
+            if (typeof val !== 'string') return val;
+            return val.replace(/<options:[^>]*>/g, '').replace(/\n+/g, ' ').trim();
+        };
+
         // Extract project statuses — safe, no personal data
         const projects = {};
         const zss = this.state.zyqral_system_status || this.state;
@@ -1721,11 +1727,11 @@ class ZyqralOS {
                 const proj = rawProjects[k];
                 if (typeof proj === 'object' && proj !== null) {
                     projects[k] = {
-                        status: proj.STATUS || proj.status || 'UNKNOWN',
-                        objective: proj.OBJECTIVE || proj.objective || ''
+                        status: sanitize(proj.STATUS || proj.status || 'UNKNOWN'),
+                        objective: sanitize(proj.OBJECTIVE || proj.objective || '')
                     };
                 } else {
-                    projects[k] = String(proj);
+                    projects[k] = sanitize(String(proj));
                 }
             });
         }
@@ -1738,10 +1744,10 @@ class ZyqralOS {
                 const entry = rawLog[k];
                 if (typeof entry === 'object' && entry !== null) {
                     projectLog[k] = {
-                        timestamp: entry.timestamp || '',
-                        goal: entry.goal || '',
-                        serves: entry.serves || '',
-                        outcome: entry.outcome || ''
+                        timestamp: sanitize(entry.timestamp || ''),
+                        goal: sanitize(entry.goal || ''),
+                        serves: sanitize(entry.serves || ''),
+                        outcome: sanitize(entry.outcome || '')
                     };
                 }
             });
@@ -1755,10 +1761,10 @@ class ZyqralOS {
                 const entry = rawOutcomes[k];
                 if (typeof entry === 'object' && entry !== null) {
                     goalOutcomes[k] = {
-                        timestamp: entry.timestamp || '',
-                        goal: entry.goal || '',
-                        serves: entry.serves || '',
-                        outcome: entry.outcome || ''
+                        timestamp: sanitize(entry.timestamp || ''),
+                        goal: sanitize(entry.goal || ''),
+                        serves: sanitize(entry.serves || ''),
+                        outcome: sanitize(entry.outcome || '')
                     };
                 }
             });
