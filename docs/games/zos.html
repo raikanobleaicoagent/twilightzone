@@ -3,7 +3,8 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Z-OS | AGENCY PROTOCOL (v8.0)</title>
+    <title>Z-OS | AGENCY PROTOCOL (v8.1)</title>
+    <!-- v8.1 — 2026-02-21 — Dynamic KV key list via localStorage, import/export -->
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
@@ -1968,23 +1969,6 @@ class ZyqralOS {
             });
         }
 
-        // Extract project log
-        const projectLog = {};
-        const rawLog = zss.PROJECT_LOG || zss.project_log || this.state.PROJECT_LOG;
-        if (rawLog && typeof rawLog === 'object') {
-            Object.keys(rawLog).forEach(k => {
-                const entry = rawLog[k];
-                if (typeof entry === 'object' && entry !== null) {
-                    projectLog[k] = {
-                        timestamp: sanitize(entry.timestamp || ''),
-                        goal: sanitize(entry.goal || ''),
-                        serves: sanitize(entry.serves || ''),
-                        outcome: sanitize(entry.outcome || '')
-                    };
-                }
-            });
-        }
-
         // Extract goal outcomes (memory ledger)
         const goalOutcomes = {};
         const rawOutcomes = zss.GOAL_OUTCOMES || zss.goal_outcomes || this.state.GOAL_OUTCOMES;
@@ -2004,12 +1988,11 @@ class ZyqralOS {
 
         return {
             projects: projects,
-            project_log: projectLog,
             goal_outcomes: goalOutcomes,
             flags: { audit_due: false },
             infra: {
                 endpoint: this.getWorkerUrl().replace('https://', ''),
-                source: 'zos-v8.0-github-pages'
+                source: 'zos-v8.1-github-pages'
             }
         };
     }
