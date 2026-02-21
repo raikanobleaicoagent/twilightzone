@@ -1717,8 +1717,10 @@ class ZyqralOS {
     populateKVDropdown() {
         const select = document.getElementById('kv-key-select');
         const list = this.getKVKeyList();
-        // Clear all but first option
-        while (select.options.length > 1) select.remove(1);
+        // Clear everything after the first option (including optgroups)
+        const first = select.options[0];
+        select.innerHTML = '';
+        select.appendChild(first);
         if (!list || typeof list !== 'object') return;
         const groups = Object.keys(list);
         groups.forEach(group => {
