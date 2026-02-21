@@ -566,36 +566,17 @@
         <div id="kv-selector-container" class="hidden flex flex-wrap items-center gap-2">
             <select id="kv-key-select" class="bg-[#16161c] text-cyan-400 border border-[#2a2a35] text-[10px] font-mono font-bold tracking-wider px-2 py-1 rounded cursor-pointer focus:outline-none focus:border-cyan-500" onchange="app.onKVKeyChange(this.value)">
                 <option value="">— SELECT KEY —</option>
-                <optgroup label="Governance">
-                    <option value="constitution">constitution</option>
-                    <option value="dream_prompt">dream_prompt</option>
-                    <option value="governor_prompt">governor_prompt</option>
-                    <option value="pending_edits">pending_edits</option>
-                    <option value="pending_actions">pending_actions</option>
-                    <option value="inbox">inbox</option>
-                </optgroup>
-                <optgroup label="State">
-                    <option value="ops_state">ops_state</option>
-                    <option value="ops_log">ops_log</option>
-                    <option value="ops_advisory">ops_advisory</option>
-                    <option value="cron_prompt">cron_prompt</option>
-                    <option value="goal_outcomes">goal_outcomes</option>
-                    <option value="prediction_ledger">prediction_ledger</option>
-                    <option value="fitness_metrics">fitness_metrics</option>
-                </optgroup>
-                <optgroup label="Context">
-                    <option value="dream_buffer">dream_buffer</option>
-                    <option value="dream_buffer_1">dream_buffer_1</option>
-                    <option value="dream_buffer_2">dream_buffer_2</option>
-                    <option value="discord_webhook">discord_webhook</option>
-                </optgroup>
             </select>
             <div class="flex items-center gap-1">
-                <input type="text" id="kv-custom-key" class="bg-[#16161c] text-cyan-400 border border-[#2a2a35] text-[10px] font-mono px-2 py-1 rounded w-28 focus:outline-none focus:border-cyan-500 hidden" placeholder="custom_key">
-                <button onclick="app.toggleCustomKVKey()" class="text-[9px] text-gray-500 hover:text-cyan-400 font-bold tracking-wider border border-[#2a2a35] px-2 py-1 rounded">CUSTOM</button>
-                <button id="kv-load-custom-btn" onclick="app.loadCustomKVKey()" class="text-[9px] text-cyan-500 hover:text-cyan-400 font-bold tracking-wider border border-[#2a2a35] px-2 py-1 rounded hidden">LOAD</button>
+                <input type="text" id="kv-add-key-input" class="bg-[#16161c] text-cyan-400 border border-[#2a2a35] text-[10px] font-mono px-2 py-1 rounded w-28 focus:outline-none focus:border-cyan-500 hidden" placeholder="key_name">
+                <input type="text" id="kv-add-group-input" class="bg-[#16161c] text-gray-400 border border-[#2a2a35] text-[10px] font-mono px-2 py-1 rounded w-20 focus:outline-none focus:border-cyan-500 hidden" placeholder="group">
+                <button onclick="app.toggleAddKVKey()" class="text-[9px] text-gray-500 hover:text-cyan-400 font-bold tracking-wider border border-[#2a2a35] px-2 py-1 rounded">ADD</button>
+                <button id="kv-add-confirm-btn" onclick="app.confirmAddKVKey()" class="text-[9px] text-cyan-500 hover:text-cyan-400 font-bold tracking-wider border border-[#2a2a35] px-2 py-1 rounded hidden">OK</button>
             </div>
-            <button onclick="app.deleteKVKey()" class="text-[9px] text-red-900 hover:text-red-500 font-bold tracking-wider border border-red-900/30 px-2 py-1 rounded">DEL</button>
+            <button onclick="app.removeKVKeyFromList()" class="text-[9px] text-gray-500 hover:text-cyan-400 font-bold tracking-wider border border-[#2a2a35] px-2 py-1 rounded" title="Remove selected key from list">REM</button>
+            <button onclick="app.exportKVKeys()" class="text-[9px] text-gray-500 hover:text-cyan-400 font-bold tracking-wider border border-[#2a2a35] px-2 py-1 rounded" title="Export key list as JSON">EXP</button>
+            <button onclick="app.importKVKeys()" class="text-[9px] text-gray-500 hover:text-cyan-400 font-bold tracking-wider border border-[#2a2a35] px-2 py-1 rounded" title="Import key list from JSON in editor">IMP</button>
+            <button onclick="app.deleteKVKey()" class="text-[9px] text-red-900 hover:text-red-500 font-bold tracking-wider border border-red-900/30 px-2 py-1 rounded" title="Delete key from KV storage">DEL</button>
         </div>
     </div>
     <textarea id="raw-json" class="flex-grow bg-black text-green-400 p-4 text-xs mono resize-none focus:outline-none" spellcheck="false" placeholder="// PASTE WORLD MODEL HERE //"></textarea>
@@ -1715,45 +1696,134 @@ class ZyqralOS {
 
     getActiveKVKey() {
         if (this._activeKVKey) return this._activeKVKey;
-        const custom = document.getElementById('kv-custom-key');
-        if (!custom.classList.contains('hidden') && custom.value.trim()) return custom.value.trim();
         return document.getElementById('kv-key-select').value;
+    }
+
+    // --- Dynamic KV Key List Management ---
+
+    getKVKeyList() {
+        try {
+            const raw = localStorage.getItem('zos_kv_keys');
+            if (raw) return JSON.parse(raw);
+        } catch (_) {}
+        return null; // null means not yet initialized
+    }
+
+    saveKVKeyList(list) {
+        localStorage.setItem('zos_kv_keys', JSON.stringify(list));
+    }
+
+    populateKVDropdown() {
+        const select = document.getElementById('kv-key-select');
+        const list = this.getKVKeyList();
+        // Clear all but first option
+        while (select.options.length > 1) select.remove(1);
+        if (!list || typeof list !== 'object') return;
+        const groups = Object.keys(list);
+        groups.forEach(group => {
+            const optgroup = document.createElement('optgroup');
+            optgroup.label = group;
+            (list[group] || []).forEach(key => {
+                const opt = document.createElement('option');
+                opt.value = key;
+                opt.textContent = key;
+                optgroup.appendChild(opt);
+            });
+            select.appendChild(optgroup);
+        });
     }
 
     onKVKeyChange(key) {
         if (!key) return;
-        // Hide custom input when using dropdown
-        document.getElementById('kv-custom-key').classList.add('hidden');
         this.loadKVKey(key);
     }
 
-    toggleCustomKVKey() {
-        const el = document.getElementById('kv-custom-key');
-        const loadBtn = document.getElementById('kv-load-custom-btn');
-        el.classList.toggle('hidden');
-        loadBtn.classList.toggle('hidden');
-        if (!el.classList.contains('hidden')) {
-            el.focus();
-            document.getElementById('kv-key-select').value = '';
-            this._activeKVKey = null;
-            // Allow Enter to load
-            el.onkeydown = (e) => {
-                if (e.key === 'Enter' && el.value.trim()) {
-                    this.loadCustomKVKey();
-                }
+    toggleAddKVKey() {
+        const keyInput = document.getElementById('kv-add-key-input');
+        const groupInput = document.getElementById('kv-add-group-input');
+        const confirmBtn = document.getElementById('kv-add-confirm-btn');
+        keyInput.classList.toggle('hidden');
+        groupInput.classList.toggle('hidden');
+        confirmBtn.classList.toggle('hidden');
+        if (!keyInput.classList.contains('hidden')) {
+            keyInput.value = '';
+            groupInput.value = '';
+            keyInput.focus();
+            keyInput.onkeydown = (e) => {
+                if (e.key === 'Enter') this.confirmAddKVKey();
             };
-        } else {
-            el.value = '';
-            this._activeKVKey = null;
+            groupInput.onkeydown = (e) => {
+                if (e.key === 'Enter') this.confirmAddKVKey();
+            };
         }
     }
 
-    loadCustomKVKey() {
-        const el = document.getElementById('kv-custom-key');
-        const key = el.value.trim();
-        if (!key) { alert('Enter a key name first.'); return; }
-        this._activeKVKey = key;
+    confirmAddKVKey() {
+        const keyInput = document.getElementById('kv-add-key-input');
+        const groupInput = document.getElementById('kv-add-group-input');
+        const key = keyInput.value.trim();
+        const group = groupInput.value.trim() || 'Custom';
+        if (!key) { alert('Enter a key name.'); return; }
+        let list = this.getKVKeyList() || {};
+        if (!list[group]) list[group] = [];
+        if (!list[group].includes(key)) {
+            list[group].push(key);
+            this.saveKVKeyList(list);
+            this.populateKVDropdown();
+            this.addLog(`KV key list: added <span class="log-hl">${key}</span> → ${group}`);
+        }
+        // Select and load the new key
+        document.getElementById('kv-key-select').value = key;
         this.loadKVKey(key);
+        // Hide inputs
+        keyInput.classList.add('hidden');
+        groupInput.classList.add('hidden');
+        document.getElementById('kv-add-confirm-btn').classList.add('hidden');
+    }
+
+    removeKVKeyFromList() {
+        const key = document.getElementById('kv-key-select').value;
+        if (!key) { alert('Select a key to remove from list.'); return; }
+        if (!confirm(`Remove "${key}" from key list? (Does NOT delete from KV storage)`)) return;
+        let list = this.getKVKeyList() || {};
+        Object.keys(list).forEach(group => {
+            list[group] = list[group].filter(k => k !== key);
+            if (list[group].length === 0) delete list[group];
+        });
+        this.saveKVKeyList(list);
+        this.populateKVDropdown();
+        this._activeKVKey = null;
+        document.getElementById('raw-json').value = '';
+        this.addLog(`KV key list: removed <span class="log-hl">${key}</span>`);
+    }
+
+    exportKVKeys() {
+        const list = this.getKVKeyList() || {};
+        const ta = document.getElementById('raw-json');
+        ta.value = JSON.stringify(list, null, 2);
+        this._activeKVKey = null;
+        document.getElementById('kv-key-select').value = '';
+        this.addLog('KV key list exported to editor');
+    }
+
+    importKVKeys() {
+        const ta = document.getElementById('raw-json');
+        try {
+            const imported = JSON.parse(ta.value);
+            if (typeof imported !== 'object' || Array.isArray(imported)) {
+                alert('Expected JSON object: {"GroupName": ["key1", "key2"], ...}');
+                return;
+            }
+            // Validate structure
+            Object.keys(imported).forEach(g => {
+                if (!Array.isArray(imported[g])) throw new Error(`Group "${g}" must be an array`);
+            });
+            this.saveKVKeyList(imported);
+            this.populateKVDropdown();
+            this.addLog(`KV key list imported: ${Object.values(imported).flat().length} keys in ${Object.keys(imported).length} groups`);
+        } catch (e) {
+            alert('Import failed: ' + e.message);
+        }
     }
 
     async loadKVKey(key) {
@@ -1838,7 +1908,7 @@ class ZyqralOS {
     async deleteKVKey() {
         const key = this.getActiveKVKey();
         if (!key) { alert('NO KEY SELECTED.'); return; }
-        if (!confirm(`DELETE KV KEY "${key}"? This cannot be undone.`)) return;
+        if (!confirm(`DELETE KV KEY "${key}"? This removes it from KV storage AND your key list.`)) return;
 
         const token = this.getSyncToken();
         if (!token) { alert('NO SYNC TOKEN SET.'); return; }
@@ -1851,6 +1921,15 @@ class ZyqralOS {
             const data = await resp.json();
 
             if (resp.ok && data.status === 'ok') {
+                // Also remove from local key list
+                let list = this.getKVKeyList() || {};
+                Object.keys(list).forEach(group => {
+                    list[group] = list[group].filter(k => k !== key);
+                    if (list[group].length === 0) delete list[group];
+                });
+                this.saveKVKeyList(list);
+                this.populateKVDropdown();
+
                 this.addLog(`KV <span class="log-hl">[${key}]</span> DELETED`);
                 document.getElementById('raw-json').value = '';
                 document.getElementById('raw-json').placeholder = `// ${key.toUpperCase()} DELETED //`;
@@ -3645,6 +3724,7 @@ class ZyqralOS {
             else if (mode === 'kv_editor') {
                 exportOption.classList.add('hidden');
                 document.getElementById('kv-selector-container').classList.remove('hidden');
+                this.populateKVDropdown();
                 
                 ta.value = '';
                 ta.readOnly = false;
@@ -3658,9 +3738,10 @@ class ZyqralOS {
                 
                 // Reset selector
                 document.getElementById('kv-key-select').value = '';
-                document.getElementById('kv-custom-key').value = '';
-                document.getElementById('kv-custom-key').classList.add('hidden');
-                document.getElementById('kv-load-custom-btn').classList.add('hidden');
+                document.getElementById('kv-add-key-input').value = '';
+                document.getElementById('kv-add-key-input').classList.add('hidden');
+                document.getElementById('kv-add-group-input').classList.add('hidden');
+                document.getElementById('kv-add-confirm-btn').classList.add('hidden');
                 this._activeKVKey = null;
             }
             modal.classList.remove('hidden');
@@ -3669,7 +3750,6 @@ class ZyqralOS {
             ta.readOnly = false; 
             exportOption.classList.add('hidden');
             document.getElementById('kv-selector-container').classList.add('hidden');
-            document.getElementById('kv-load-custom-btn').classList.add('hidden');
             this._activeKVKey = null;
         }
     }
