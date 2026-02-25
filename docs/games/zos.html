@@ -1,4 +1,4 @@
-// ZOS Worker v10.18 — 2026-02-24 — Removed faulty hoursSinceLastGoal calculation from daily audit
+// ZOS Worker v10.15 — 2026-02-24 — Full feature set: expert call logging, cooldown, buffer history (single KV with delimiter), scribe protection, read blocker, debug capture, expert call context.
 
 export default {
   async fetch(request, env) {
@@ -311,7 +311,20 @@ export default {
     opsLog.push(snapshot);
     if (opsLog.length > 90) opsLog = opsLog.slice(-90);
 
-    // Removed hoursSinceLastGoal calculation (was faulty)
+    var goalOutcomes = stored.goal_outcomes || {};
+    var goalKeys = Object.keys(goalOutcomes);
+    var hoursSinceLastGoal = null;
+
+    if (goalKeys.length > 0) {
+      var lastGoal = goalOutcomes[goalKeys[goalKeys.length - 1]];
+      if (lastGoal && lastGoal.timestamp) {
+        var lastGoalDate = new Date(lastGoal.timestamp.replace(" @ ", "T").replace(/(\d{2}):(\d{2})$/, "$1:$2:00"));
+        hoursSinceLastGoal = Math.round((now - lastGoalDate) / (1000 * 60 * 60));
+      }
+    }
+
+    stored.flags.hours_since_last_goal = hoursSinceLastGoal;
+    stored.flags.stagnation_detected = hoursSinceLastGoal === null || hoursSinceLastGoal > 72;
 
     stored.last_cron = now.toISOString();
 
@@ -482,15 +495,13 @@ var POST_PROCESSORS = {
   dreamer: processDreamerOutput,
   expert_writer: processExpertWriterOutput,
   scribe: processScribeOutput,
-  archivist: processArchivistOutput,
-  cleanup: processCleanupOutput
+  archivist: processArchivistOutput
 };
 
 async function loadExpert(env, name) {
   var expert = await env.ZOS_KV.get("expert_" + name, "json");
   if (expert && typeof expert === "object" && expert.name) return expert;
   if (name === "dreamer") return DEFAULT_EXPERT_DREAMER;
-  if (name === "cleanup") return DEFAULT_EXPERT_CLEANUP;
   return null;
 }
 
@@ -804,65 +815,6 @@ async function injectBufferHistory(env, expert) {
 }
 
 // ============================================================================
-// Helper to update the expert registry
-// ============================================================================
-async function updateExpertRegistry(env, expertName, expertConfig) {
-  var registry = await env.ZOS_KV.get("expert_registry", "json") || {};
-  registry[expertName] = {
-    description: expertConfig.description || "",
-    cooldown_hours: expertConfig.cooldown_hours || 0,
-    emoji: expertConfig.emoji || "⚙️",
-    color: expertConfig.color || 0xcccccc
-  };
-  await env.ZOS_KV.put("expert_registry", JSON.stringify(registry));
-}
-
-// ============================================================================
-// Helper to remove an expert from registry and delete its keys
-// ============================================================================
-async function removeExpert(env, expertName, blacklistedPatterns) {
-  var results = [];
-
-  // Check if expert is blacklisted (protected from removal)
-  var configKey = "expert_" + expertName;
-  if (keyMatchesAnyPattern(configKey, blacklistedPatterns)) {
-    results.push({ key: configKey, status: "REFUSED", reason: "Expert key is blacklisted (protected)" });
-    return results;
-  }
-
-  // Delete config key
-  var configExists = await env.ZOS_KV.get(configKey);
-  if (configExists !== null) {
-    await env.ZOS_KV.delete(configKey);
-    results.push({ key: configKey, status: "DELETED" });
-  } else {
-    results.push({ key: configKey, status: "NOT_FOUND" });
-  }
-
-  // Delete prompt key
-  var promptKey = "expert_" + expertName + "_prompt";
-  var promptExists = await env.ZOS_KV.get(promptKey);
-  if (promptExists !== null) {
-    await env.ZOS_KV.delete(promptKey);
-    results.push({ key: promptKey, status: "DELETED" });
-  } else {
-    results.push({ key: promptKey, status: "NOT_FOUND" });
-  }
-
-  // Remove from registry
-  var registry = await env.ZOS_KV.get("expert_registry", "json") || {};
-  if (registry[expertName]) {
-    delete registry[expertName];
-    await env.ZOS_KV.put("expert_registry", JSON.stringify(registry));
-    results.push({ key: "expert_registry", status: "UPDATED", detail: "Removed " + expertName });
-  } else {
-    results.push({ key: "expert_registry", status: "NOT_FOUND", detail: "Expert not in registry" });
-  }
-
-  return results;
-}
-
-// ============================================================================
 // CONTEXT BUILDERS — one per handler, plus generic fallback
 // ============================================================================
 
@@ -1088,106 +1040,16 @@ async function processGenericOutput(env, expert, parsed, rawResponse, beatId, mo
   return { fields: fields };
 }
 
-// ============================================================================
-// CLEANUP POST-PROCESSOR — removes experts
-// ============================================================================
-async function processCleanupOutput(env, expert, parsed, rawResponse, beatId, model) {
-  var results = [];
-
-  // Load blacklist patterns
-  var blacklistedPatterns = await env.ZOS_KV.get("blacklisted_key_patterns", "json") || [];
-
-  // Parse reason for REMOVE command
-  if (parsed.ACTION && parsed.ACTION.toLowerCase().includes("remove")) {
-    var targetMatch = parsed.ACTION.match(/REMOVE\s+(\w+)/i);
-    if (targetMatch) {
-      var targetName = targetMatch[1].trim();
-      results = await removeExpert(env, targetName, blacklistedPatterns);
-    } else {
-      results.push({ key: "?", status: "PARSE_FAIL", reason: "Could not extract expert name from ACTION" });
-    }
-  } else {
-    results.push({ key: "?", status: "NO_ACTION", reason: "No REMOVE command found in ACTION" });
-  }
-
-  // Build discord fields
-  var fields = [];
-  if (parsed.ANALYSIS) {
-    fields.push({ name: "🔍 ANALYSIS", value: truncate(parsed.ANALYSIS, 1024), inline: false });
-  }
-
-  results.forEach(function(r) {
-    var icon = r.status === "DELETED" ? "✅" : r.status === "REFUSED" ? "🔒" : r.status === "UPDATED" ? "📝" : "❌";
-    var detail = icon + " `" + r.key + "` → " + r.status;
-    if (r.reason) detail += " (" + r.reason + ")";
-    if (r.detail) detail += " — " + r.detail;
-    fields.push({ name: "🧹 CLEANUP RESULT", value: detail, inline: false });
-  });
-
-  if (parsed.RESULT) {
-    fields.push({ name: "📊 RESULT", value: truncate(parsed.RESULT, 1024), inline: false });
-  }
-
-  var description = "Cleanup processed " + results.length + " operation(s)";
-  return {
-    fields: fields,
-    description: description,
-    footer_extra: results.filter(r => r.status === "DELETED").length + " deleted"
-  };
-}
-
-// ============================================================================
-// EXPERT WRITER POST-PROCESSOR — now writes directly to expert_* keys and updates registry
-// ============================================================================
 async function processExpertWriterOutput(env, expert, parsed, rawResponse, beatId, model) {
-  var writeResults = [];
-
-  // Load blacklist patterns from KV (same as scribe)
-  var blacklistedPatterns = await env.ZOS_KV.get("blacklisted_key_patterns", "json") || [];
-
+  // Write draft config and prompt to reviewable KV keys
   if (parsed.EXPERT_CONFIG) {
-    try {
-      var expertConfig = JSON.parse(parsed.EXPERT_CONFIG);
-      var expertName = expertConfig.name;
-      if (!expertName) {
-        writeResults.push({ key: "?", status: "INVALID_CONFIG", reason: "Missing 'name' field in EXPERT_CONFIG" });
-      } else {
-        // Determine target keys
-        var configKey = "expert_" + expertName;
-        var promptKey = "expert_" + expertName + "_prompt";
-
-        // Check blacklist
-        var isBlacklisted = keyMatchesAnyPattern(configKey, blacklistedPatterns);
-
-        if (isBlacklisted) {
-          // Write drafts
-          var draftConfigKey = "draft_" + configKey;
-          var draftPromptKey = "draft_" + promptKey;
-          await env.ZOS_KV.put(draftConfigKey, parsed.EXPERT_CONFIG);
-          writeResults.push({ key: configKey, status: "DRAFTED (blacklisted)", draft_key: draftConfigKey, reason: "Expert key is blacklisted" });
-          if (parsed.EXPERT_PROMPT) {
-            await env.ZOS_KV.put(draftPromptKey, parsed.EXPERT_PROMPT);
-            writeResults.push({ key: promptKey, status: "DRAFTED (blacklisted)", draft_key: draftPromptKey, reason: "Expert prompt key is blacklisted" });
-          }
-        } else {
-          // Write directly
-          await env.ZOS_KV.put(configKey, parsed.EXPERT_CONFIG);
-          writeResults.push({ key: configKey, status: "WRITTEN", chars: parsed.EXPERT_CONFIG.length });
-          if (parsed.EXPERT_PROMPT) {
-            await env.ZOS_KV.put(promptKey, parsed.EXPERT_PROMPT);
-            writeResults.push({ key: promptKey, status: "WRITTEN", chars: parsed.EXPERT_PROMPT.length });
-          }
-          // Update expert registry
-          await updateExpertRegistry(env, expertName, expertConfig);
-          writeResults.push({ key: "expert_registry", status: "UPDATED", detail: "Added/updated " + expertName });
-        }
-      }
-    } catch (e) {
-      writeResults.push({ key: "?", status: "PARSE_FAIL", reason: "Invalid JSON in EXPERT_CONFIG: " + e.message });
-    }
+    await env.ZOS_KV.put("draft_expert_config", parsed.EXPERT_CONFIG);
+  }
+  if (parsed.EXPERT_PROMPT) {
+    await env.ZOS_KV.put("draft_expert_prompt", parsed.EXPERT_PROMPT);
   }
 
-  // Mark processed proposals as "drafted" (if any were pending)
+  // Mark processed proposals as "drafted"
   var proposals = await env.ZOS_KV.get("pending_expert_proposals", "json") || [];
   var drafted = 0;
   proposals.forEach(function(p) {
@@ -1211,26 +1073,39 @@ async function processExpertWriterOutput(env, expert, parsed, rawResponse, beatI
     }
   }
 
-  // Add write results as a field
-  if (writeResults.length > 0) {
-    var resultText = writeResults.map(function(r) {
-      var icon = r.status === "WRITTEN" ? "✅" : r.status.includes("DRAFTED") ? "📋" : "❌";
-      var base = icon + " `" + r.key + "` → " + r.status;
-      if (r.reason) base += " (" + r.reason + ")";
-      if (r.chars) base += " (" + r.chars + " chars)";
-      if (r.draft_key) base += " → `" + r.draft_key + "`";
-      if (r.detail) base += " — " + r.detail;
-      return base;
-    }).join("\n");
-    fields.push({ name: "📝 WRITE RESULTS", value: truncate(resultText, 1024), inline: false });
-  }
-
-  var description = "Processed expert config" + (drafted ? " and drafted " + drafted + " proposal(s)" : "");
   return {
     fields: fields,
-    description: description,
-    footer_extra: writeResults.length + " write(s)"
+    description: "Drafted " + drafted + " proposal(s). Review: `draft_expert_config` and `draft_expert_prompt` in KV.",
+    footer_extra: drafted + " drafted"
   };
+}
+
+// ============================================================================
+// Helper to check if a key matches any pattern in a list
+// ============================================================================
+function keyMatchesAnyPattern(key, patterns) {
+  if (!patterns || !patterns.length) return false;
+  for (var i = 0; i < patterns.length; i++) {
+    try {
+      var regex = new RegExp(patterns[i]);
+      if (regex.test(key)) return true;
+    } catch (e) {
+      // ignore invalid regex
+    }
+  }
+  return false;
+}
+
+// ============================================================================
+// Helper to maintain known_keys ledger
+// ============================================================================
+async function addToKnownKeys(env, key) {
+  var known = await env.ZOS_KV.get("known_keys", "json") || [];
+  if (!known.includes(key)) {
+    known.push(key);
+    if (known.length > 1000) known = known.slice(-1000);
+    await env.ZOS_KV.put("known_keys", JSON.stringify(known));
+  }
 }
 
 // ============================================================================
@@ -1435,34 +1310,6 @@ async function processArchivistOutput(env, expert, parsed, rawResponse, beatId, 
 }
 
 // ============================================================================
-// Helper to check if a key matches any pattern in a list
-// ============================================================================
-function keyMatchesAnyPattern(key, patterns) {
-  if (!patterns || !patterns.length) return false;
-  for (var i = 0; i < patterns.length; i++) {
-    try {
-      var regex = new RegExp(patterns[i]);
-      if (regex.test(key)) return true;
-    } catch (e) {
-      // ignore invalid regex
-    }
-  }
-  return false;
-}
-
-// ============================================================================
-// Helper to maintain known_keys ledger
-// ============================================================================
-async function addToKnownKeys(env, key) {
-  var known = await env.ZOS_KV.get("known_keys", "json") || [];
-  if (!known.includes(key)) {
-    known.push(key);
-    if (known.length > 1000) known = known.slice(-1000);
-    await env.ZOS_KV.put("known_keys", JSON.stringify(known));
-  }
-}
-
-// ============================================================================
 // BUFFER & DISCORD HELPERS
 // ============================================================================
 
@@ -1595,31 +1442,6 @@ var DEFAULT_EXPERT_DREAMER = {
   count_key: "heartbeat_count"
 };
 
-var DEFAULT_EXPERT_CLEANUP = {
-  name: "Cleanup",
-  description: "Removes failed or unnecessary experts. Call with: ACTION: REMOVE expert_name",
-  emoji: "🧹",
-  color: 0x9b59b6,
-  system_prompt_components: [
-    { key: "cleanup_prompt", optional: true }
-  ],
-  context_inject: {
-    expert_registry: { max_chars: 1000, label: "EXPERT REGISTRY" },
-    expert_call_context: { max_chars: 8000, clear_after: true, label: "INCOMING REQUEST" }
-  },
-  buffer_key: "buffer_cleanup",
-  buffer_history: 1,
-  output_sections: ["ANALYSIS", "ACTION", "RESULT", "BUFFER_UPDATE"],
-  writes: { buffer: true, discord: true },
-  can_call_expert: false,
-  can_propose_expert: false,
-  handler: "cleanup",
-  cooldown_hours: 0,
-  discord_config: { title_prefix: "🧹 CLEANUP" },
-  metadata_key: "last_cleanup",
-  count_key: "cleanup_count"
-};
-
 // ============================================================================
 // ADVISORY PROMPT BUILDER (for daily cron)
 // ============================================================================
@@ -1663,7 +1485,12 @@ function buildAdvisoryPrompt(opsState, opsLog) {
         var g = outcomes[k];
         parts.push("  [" + (g.timestamp || "?") + "] " + (g.goal || "?") + " → " + (g.outcome || "?"));
       });
-      // Removed daysSinceGoal calculation (was associated with hoursSinceLastGoal)
+      var lastEntry = outcomes[keys[keys.length - 1]];
+      if (lastEntry && lastEntry.timestamp) {
+        var lastGoalDate = new Date(lastEntry.timestamp.replace(" @ ", "T").replace(/(\d{2}):(\d{2})$/, "$1:$2:00"));
+        var daysSinceGoal = Math.round((new Date() - lastGoalDate) / (1000 * 60 * 60 * 24));
+        parts.push("  DAYS SINCE LAST GOAL: " + daysSinceGoal);
+      }
     }
   }
 
