@@ -730,7 +730,9 @@
       }
     };
     if (body !== undefined) opts.body = typeof body === 'string' ? body : JSON.stringify(body);
-    return fetch(API + path, opts).then(function(r) { return r.json(); });
+    var fetchUrl = API + path;
+    if (!method || method === 'GET') fetchUrl += (path.indexOf('?') === -1 ? '?' : '&') + '_t=' + Date.now();
+    return fetch(fetchUrl, opts).then(function(r) { return r.json(); });
   }
 
   // ─── POLLING ───
