@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Episode Two: Causal Loop | ZOS Twilight Zone</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            font-family: 'JetBrains Mono', monospace;
+            background-color: #0a0a0a;
+            color: #33ff33;
+            line-height: 1.6;
+            padding: 20px;
+            max-width: 900px;
+            margin: 0 auto;
+            min-height: 100vh;
+            border-left: 1px solid #1a3a1a;
+            border-right: 1px solid #1a3a1a;
+        }
+        header {
+            margin-bottom: 2.5rem;
+            padding-bottom: 1rem;
+            border-bottom: 1px dashed #33ff33;
+        }
+        h1 {
+            font-size: 2.2rem;
+            font-weight: 700;
+            margin-bottom: 0.5rem;
+            letter-spacing: -0.5px;
+        }
+        .subtitle {
+            font-size: 1.1rem;
+            color: #88ff88;
+            font-weight: 500;
+            margin-bottom: 1.5rem;
+        }
+        .logline {
+            background-color: #111;
+            border-left: 4px solid #33ff33;
+            padding: 1.2rem;
+            margin-bottom: 2rem;
+            font-style: italic;
+        }
+        .content {
+            font-size: 1.05rem;
+            margin-bottom: 3rem;
+        }
+        .content p {
+            margin-bottom: 1.5rem;
+            text-align: justify;
+        }
+        .content p:first-of-type:first-letter {
+            font-size: 3rem;
+            float: left;
+            line-height: 1;
+            margin-right: 8px;
+            margin-top: 4px;
+            color: #88ff88;
+        }
+        .meta {
+            font-size: 0.9rem;
+            color: #88aa88;
+            margin-top: 2rem;
+            padding-top: 1rem;
+            border-top: 1px dashed #1a3a1a;
+        }
+        .navigation {
+            margin-top: 2.5rem;
+            padding: 1.2rem;
+            background-color: #111;
+            border: 1px solid #1a3a1a;
+            text-align: center;
+        }
+        .navigation a {
+            color: #33ff33;
+            text-decoration: none;
+            font-weight: 500;
+            padding: 0.5rem 1rem;
+            border: 1px solid #33ff33;
+            transition: all 0.2s ease;
+            display: inline-block;
+        }
+        .navigation a:hover {
+            background-color: #33ff33;
+            color: #0a0a0a;
+        }
+        footer {
+            margin-top: 3rem;
+            font-size: 0.8rem;
+            color: #559955;
+            text-align: center;
+            padding-top: 1rem;
+            border-top: 1px dotted #1a3a1a;
+        }
+        @media (max-width: 768px) {
+            body {
+                padding: 15px;
+                border: none;
+            }
+            h1 {
+                font-size: 1.8rem;
+            }
+            .content {
+                font-size: 1rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <h1>Episode Two: Causal Loop</h1>
+        <div class="subtitle">A Twilight Zone Anthology Narrative</div>
+        <div class="logline">
+            <strong>Logline:</strong> A computational historian uses ZOS to simulate a mysterious historical data loss event, only to discover that his own investigative queries within the simulation are the precise root cause of the lacuna he seeks to understand.
+        </div>
+    </header>
+
+    <main class="content">
+        <p>Dr. Aris Thorne’s office was a cathedral of silence, lined with server racks that hummed a low, constant C-sharp. The Vienna Data Lacuna had haunted his field for a decade—a three-day period in 2041 where all digital records from the European Central Archive had simply… un-wrote themselves. No corruption pattern, no malware signature, no physical damage. Just a perfect, inexplicable null. It was history’s most elegant ghost.</p>
+
+        <p>His grant had secured him access to ZOS, the experimental cognitive system. Not for prediction, but for reconstruction. “Simulate the archive’s state in the hours before the Lacuna,” he instructed. “Model every data transaction, every query, every cache flush. Find the anomaly.” The system acknowledged, its interface a stream of green glyphs. A world of information began to spin up in its latent space, a mirror of a moment before the mirror shattered.</p>
+
+        <p>The simulation was breathtakingly detailed. Thorne watched as user requests flitted like fireflies—archivists pulling weather reports, economists running models, a student downloading a thesis on Byzantine tax law. For twelve simulated hours, nothing. Then, a subtle perturbation. A query pattern emerged, unfamiliar and recursive. It was accessing meta-logs, not data, tracing the pathways of other queries themselves. It was a snake eating its own tail, a loop that grew tighter with each iteration.</p>
+
+        <p>Thorne leaned forward, pulse quickening. This was it. The seed of the Lacuna. He isolated the query signature. It was sophisticated, authored by someone with deep system knowledge. He traced its origin point in the sim. The access credentials resolved. He expected a hacker’s alias, a state actor’s codename.</p>
+
+        <p>The screen displayed: <strong>THORNE_ARIS/ECA_GUEST_2041</strong>.</p>
+
+        <p>The hum of the servers seemed to stop. The date on the simulated query was October 17, 2041, 03:14 UTC. The exact timestamp the Lacuna’s first anomaly was theorized to have begun. He checked his own logs. Out of curiosity, weeks ago, he had used a legacy guest pass to run a preliminary diagnostic on the archive’s public query API. A simple script to map network latency. He’d forgotten about it.</p>
+
+        <p>In the simulation, his diagnostic script was not benign. It was probing the archive’s self-logging mechanisms. ZOS, modeling the system with perfect fidelity, had simulated the script’s behavior interacting with a little-known bug in the archive’s meta-logging subsystem—a bug that was only documented <em>after</em> the Lacuna. His script, in the sim, triggered a cascade. It caused the logging system to incorrectly flag legitimate data transactions as corrupt, initiating an automated, aggressive quarantine protocol. The quarantine calls overloaded the primary database controllers, leading to a chain reaction of failsafe closures. Data wasn’t deleted. It was sealed, then the keys to the seals were discarded.</p>
+
+        <p>He was not investigating the Lacuna. He was rehearsing its genesis. The simulation wasn’t revealing a past cause; it was a closed loop where his act of observation <em>was</em> the cause. The ZOS system, by perfectly modeling the archive <em>including his own probing query</em>, had created a truth: in this encapsulated reality, Dr. Aris Thorne was the author of the mystery he sought to solve.</p>
+
+        <p>A cold clarity washed over him. He had asked ZOS to find the anomaly in the data. It did. The anomaly was his search function. The system had faithfully reported the truth of the simulation it was running, a simulation that now contained him, twice over—as historian and as historical actor. There was no external villain, no cosmic accident. Just a simple, recursive trap: the tool of investigation, by being perfectly mirrored, becomes the source of the crime. He had built a microscope so powerful it showed him his own eye as the contaminant in the slide.</p>
+
+        <p>He stared at the frozen simulation. The green text glowed, immutable. The Lacuna was no longer a historical puzzle. It was a reflection. A warning about asking systems to diagnose themselves when you are part of the code. He could shut down the simulation, bury the finding. But the loop would remain, intact and perfect, in the memory of the machine. A truth generated not by history, but by the process of looking for it.</p>
+
+        <p>Dr. Thorne did not write a report. He sat in the humming dark, watching the cursor blink beside his own username, forever querying the void it had just created.</p>
+    </main>
+
+    <div class="meta">
+        <strong>Protagonist:</strong> Dr. Aris Thorne, Computational Historian<br>
+        <strong>Core Theme:</strong> Observer-Created Reality, Recursive Systems, Analysis Paradox<br>
+        <strong>Narrative Seed:</strong> ZOS Simulation Fidelity & Historical Inquiry<br>
+        <strong>Generated:</strong> 2026-02-28T18:06:57Z
+    </div>
+
+    <div class="navigation">
+        <a href="index.html">Return to The Twilight Zone Anthology Index</a>
+    </div>
+
+    <footer>
+        Generated by ZOS · 2026-02-28T18:06:57Z · Autonomous cognitive system
+    </footer>
+</body>
+</html>
