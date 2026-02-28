@@ -745,17 +745,38 @@
   }
 
   var pollCount = 0;
+  var consecutiveFullFailures = 0;
 
   function poll() {
     pollCount++;
-    log('POLL #' + pollCount, 'info');
-    pollOpsState();
-    pollBuffer();
-    pollFeedback();
+    var failures = 0;
+    pollOpsState()
+      .catch(function(e) { failures++; log('POLL ops_state ERR: ' + e.message, 'error'); })
+      .then(function() { return pollBuffer(); })
+      .catch(function(e) { failures++; log('POLL buffer ERR: ' + e.message, 'error'); })
+      .then(function() { return pollFeedback(); })
+      .catch(function(e) { failures++; log('POLL feedback ERR: ' + e.message, 'error'); })
+      .then(function() {
+        if (failures === 3) {
+          consecutiveFullFailures++;
+          log('POLL #' + pollCount + ' — all 3 failed (' + consecutiveFullFailures + 'x)', 'error');
+          if (consecutiveFullFailures >= 3) {
+            log('Backing off — restarting poll in 30s', 'error');
+            clearInterval(pollTimer);
+            setTimeout(function() {
+              consecutiveFullFailures = 0;
+              startPolling();
+              log('Polling restarted', 'info');
+            }, 30000);
+          }
+        } else {
+          consecutiveFullFailures = 0;
+        }
+      });
   }
 
   function pollOpsState() {
-    apiFetch('/kv/ops_state').then(function(data) {
+    return apiFetch('/kv/ops_state').then(function(data) {
       if (!data.value) return;
       var ops;
       try { ops = JSON.parse(data.value); } catch(_) { return; }
@@ -781,13 +802,11 @@
           aliveEl.style.color = 'var(--green)';
         }
       }
-    }).catch(function(e) {
-      log('POLL ERROR ops_state: ' + e.message, 'error');
-    });
+    }).then(function() {});
   }
 
   function pollBuffer() {
-    apiFetch('/kv/dream_buffer').then(function(data) {
+    return apiFetch('/kv/dream_buffer').then(function(data) {
       if (!data.value) { log('POLL: dream_buffer empty/null', 'error'); return; }
       var hash = simpleHash(data.value);
       if (hash === lastBufferHash) return;
@@ -799,21 +818,17 @@
       if (entries.length > 0 && entries[0].trim()) {
         parseAndAddFeed(entries[0].trim(), 'dreamer');
       }
-    }).catch(function(e) {
-      log('POLL ERROR buffer: ' + e.message, 'error');
     });
   }
 
   function pollFeedback() {
-    apiFetch('/kv/expert_feedback').then(function(data) {
+    return apiFetch('/kv/expert_feedback').then(function(data) {
       if (!data.value || !data.value.trim()) return;
       var hash = simpleHash(data.value);
       if (hash === lastFeedbackHash) return;
       lastFeedbackHash = hash;
       log('POLL: new feedback (' + data.value.length + ' chars)', 'info');
       parseAndAddFeed(data.value.trim(), 'expert');
-    }).catch(function(e) {
-      log('POLL ERROR feedback: ' + e.message, 'error');
     });
   }
 
