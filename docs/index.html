@@ -12,10 +12,6 @@
     --green-dim: #1a9a1a;
     --green-dark: #0d4d0d;
     --green-glow: #33ff3344;
-    --amber: #ffaa00;
-    --red: #ff3333;
-    --cyan: #00dddd;
-    --magenta: #ff33ff;
     --bg: #0a0a0a;
     --bg-panel: #0d0d0d;
     --bg-input: #111111;
@@ -23,6 +19,20 @@
     --text: #33ff33;
     --text-dim: #1a7a1a;
     --text-muted: #145014;
+  }
+
+  html.theme-white {
+    --green: #ffffff;
+    --green-dim: #aaaaaa;
+    --green-dark: #1a1a1a;
+    --green-glow: #ffffff22;
+    --bg: #000000;
+    --bg-panel: #050505;
+    --bg-input: #0a0a0a;
+    --border: #222222;
+    --text: #ffffff;
+    --text-dim: #aaaaaa;
+    --text-muted: #666666;
   }
 
   * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -55,6 +65,8 @@
     z-index: 9999;
   }
 
+  html.theme-white body::after { display: none; }
+
   /* Vignette */
   body::before {
     content: '';
@@ -64,6 +76,8 @@
     pointer-events: none;
     z-index: 9998;
   }
+
+  html.theme-white body::before { display: none; }
 
   /* ── AUTH SCREEN ── */
   #auth-screen {
@@ -163,17 +177,11 @@
 
   .btn:active { transform: scale(0.97); }
 
-  .btn-amber { border-color: #664400; color: var(--amber); }
-  .btn-amber:hover { background: #1a1100; border-color: var(--amber); }
-
-  .btn-red { border-color: #660000; color: var(--red); }
-  .btn-red:hover { background: #1a0000; border-color: var(--red); }
-
-  .btn-cyan { border-color: #004444; color: var(--cyan); }
-  .btn-cyan:hover { background: #001111; border-color: var(--cyan); }
+  .btn-dim { border-color: var(--text-muted); color: var(--text-dim); }
+  .btn-dim:hover { background: var(--green-dark); border-color: var(--green-dim); }
 
   #auth-error {
-    color: var(--red);
+    color: var(--text);
     font-size: 11px;
     height: 16px;
   }
@@ -209,10 +217,25 @@
     color: var(--text-dim);
     display: flex;
     gap: 16px;
+    align-items: center;
   }
 
   .status-val { color: var(--green); }
   .status-label { color: var(--text-muted); }
+
+  #theme-toggle {
+    background: none;
+    border: 1px solid var(--border);
+    color: var(--text-muted);
+    font-family: inherit;
+    font-size: 10px;
+    padding: 2px 8px;
+    cursor: pointer;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    min-height: 24px;
+  }
+  #theme-toggle:hover { border-color: var(--green-dim); color: var(--text-dim); }
 
   /* Tab bar */
   #tabs {
@@ -272,8 +295,8 @@
   /* Feed entries */
   .feed-entry {
     margin-bottom: 12px;
-    padding-bottom: 12px;
-    border-bottom: 1px solid var(--border);
+    padding: 10px;
+    border: 1px solid var(--border);
     animation: fade-in 0.3s ease;
   }
 
@@ -282,14 +305,24 @@
   .feed-header {
     display: flex;
     justify-content: space-between;
-    margin-bottom: 4px;
+    margin-bottom: 6px;
+    padding-bottom: 6px;
+    border-bottom: 1px solid var(--border);
   }
 
-  .feed-expert { color: var(--amber); font-weight: 700; font-size: 12px; }
+  .feed-expert { color: var(--green); font-weight: 700; font-size: 12px; text-transform: uppercase; letter-spacing: 1px; }
   .feed-time { color: var(--text-muted); font-size: 11px; }
 
-  .feed-section { margin: 4px 0; }
-  .feed-section-label { color: var(--cyan); font-size: 11px; font-weight: 500; }
+  .feed-section { margin: 6px 0; }
+  .feed-section-label {
+    color: var(--green-dim);
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    margin-bottom: 2px;
+  }
+
   .feed-section-content {
     color: var(--text-dim);
     font-size: 12px;
@@ -307,7 +340,7 @@
     transition: all 0.15s;
   }
 
-  .mem-node:hover { border-color: var(--green-dim); background: #0d1a0d; }
+  .mem-node:hover { border-color: var(--green-dim); background: var(--green-dark); }
 
   .mem-header {
     display: flex;
@@ -315,9 +348,9 @@
     align-items: center;
   }
 
-  .mem-name { color: var(--amber); font-weight: 500; font-size: 12px; }
+  .mem-name { color: var(--green); font-weight: 500; font-size: 12px; }
   .mem-score { color: var(--text-muted); font-size: 11px; }
-  .mem-tags { color: var(--cyan); font-size: 10px; margin-top: 2px; }
+  .mem-tags { color: var(--text-dim); font-size: 10px; margin-top: 2px; }
   .mem-content {
     display: none;
     margin-top: 8px;
@@ -400,7 +433,7 @@
   }
 
   .skill-btn:hover { border-color: var(--green-dim); color: var(--green); }
-  .skill-btn .skill-name { color: var(--amber); font-weight: 500; display: block; margin-bottom: 2px; }
+  .skill-btn .skill-name { color: var(--green); font-weight: 500; display: block; margin-bottom: 2px; }
   .skill-btn .skill-desc { font-size: 10px; }
 
   .skill-param-area {
@@ -411,7 +444,7 @@
   }
 
   .skill-param-area.active { display: block; }
-  .skill-param-area label { color: var(--cyan); font-size: 11px; display: block; margin-bottom: 4px; }
+  .skill-param-area label { color: var(--green-dim); font-size: 11px; display: block; margin-bottom: 4px; }
 
   .skill-param-area input, .skill-param-area textarea {
     width: 100%;
@@ -481,15 +514,14 @@
     padding: 1px 0;
   }
 
-  .log-line.error { color: var(--red); }
+  .log-line.error { color: var(--text); font-weight: 700; }
   .log-line.success { color: var(--green); }
-  .log-line.info { color: var(--cyan); }
+  .log-line.info { color: var(--text-dim); }
 
   /* Responsive — Mobile */
   @media (max-width: 600px) {
     html { font-size: 12px; }
 
-    /* Auth screen mobile */
     #auth-screen { padding: 20px; }
     #auth-screen .logo { font-size: 22px; letter-spacing: 6px; }
     #auth-form { flex-direction: column; width: 100%; max-width: none; padding: 0 10px; }
@@ -497,21 +529,15 @@
     #worker-url-input { flex-direction: column; width: 100%; max-width: none; padding: 0 10px; }
     #worker-url-input input { font-size: 14px; padding: 10px; }
 
-    /* Header — stack on very small screens */
     #header {
       flex-direction: column;
       gap: 2px;
       padding: 6px 10px;
       align-items: flex-start;
     }
-    #header .status {
-      gap: 6px;
-      font-size: 10px;
-      flex-wrap: wrap;
-    }
+    #header .status { gap: 6px; font-size: 10px; flex-wrap: wrap; }
     #header .title { font-size: 11px; letter-spacing: 3px; }
 
-    /* Tabs — fill width evenly */
     .tab {
       padding: 10px 12px;
       font-size: 10px;
@@ -521,43 +547,27 @@
       text-align: center;
     }
 
-    /* Panels — more padding for touch */
     .panel { padding: 8px 10px; }
-
-    /* Feed */
+    .feed-entry { padding: 8px; }
     .feed-section-content { font-size: 11px; padding-left: 8px; }
-
-    /* Skills */
     .skill-grid { grid-template-columns: 1fr; }
     .skill-btn { padding: 12px; min-height: 48px; }
-
-    /* KV */
     .kv-controls { flex-direction: column; }
     .kv-controls input { min-width: 0; font-size: 14px; padding: 10px; }
     #kv-value-input { font-size: 14px; min-height: 100px; }
     #kv-output { font-size: 11px; min-height: 150px; max-height: calc(100vh - 350px); }
-
-    /* Memory */
     .mem-header { flex-direction: column; gap: 2px; }
     .mem-node { padding: 10px; }
-
-    /* Input bar */
     #input-bar input { font-size: 16px; }
-
-    /* Skill param area */
     .skill-param-area input, .skill-param-area textarea { font-size: 14px; padding: 10px; }
   }
 
-  /* Small height devices — landscape phones */
   @media (max-height: 500px) {
     #header { padding: 3px 10px; min-height: 28px; }
     .tab { min-height: 36px; padding: 6px 12px; }
     #input-bar .prompt-char { padding: 8px 0 8px 12px; }
     #input-bar input { padding: 8px; }
   }
-
-  /* Blink cursor on input */
-  @keyframes blink { 0%, 100% { opacity: 1; } 50% { opacity: 0; } }
 </style>
 </head>
 <body>
@@ -584,10 +594,11 @@
   <div id="header">
     <span class="title">Z O S</span>
     <div class="status">
-      <span><span class="status-label">BEAT </span><span class="status-val" id="st-beat">#—</span></span>
-      <span><span class="status-label">LAST </span><span class="status-val" id="st-expert">—</span></span>
-      <span><span class="status-label">AT </span><span class="status-val" id="st-time">—</span></span>
-      <span id="st-alive" style="color:var(--green)">● ALIVE</span>
+      <span><span class="status-label">BEAT </span><span class="status-val" id="st-beat">#--</span></span>
+      <span><span class="status-label">LAST </span><span class="status-val" id="st-expert">--</span></span>
+      <span><span class="status-label">AT </span><span class="status-val" id="st-time">--</span></span>
+      <span id="st-alive" style="color:var(--green)">ALIVE</span>
+      <button id="theme-toggle" onclick="toggleTheme()">WHITE</button>
     </div>
   </div>
 
@@ -600,37 +611,33 @@
   </div>
 
   <div id="panels">
-    <!-- FEED -->
     <div class="panel active" id="panel-feed"></div>
-
-    <!-- MEMORY -->
     <div class="panel" id="panel-memory"></div>
 
-    <!-- SKILLS -->
     <div class="panel" id="panel-skills">
       <div class="skill-grid">
         <div class="skill-btn" onclick="triggerSkill('adversary','winning_move')">
-          <span class="skill-name">☢️ WINNING MOVE</span>
-          <span class="skill-desc">BLACK_HOLE — nuclear reset</span>
+          <span class="skill-name">WINNING MOVE</span>
+          <span class="skill-desc">BLACK_HOLE -- nuclear reset</span>
         </div>
         <div class="skill-btn" onclick="triggerSkill('memory_curator','lost_in_translation')">
-          <span class="skill-name">🎭 LOST IN TRANSLATION</span>
-          <span class="skill-desc">Curator override — reshape memories</span>
+          <span class="skill-name">LOST IN TRANSLATION</span>
+          <span class="skill-desc">Curator override -- reshape memories</span>
         </div>
         <div class="skill-btn" onclick="sendInbox('[SKILL:adversary]')">
-          <span class="skill-name">⚔️ ADVERSARY AUDIT</span>
+          <span class="skill-name">ADVERSARY AUDIT</span>
           <span class="skill-desc">Trigger manual audit cycle</span>
         </div>
         <div class="skill-btn" onclick="sendInbox('[SKILL:memory_curator]')">
-          <span class="skill-name">🧠 CURATE MEMORY</span>
+          <span class="skill-name">CURATE MEMORY</span>
           <span class="skill-desc">Trigger curation cycle</span>
         </div>
         <div class="skill-btn" onclick="sendInbox('[SKILL:janitor]')">
-          <span class="skill-name">🧹 JANITOR AUDIT</span>
+          <span class="skill-name">JANITOR AUDIT</span>
           <span class="skill-desc">Trigger KV hygiene audit</span>
         </div>
         <div class="skill-btn" onclick="refreshMemory()">
-          <span class="skill-name">📋 REFRESH MEMORY</span>
+          <span class="skill-name">REFRESH MEMORY</span>
           <span class="skill-desc">Reload memory nodes display</span>
         </div>
       </div>
@@ -639,29 +646,27 @@
         <label id="skill-param-label">PARAMETER:</label>
         <textarea id="skill-param-value" placeholder="Enter parameter value..."></textarea>
         <button class="btn" onclick="executeSkill()">EXECUTE</button>
-        <button class="btn btn-red" onclick="cancelSkill()" style="margin-left:6px">CANCEL</button>
+        <button class="btn btn-dim" onclick="cancelSkill()" style="margin-left:6px">CANCEL</button>
       </div>
     </div>
 
-    <!-- KV -->
     <div class="panel" id="panel-kv">
       <div class="kv-controls">
         <input type="text" id="kv-key" placeholder="KEY NAME">
         <button class="btn" onclick="kvGet()">GET</button>
-        <button class="btn btn-amber" onclick="kvSet()">SET</button>
-        <button class="btn btn-red" onclick="kvDelete()">DEL</button>
+        <button class="btn" onclick="kvSet()">SET</button>
+        <button class="btn btn-dim" onclick="kvDelete()">DEL</button>
       </div>
       <textarea id="kv-value-input" placeholder="VALUE (for SET operations)"></textarea>
       <div id="kv-output"></div>
     </div>
 
-    <!-- LOG -->
     <div class="panel" id="panel-log"></div>
   </div>
 
   <div id="input-bar">
     <span class="prompt-char">></span>
-    <input type="text" id="inbox-input" placeholder="INBOX — type message to ZOS and press Enter">
+    <input type="text" id="inbox-input" placeholder="INBOX -- type message to ZOS and press Enter">
     <button id="send-btn" onclick="sendFromInput()">SEND</button>
   </div>
 </div>
@@ -675,8 +680,31 @@
   var lastBufferHash = '';
   var lastFeedbackHash = '';
   var feedEntries = [];
-  var MAX_FEED = 50;
+  var MAX_FEED = 100;
   var pendingSkill = null;
+  var seenBufferHashes = {};
+  var seenFeedbackHashes = {};
+
+  // ─── THEME ───
+  function toggleTheme() {
+    var html = document.documentElement;
+    var btn = document.getElementById('theme-toggle');
+    if (html.classList.contains('theme-white')) {
+      html.classList.remove('theme-white');
+      btn.textContent = 'WHITE';
+      localStorage.setItem('zos_theme', 'green');
+    } else {
+      html.classList.add('theme-white');
+      btn.textContent = 'GREEN';
+      localStorage.setItem('zos_theme', 'white');
+    }
+  }
+
+  (function() {
+    if (localStorage.getItem('zos_theme') === 'white') {
+      document.documentElement.classList.add('theme-white');
+    }
+  })();
 
   // ─── AUTH ───
   function authenticate() {
@@ -700,6 +728,10 @@
       document.getElementById('auth-screen').style.display = 'none';
       document.getElementById('console').style.display = 'flex';
       log('Connected to ' + API, 'success');
+
+      var btn = document.getElementById('theme-toggle');
+      btn.textContent = document.documentElement.classList.contains('theme-white') ? 'GREEN' : 'WHITE';
+
       startPolling();
     }).catch(function(e) {
       showAuthError('CONNECTION FAILED: ' + e.message);
@@ -710,11 +742,9 @@
     document.getElementById('auth-error').textContent = msg;
   }
 
-  // Auto-fill saved URL
   (function() {
     var saved = localStorage.getItem('zos_worker_url');
     if (saved) document.getElementById('url-input').value = saved;
-    // Enter key on token input
     document.getElementById('token-input').addEventListener('keydown', function(e) {
       if (e.key === 'Enter') authenticate();
     });
@@ -751,17 +781,17 @@
     pollCount++;
     var failures = 0;
     pollOpsState()
-      .catch(function(e) { failures++; log('POLL ops_state ERR: ' + e.message, 'error'); })
+      .catch(function(e) { failures++; log('POLL ops_state: ' + e.message, 'error'); })
       .then(function() { return pollBuffer(); })
-      .catch(function(e) { failures++; log('POLL buffer ERR: ' + e.message, 'error'); })
+      .catch(function(e) { failures++; log('POLL buffer: ' + e.message, 'error'); })
       .then(function() { return pollFeedback(); })
-      .catch(function(e) { failures++; log('POLL feedback ERR: ' + e.message, 'error'); })
+      .catch(function(e) { failures++; log('POLL feedback: ' + e.message, 'error'); })
       .then(function() {
         if (failures === 3) {
           consecutiveFullFailures++;
-          log('POLL #' + pollCount + ' — all 3 failed (' + consecutiveFullFailures + 'x)', 'error');
+          log('POLL #' + pollCount + ' -- all failed (' + consecutiveFullFailures + 'x)', 'error');
           if (consecutiveFullFailures >= 3) {
-            log('Backing off — restarting poll in 30s', 'error');
+            log('Backing off -- restart in 30s', 'error');
             clearInterval(pollTimer);
             setTimeout(function() {
               consecutiveFullFailures = 0;
@@ -781,43 +811,41 @@
       var ops;
       try { ops = JSON.parse(data.value); } catch(_) { return; }
 
-      var beatEl = document.getElementById('st-beat');
-      var expertEl = document.getElementById('st-expert');
-      var timeEl = document.getElementById('st-time');
-
-      if (ops.heartbeat_count !== undefined) beatEl.textContent = '#' + ops.heartbeat_count;
-      if (ops.last_expert) expertEl.textContent = ops.last_expert;
+      if (ops.heartbeat_count !== undefined) document.getElementById('st-beat').textContent = '#' + ops.heartbeat_count;
+      if (ops.last_expert) document.getElementById('st-expert').textContent = ops.last_expert.toUpperCase();
       if (ops.last_heartbeat) {
         var d = new Date(ops.last_heartbeat);
-        timeEl.textContent = d.toISOString().slice(11, 16) + ' UTC';
+        document.getElementById('st-time').textContent = d.toISOString().slice(11, 16) + ' UTC';
 
-        // Alive check — if last heartbeat > 10 min ago, show warning
         var aliveEl = document.getElementById('st-alive');
         var minAgo = (Date.now() - d.getTime()) / 60000;
         if (minAgo > 10) {
-          aliveEl.textContent = '○ IDLE';
-          aliveEl.style.color = 'var(--amber)';
+          aliveEl.textContent = 'IDLE';
+          aliveEl.style.color = 'var(--text-muted)';
         } else {
-          aliveEl.textContent = '● ALIVE';
+          aliveEl.textContent = 'ALIVE';
           aliveEl.style.color = 'var(--green)';
         }
       }
-    }).then(function() {});
+    });
   }
 
   function pollBuffer() {
     return apiFetch('/kv/dream_buffer').then(function(data) {
-      if (!data.value) { log('POLL: dream_buffer empty/null', 'error'); return; }
+      if (!data.value) return;
       var hash = simpleHash(data.value);
       if (hash === lastBufferHash) return;
       lastBufferHash = hash;
-      log('POLL: new buffer (' + data.value.length + ' chars, hash:' + hash + ')', 'info');
 
-      // Parse the buffer — split by separator if multiple entries
       var entries = data.value.split('===ZOS_BUFFER_SEPARATOR===');
-      if (entries.length > 0 && entries[0].trim()) {
-        parseAndAddFeed(entries[0].trim(), 'dreamer');
-      }
+      entries.forEach(function(entry) {
+        var trimmed = entry.trim();
+        if (!trimmed) return;
+        var entryHash = simpleHash(trimmed);
+        if (seenBufferHashes[entryHash]) return;
+        seenBufferHashes[entryHash] = true;
+        parseAndAddFeed(trimmed, 'dreamer');
+      });
     });
   }
 
@@ -827,7 +855,10 @@
       var hash = simpleHash(data.value);
       if (hash === lastFeedbackHash) return;
       lastFeedbackHash = hash;
-      log('POLL: new feedback (' + data.value.length + ' chars)', 'info');
+
+      var entryHash = simpleHash(data.value.trim());
+      if (seenFeedbackHashes[entryHash]) return;
+      seenFeedbackHashes[entryHash] = true;
       parseAndAddFeed(data.value.trim(), 'expert');
     });
   }
@@ -850,11 +881,11 @@
       sections: {}
     };
 
-    // Try to parse known section labels
     var sectionLabels = ['GROUNDED', 'SYNTHESIS', 'HYPOTHESIS', 'BUFFER_UPDATE', 'EXPERT_CALL',
       'MESSAGE_TO_OPERATOR', 'MEMORY_NODE', 'VALIDATION', 'RESULT', 'KEY_AUDIT',
       'AUDIT', 'VERDICT', 'EVIDENCE', 'ACTION', 'SUMMARY', 'CURATOR ANALYSIS',
-      'SCOUT REPORT', 'JANITOR AUDIT'];
+      'SCOUT REPORT', 'JANITOR AUDIT', 'STATUS', 'URL', 'KEY DATA', 'RELEVANCE',
+      'EXPERT_PROPOSAL'];
 
     var foundAny = false;
     sectionLabels.forEach(function(label) {
@@ -864,7 +895,6 @@
     });
 
     if (foundAny) {
-      // Extract sections
       var lines = text.split('\n');
       var currentLabel = null;
       var currentContent = [];
@@ -902,12 +932,11 @@
     var html = '';
 
     feedEntries.forEach(function(entry) {
-      var emoji = entry.source === 'dreamer' ? '💓' : '⚙️';
       var label = entry.source === 'dreamer' ? 'HEARTBEAT' : 'EXPERT';
 
       html += '<div class="feed-entry">';
       html += '<div class="feed-header">';
-      html += '<span class="feed-expert">' + emoji + ' ' + esc(label) + '</span>';
+      html += '<span class="feed-expert">' + esc(label) + '</span>';
       html += '<span class="feed-time">' + esc(entry.time) + '</span>';
       html += '</div>';
 
@@ -915,9 +944,8 @@
       if (sectionKeys.length > 0) {
         sectionKeys.forEach(function(key) {
           if (!entry.sections[key]) return;
-          var color = sectionColor(key);
           html += '<div class="feed-section">';
-          html += '<div class="feed-section-label" style="color:' + color + '">' + esc(key) + '</div>';
+          html += '<div class="feed-section-label">' + esc(key) + '</div>';
           html += '<div class="feed-section-content">' + esc(entry.sections[key]) + '</div>';
           html += '</div>';
         });
@@ -935,24 +963,6 @@
     panel.innerHTML = html;
   }
 
-  function sectionColor(label) {
-    var map = {
-      'GROUNDED': 'var(--cyan)',
-      'SYNTHESIS': 'var(--amber)',
-      'HYPOTHESIS': 'var(--magenta)',
-      'EXPERT_CALL': '#ffaa00',
-      'MESSAGE_TO_OPERATOR': 'var(--green)',
-      'MEMORY_NODE': 'var(--cyan)',
-      'VERDICT': 'var(--red)',
-      'AUDIT': 'var(--red)',
-      'ACTION': 'var(--red)',
-      'SUMMARY': 'var(--text-dim)',
-      'SCOUT REPORT': 'var(--cyan)',
-      'JANITOR AUDIT': '#88aa44'
-    };
-    return map[label] || 'var(--cyan)';
-  }
-
   // ─── INBOX ───
   function sendFromInput() {
     var input = document.getElementById('inbox-input');
@@ -963,7 +973,7 @@
   }
 
   function sendInbox(msg) {
-    log('INBOX → ' + msg, 'info');
+    log('INBOX > ' + msg, 'info');
     apiFetch('/kv/inbox', 'POST', { value: msg }).then(function(data) {
       if (data.error) { log('INBOX FAILED: ' + data.error, 'error'); return; }
       log('INBOX DELIVERED (' + msg.length + ' chars)', 'success');
@@ -985,9 +995,9 @@
     var label = document.getElementById('skill-param-label');
 
     if (paramName === 'winning_move') {
-      label.textContent = '☢️ WINNING MOVE — reason (optional, leave empty for arbitrary):';
+      label.textContent = 'WINNING MOVE -- reason (optional, leave empty for arbitrary):';
     } else if (paramName === 'lost_in_translation') {
-      label.textContent = '🎭 LOST IN TRANSLATION — instruction for curator:';
+      label.textContent = 'LOST IN TRANSLATION -- instruction for curator:';
     } else {
       label.textContent = paramName.toUpperCase() + ':';
     }
@@ -1018,11 +1028,10 @@
       var nodes;
       try { nodes = JSON.parse(data.value); } catch(_) { log('Failed to parse memory nodes', 'error'); return; }
 
-      // Sort by importance desc
       nodes.sort(function(a, b) { return (b.importance || 0) - (a.importance || 0); });
 
       var panel = document.getElementById('panel-memory');
-      var html = '<div style="color:var(--text-muted);font-size:11px;margin-bottom:10px">' + nodes.length + ' NODES — click to expand</div>';
+      var html = '<div style="color:var(--text-muted);font-size:11px;margin-bottom:10px">' + nodes.length + ' NODES -- click to expand</div>';
 
       nodes.forEach(function(node) {
         var tags = (node.tags && Array.isArray(node.tags)) ? node.tags.join(', ') : 'untagged';
@@ -1058,7 +1067,6 @@
         output.textContent = '[ERROR] ' + data.error;
       } else {
         var val = data.value || '';
-        // Try to pretty-print JSON
         try {
           var parsed = JSON.parse(val);
           val = JSON.stringify(parsed, null, 2);
@@ -1080,7 +1088,7 @@
     log('KV SET: ' + key, 'info');
     apiFetch('/kv/' + encodeURIComponent(key), 'POST', { value: val }).then(function(data) {
       if (data.error) { log('KV SET FAILED: ' + data.error, 'error'); return; }
-      log('KV SET OK: ' + key + ' → ' + (data.storage || '?') + ' (' + val.length + ' chars)', 'success');
+      log('KV SET OK: ' + key + ' > ' + (data.storage || '?') + ' (' + val.length + ' chars)', 'success');
       document.getElementById('kv-output').textContent = '[WRITTEN] ' + key + ' (' + val.length + ' chars)';
     }).catch(function(e) {
       log('KV SET ERROR: ' + e.message, 'error');
@@ -1108,11 +1116,8 @@
       tab.addEventListener('click', function() {
         tabs.forEach(function(t) { t.classList.remove('active'); });
         tab.classList.add('active');
-
         document.querySelectorAll('.panel').forEach(function(p) { p.classList.remove('active'); });
         document.getElementById('panel-' + tab.dataset.panel).classList.add('active');
-
-        // Auto-load memory on tab switch
         if (tab.dataset.panel === 'memory' && document.getElementById('panel-memory').innerHTML === '') {
           refreshMemory();
         }
@@ -1124,19 +1129,14 @@
   function log(msg, type) {
     var panel = document.getElementById('panel-log');
     var time = new Date().toISOString().slice(11, 19);
-    var cls = type || '';
     var line = document.createElement('div');
-    line.className = 'log-line ' + cls;
+    line.className = 'log-line ' + (type || '');
     line.textContent = time + ' ' + msg;
-
-    // Prepend newest
     if (panel.firstChild) {
       panel.insertBefore(line, panel.firstChild);
     } else {
       panel.appendChild(line);
     }
-
-    // Trim
     while (panel.children.length > 200) {
       panel.removeChild(panel.lastChild);
     }
