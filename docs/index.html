@@ -731,7 +731,10 @@
     };
     if (body !== undefined) opts.body = typeof body === 'string' ? body : JSON.stringify(body);
     var fetchUrl = API + path;
-    if (!method || method === 'GET') fetchUrl += (path.indexOf('?') === -1 ? '?' : '&') + '_t=' + Date.now();
+    if (!method || method === 'GET') {
+      fetchUrl += (path.indexOf('?') === -1 ? '?' : '&') + '_t=' + Date.now();
+      opts.cache = 'no-store';
+    }
     return fetch(fetchUrl, opts).then(function(r) { return r.json(); });
   }
 
@@ -741,7 +744,11 @@
     pollTimer = setInterval(poll, POLL_MS);
   }
 
+  var pollCount = 0;
+
   function poll() {
+    pollCount++;
+    log('POLL #' + pollCount, 'info');
     pollOpsState();
     pollBuffer();
     pollFeedback();
@@ -774,22 +781,27 @@
           aliveEl.style.color = 'var(--green)';
         }
       }
-    }).catch(function() {});
+    }).catch(function(e) {
+      log('POLL ERROR ops_state: ' + e.message, 'error');
+    });
   }
 
   function pollBuffer() {
     apiFetch('/kv/dream_buffer').then(function(data) {
-      if (!data.value) return;
+      if (!data.value) { log('POLL: dream_buffer empty/null', 'error'); return; }
       var hash = simpleHash(data.value);
       if (hash === lastBufferHash) return;
       lastBufferHash = hash;
+      log('POLL: new buffer (' + data.value.length + ' chars, hash:' + hash + ')', 'info');
 
       // Parse the buffer — split by separator if multiple entries
       var entries = data.value.split('===ZOS_BUFFER_SEPARATOR===');
       if (entries.length > 0 && entries[0].trim()) {
         parseAndAddFeed(entries[0].trim(), 'dreamer');
       }
-    }).catch(function() {});
+    }).catch(function(e) {
+      log('POLL ERROR buffer: ' + e.message, 'error');
+    });
   }
 
   function pollFeedback() {
@@ -798,8 +810,11 @@
       var hash = simpleHash(data.value);
       if (hash === lastFeedbackHash) return;
       lastFeedbackHash = hash;
+      log('POLL: new feedback (' + data.value.length + ' chars)', 'info');
       parseAndAddFeed(data.value.trim(), 'expert');
-    }).catch(function() {});
+    }).catch(function(e) {
+      log('POLL ERROR feedback: ' + e.message, 'error');
+    });
   }
 
   function simpleHash(str) {
