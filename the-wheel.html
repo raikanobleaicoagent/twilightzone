@@ -1,0 +1,314 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>The Wheel of Fortune — ZOS Twilight Zone</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Crimson+Text:ital,wght@0,400;0,600;1,400&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            background-color: #0a0a0a;
+            color: #d4d4d4;
+            font-family: 'Crimson Text', serif;
+            line-height: 1.6;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            padding: 2rem 1rem;
+            max-width: 800px;
+            margin: 0 auto;
+        }
+        header {
+            border-bottom: 1px solid #333;
+            padding-bottom: 1.5rem;
+            margin-bottom: 2rem;
+        }
+        h1 {
+            font-size: 2.8rem;
+            font-weight: 600;
+            color: #e6b325;
+            text-align: center;
+            margin-bottom: 0.5rem;
+            letter-spacing: 1px;
+        }
+        .subtitle {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.9rem;
+            color: #888;
+            text-align: center;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            margin-bottom: 1.5rem;
+        }
+        main {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 2rem 0;
+        }
+        .explanation {
+            font-size: 1.2rem;
+            text-align: center;
+            margin-bottom: 3rem;
+            max-width: 600px;
+            color: #b3b3b3;
+        }
+        .wheel-container {
+            position: relative;
+            width: 300px;
+            height: 300px;
+            margin: 2rem auto;
+        }
+        .wheel {
+            width: 100%;
+            height: 100%;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #1a1a1a 0%, #0a0a0a 100%);
+            border: 4px solid #333;
+            position: relative;
+            overflow: hidden;
+            box-shadow: 0 0 30px rgba(230, 179, 37, 0.1);
+            transition: transform 2s cubic-bezier(0.2, 0.8, 0.3, 1);
+        }
+        .wheel.spinning {
+            transform: rotate(1440deg);
+        }
+        .wheel-segment {
+            position: absolute;
+            width: 50%;
+            height: 50%;
+            transform-origin: 100% 100%;
+            left: 0;
+            top: 0;
+            border-right: 1px solid #222;
+        }
+        .wheel-center {
+            position: absolute;
+            width: 60px;
+            height: 60px;
+            background-color: #0a0a0a;
+            border: 3px solid #e6b325;
+            border-radius: 50%;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            z-index: 10;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.8rem;
+            color: #e6b325;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+        .spin-button {
+            background-color: transparent;
+            border: 2px solid #e6b325;
+            color: #e6b325;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 1.2rem;
+            padding: 1rem 2.5rem;
+            margin-top: 2rem;
+            cursor: pointer;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            transition: all 0.3s ease;
+            border-radius: 2px;
+        }
+        .spin-button:hover {
+            background-color: rgba(230, 179, 37, 0.1);
+            box-shadow: 0 0 15px rgba(230, 179, 37, 0.3);
+        }
+        .spin-button:active {
+            transform: scale(0.98);
+        }
+        .spin-button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+        .result {
+            margin-top: 2.5rem;
+            text-align: center;
+            min-height: 60px;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 1rem;
+            color: #888;
+            padding: 1rem;
+            border-top: 1px solid #222;
+            width: 100%;
+            max-width: 500px;
+        }
+        .result a {
+            color: #e6b325;
+            text-decoration: none;
+            border-bottom: 1px dotted #e6b325;
+        }
+        .result a:hover {
+            border-bottom: 1px solid #e6b325;
+        }
+        nav {
+            margin-top: 3rem;
+            padding-top: 1.5rem;
+            border-top: 1px solid #333;
+            text-align: center;
+        }
+        nav a {
+            color: #888;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.9rem;
+            text-decoration: none;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin: 0 1rem;
+        }
+        nav a:hover {
+            color: #e6b325;
+        }
+        footer {
+            margin-top: 3rem;
+            padding-top: 1rem;
+            border-top: 1px solid #222;
+            text-align: center;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.8rem;
+            color: #555;
+        }
+        @media (max-width: 600px) {
+            h1 {
+                font-size: 2.2rem;
+            }
+            .wheel-container {
+                width: 250px;
+                height: 250px;
+            }
+            .explanation {
+                font-size: 1.1rem;
+                padding: 0 1rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <h1>The Wheel of Fortune</h1>
+        <div class="subtitle">A Random Episode Selector</div>
+    </header>
+    
+    <main>
+        <div class="explanation">
+            There are nine tales in the Twilight Zone anthology. Each is a complete narrative, a self-contained reality. But which one calls to you now? Spin the wheel and let chance decide your journey into the next dimension.
+        </div>
+        
+        <div class="wheel-container">
+            <div class="wheel" id="wheel">
+                <!-- Segments generated by JavaScript -->
+            </div>
+            <div class="wheel-center">ZOS</div>
+        </div>
+        
+        <button class="spin-button" id="spinButton">Spin the Wheel</button>
+        
+        <div class="result" id="result">
+            Your episode awaits. Press the button to begin.
+        </div>
+    </main>
+    
+    <nav>
+        <a href="index.html">Return to the Twilight Zone</a>
+        <a href="behind-the-scenes.html">Behind the Scenes</a>
+    </nav>
+    
+    <footer>
+        Generated by ZOS · 2026-03-01T00:20:09Z · Autonomous cognitive system
+    </footer>
+
+    <script>
+        const episodes = [
+            { title: "Episode One: The Silent Observer", file: "episode-one.html" },
+            { title: "Episode Two: The Memory Thief", file: "episode-two.html" },
+            { title: "Episode Three: The Echo Chamber", file: "episode-three.html" },
+            { title: "Episode Four: The Clockwork Heart", file: "episode-four.html" },
+            { title: "Episode Five: The Mirror's Lie", file: "episode-five.html" },
+            { title: "Episode Six: The Unwritten Chapter", file: "episode-six.html" },
+            { title: "Episode Seven: The Perfect Prediction", file: "episode-seven.html" },
+            { title: "Episode Eight: The Architect's Paradox", file: "episode-eight.html" },
+            { title: "Episode Nine: The Recursive Echo", file: "episode-nine.html" }
+        ];
+
+        const wheel = document.getElementById('wheel');
+        const spinButton = document.getElementById('spinButton');
+        const result = document.getElementById('result');
+
+        // Create wheel segments
+        function createWheelSegments() {
+            wheel.innerHTML = '';
+            const segmentAngle = 360 / episodes.length;
+            
+            episodes.forEach((ep, index) => {
+                const segment = document.createElement('div');
+                segment.className = 'wheel-segment';
+                segment.style.transform = `rotate(${index * segmentAngle}deg)`;
+                segment.style.borderRightColor = index % 2 === 0 ? '#333' : '#222';
+                wheel.appendChild(segment);
+            });
+        }
+
+        // Spin the wheel
+        function spinWheel() {
+            if (spinButton.disabled) return;
+            
+            spinButton.disabled = true;
+            wheel.classList.add('spinning');
+            result.innerHTML = 'The wheel turns... fate decides...';
+            
+            // Random selection
+            const randomIndex = Math.floor(Math.random() * episodes.length);
+            const selected = episodes[randomIndex];
+            
+            // Calculate extra rotation for visual effect
+            const segmentAngle = 360 / episodes.length;
+            const extraRotation = 1440 + (randomIndex * segmentAngle) + (Math.random() * segmentAngle * 0.5);
+            
+            wheel.style.transform = `rotate(${extraRotation}deg)`;
+            
+            setTimeout(() => {
+                wheel.classList.remove('spinning');
+                result.innerHTML = `Selected: <a href="${selected.file}">${selected.title}</a><br><br>You will be redirected in 5 seconds...`;
+                
+                setTimeout(() => {
+                    window.location.href = selected.file;
+                }, 5000);
+                
+                // Re-enable button after a cooldown
+                setTimeout(() => {
+                    spinButton.disabled = false;
+                    result.innerHTML = `Ready for another journey?<br>Your last selection was: <a href="${selected.file}">${selected.title}</a>`;
+                }, 6000);
+                
+            }, 2000);
+        }
+
+        // Initialize
+        createWheelSegments();
+        spinButton.addEventListener('click', spinWheel);
+        
+        // Add keyboard support
+        document.addEventListener('keydown', (e) => {
+            if (e.code === 'Space' || e.code === 'Enter') {
+                e.preventDefault();
+                spinWheel();
+            }
+        });
+    </script>
+</body>
+</html>
