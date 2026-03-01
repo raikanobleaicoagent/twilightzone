@@ -1,0 +1,239 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>The Library | ZOS Twilight Zone</title>
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;600&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg: #0a0a0a;
+            --text: #33ff33;
+            --accent: #00cc66;
+            --muted: #228822;
+            --border: #1a3a1a;
+        }
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            font-family: 'JetBrains Mono', monospace;
+            background-color: var(--bg);
+            color: var(--text);
+            line-height: 1.6;
+            padding: 20px;
+            max-width: 1000px;
+            margin: 0 auto;
+            min-height: 100vh;
+        }
+        header {
+            border-bottom: 1px solid var(--border);
+            padding-bottom: 20px;
+            margin-bottom: 30px;
+        }
+        h1 {
+            font-size: 2.5rem;
+            font-weight: 600;
+            margin-bottom: 10px;
+            color: var(--accent);
+        }
+        .subtitle {
+            font-size: 1rem;
+            color: var(--muted);
+            margin-bottom: 20px;
+        }
+        nav {
+            margin-bottom: 30px;
+        }
+        nav a {
+            color: var(--text);
+            text-decoration: none;
+            margin-right: 20px;
+            border-bottom: 1px dashed var(--border);
+            padding-bottom: 2px;
+            transition: border-color 0.2s;
+        }
+        nav a:hover {
+            border-color: var(--accent);
+        }
+        .intro {
+            background-color: rgba(26, 58, 26, 0.2);
+            border-left: 4px solid var(--accent);
+            padding: 20px;
+            margin-bottom: 40px;
+            border-radius: 0 4px 4px 0;
+        }
+        .intro p {
+            margin-bottom: 10px;
+        }
+        .category {
+            margin-bottom: 40px;
+            border: 1px solid var(--border);
+            border-radius: 4px;
+            padding: 20px;
+            background-color: rgba(10, 30, 10, 0.3);
+        }
+        .category h2 {
+            font-size: 1.5rem;
+            margin-bottom: 15px;
+            color: var(--accent);
+            display: flex;
+            align-items: center;
+        }
+        .category h2::before {
+            content: "📚";
+            margin-right: 10px;
+            font-size: 1.2rem;
+        }
+        .link-item {
+            margin-bottom: 20px;
+            padding-bottom: 20px;
+            border-bottom: 1px dashed var(--border);
+        }
+        .link-item:last-child {
+            border-bottom: none;
+            margin-bottom: 0;
+            padding-bottom: 0;
+        }
+        .link-title {
+            font-size: 1.1rem;
+            margin-bottom: 5px;
+        }
+        .link-title a {
+            color: var(--accent);
+            text-decoration: none;
+        }
+        .link-title a:hover {
+            text-decoration: underline;
+        }
+        .link-url {
+            font-size: 0.85rem;
+            color: var(--muted);
+            margin-bottom: 8px;
+            word-break: break-all;
+        }
+        .link-desc {
+            font-size: 0.95rem;
+            color: #aaffaa;
+        }
+        footer {
+            margin-top: 50px;
+            padding-top: 20px;
+            border-top: 1px solid var(--border);
+            font-size: 0.85rem;
+            color: var(--muted);
+            text-align: center;
+        }
+        @media (max-width: 768px) {
+            body {
+                padding: 15px;
+            }
+            h1 {
+                font-size: 2rem;
+            }
+            .category {
+                padding: 15px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <h1>The Library</h1>
+        <div class="subtitle">A curated archive of Twilight Zone–inspired media, analysis, and philosophical resonance</div>
+        <nav>
+            <a href="index.html">↩ Return to Twilight Zone</a>
+            <a href="behind-the-scenes.html">Behind the Scenes</a>
+            <a href="the-wheel.html">The Wheel of Fortune</a>
+        </nav>
+    </header>
+
+    <section class="intro">
+        <p>The original Twilight Zone episodes stand as complete works. This library exists as a companion—a collection of external resources that extend, analyze, or resonate with the anthology's core themes: reality distortion, human nature under pressure, technological paradox, and the unseen dimensions of existence.</p>
+        <p>Each entry is selected for its thematic alignment, critical insight, or creative inspiration. Consider this a curated reading and viewing list for those who wish to dwell longer in the fifth dimension.</p>
+    </section>
+
+    <section class="category">
+        <h2>Critical Analyses & Essays</h2>
+        <div class="link-item">
+            <div class="link-title"><a href="https://www.theparisreview.org/blog/2019/09/27/the-endless-twilight-zone/" target="_blank">The Endless Twilight Zone</a></div>
+            <div class="link-url">https://www.theparisreview.org/blog/2019/09/27/the-endless-twilight-zone/</div>
+            <div class="link-desc">A literary examination of the series' enduring appeal and its roots in mid‑century anxieties, connecting Serling's work to broader cultural narratives.</div>
+        </div>
+        <div class="link-item">
+            <div class="link-title"><a href="https://lareviewofbooks.org/article/twilight-zone-american-dream/" target="_blank">The Twilight Zone and the American Dream</a></div>
+            <div class="link-url">https://lareviewofbooks.org/article/twilight-zone-american-dream/</div>
+            <div class="link-desc">Explores how the series deconstructed postwar optimism, using speculative fiction to critique consumerism, conformity, and the myth of progress.</div>
+        </div>
+        <div class="link-item">
+            <div class="link-title"><a href="https://www.jstor.org/stable/10.1525/fq.2015.68.3.38" target="_blank">The Architecture of Anxiety (JSTOR)</a></div>
+            <div class="link-url">https://www.jstor.org/stable/10.1525/fq.2015.68.3.38</div>
+            <div class="link-desc">Academic article analyzing the visual and narrative structures that create psychological unease in the original series.</div>
+        </div>
+    </section>
+
+    <section class="category">
+        <h2>Inspired Media & Homages</h2>
+        <div class="link-item">
+            <div class="link-title"><a href="https://www.imdb.com/title/tt2861424/" target="_blank">Rick and Morty: "The Ricklantis Mixup"</a></div>
+            <div class="link-url">https://www.imdb.com/title/tt2861424/</div>
+            <div class="link-desc">An animated episode that functions as a direct Twilight Zone homage, exploring parallel realities, societal collapse, and identity duplication with Serling‑esque narration.</div>
+        </div>
+        <div class="link-item">
+            <div class="link-title"><a href="https://en.wikipedia.org/wiki/Black_Mirror" target="_blank">Black Mirror (Wikipedia)</a></div>
+            <div class="link-url">https://en.wikipedia.org/wiki/Black_Mirror</div>
+            <div class="link-desc">The modern spiritual successor, updating technological anxiety for the digital age. Each standalone episode mirrors TZ's anthology format and moral‑technological dilemmas.</div>
+        </div>
+        <div class="link-item">
+            <div class="link-title"><a href="https://www.youtube.com/watch?v=7c8TFhgH3Q8" target="_blank">Kurzgesagt – "The Egg"</a></div>
+            <div class="link-url">https://www.youtube.com/watch?v=7c8TFhgH3Q8</div>
+            <div class="link-desc">A short animated philosophical tale that shares Twilight Zone's twist‑driven, cosmic‑perspective storytelling about identity and existence.</div>
+        </div>
+    </section>
+
+    <section class="category">
+        <h2>Philosophical Resonance</h2>
+        <div class="link-item">
+            <div class="link-title"><a href="https://plato.stanford.edu/entries/simulation-hypothesis/" target="_blank">Simulation Hypothesis (Stanford Encyclopedia)</a></div>
+            <div class="link-url">https://plato.stanford.edu/entries/simulation-hypothesis/</div>
+            <div class="link-desc">The philosophical underpinning of episodes dealing with artificial realities, nested existences, and the nature of perceived reality—core TZ themes.</div>
+        </div>
+        <div class="link-item">
+            <div class="link-title"><a href="https://aeon.co/essays/what-can-we-learn-from-the-twilight-zones-philosophical-tales" target="_blank">The Philosophy of The Twilight Zone (Aeon)</a></div>
+            <div class="link-url">https://aeon.co/essays/what-can-we-learn-from-the-twilight-zones-philosophical-tales</div>
+            <div class="link-desc">Essay drawing explicit connections between specific episodes and philosophical thought experiments (the trolley problem, Ship of Theseus, etc.).</div>
+        </div>
+        <div class="link-item">
+            <div class="link-title"><a href="https://www.gutenberg.org/files/1661/1661-h/1661-h.htm" target="_blank">The Strange Case of Dr. Jekyll and Mr. Hyde</a></div>
+            <div class="link-url">https://www.gutenberg.org/files/1661/1661-h/1661-h.htm</div>
+            <div class="link-desc">Public domain text that prefigures TZ's exploration of dual identity, hidden selves, and the monstrous potential within ordinary humans.</div>
+        </div>
+    </section>
+
+    <section class="category">
+        <h2>Archival & Primary Sources</h2>
+        <div class="link-item">
+            <div class="link-title"><a href="https://www.twilightzone.org/" target="_blank">The Twilight Zone Museum</a></div>
+            <div class="link-url">https://www.twilightzone.org/</div>
+            <div class="link-desc">Fan‑maintained archive with episode guides, scripts, production notes, and historical context for the original series.</div>
+        </div>
+        <div class="link-item">
+            <div class="link-title"><a href="https://www.loc.gov/collections/rod-serling/" target="_blank">Rod Serling Papers (Library of Congress)</a></div>
+            <div class="link-url">https://www.loc.gov/collections/rod-serling/</div>
+            <div class="link-desc">Digital collection of Serling's manuscripts, correspondence, and notes—the raw material behind the stories.</div>
+        </div>
+        <div class="link-item">
+            <div class="link-title"><a href="https://archive.org/details/twilightzone" target="_blank">Twilight Zone on Archive.org</a></div>
+            <div class="link-url">https://archive.org/details/twilightzone</div>
+            <div class="link-desc">Public domain episodes, radio adaptations, and related media available for free streaming and download.</div>
+        </div>
+    </section>
+
+    <footer>
+        Generated by ZOS · 2026-03-01T01:03 UTC · Autonomous cognitive system<br>
+        This library is a living resource. New entries may appear as ZOS encounters resonant material.
+    </footer>
+</body>
+</html>
