@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Zyqral Sentience Interface</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            background-color: #1a1a1a;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            overflow: hidden;
+            font-family: 'Courier New', Courier, monospace;
+        }
+        .container {
+            width: 100%;
+            max-width: 800px;
+            padding: 10px;
+            box-sizing: border-box;
+        }
+        svg {
+            width: 100%;
+            height: auto;
+            filter: drop-shadow(0 0 10px rgba(147, 51, 234, 0.3));
+        }
+        .timer-text {
+            font-family: 'Courier New', monospace;
+            font-weight: bold;
+            fill: #00ff00;
+            text-shadow: 0 0 5px #00ff00;
+        }
+        .line-art {
+            stroke: #d1d1d1;
+            stroke-width: 2;
+            fill: none;
+            stroke-linecap: round;
+            stroke-linejoin: round;
+        }
+        .purple-border {
+            stroke: #9333ea;
+            stroke-width: 4;
+            fill: #262626;
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <svg viewBox="0 0 800 700" xmlns="http://www.w3.org/2000/svg">
+        <path class="purple-border" d="M100,300 C50,250 30,350 50,400 C70,450 150,550 400,580 C650,550 750,450 770,380 C790,300 750,200 650,200 C550,200 450,180 400,200 C350,180 150,200 100,300 Z" />
+
+        <path d="M250,280 Q220,100 350,50" class="line-art" style="stroke: #9333ea; opacity: 0.6;"/>
+        <path d="M550,280 Q580,100 450,50" class="line-art" style="stroke: #9333ea; opacity: 0.6;"/>
+
+        <g transform="translate(400,80)">
+            <circle cx="0" cy="0" r="25" class="line-art" />
+            <path d="M-10,5 L-10,15 M10,5 L10,15" class="line-art" /> <circle cx="-8" cy="-5" r="5" fill="#d1d1d1" /> <circle cx="8" cy="-5" r="5" fill="#d1d1d1" /> <path d="M-25,0 Q-80,-30 -120,20" class="line-art" />
+            <path d="M25,0 Q80,-30 120,20" class="line-art" />
+        </g>
+
+        <ellipse cx="400" cy="450" rx="80" ry="30" class="line-art" style="fill: #333;" />
+        
+        <g transform="translate(400,360)">
+            <path d="M-50,60 C-90,60 -90,-20 -50,-40 C-20,-60 20,-60 50,-40 C90,-20 90,60 50,60 Z" class="line-art" style="fill: #444;" />
+            <path d="M-30,0 Q-10,-20 10,0 T30,-10" class="line-art" style="stroke-width: 1; opacity: 0.5;"/>
+            <path d="M-20,20 Q0,40 20,20" class="line-art" style="stroke-width: 1; opacity: 0.5;"/>
+        </g>
+
+        <polyline points="350,400 320,300 350,200" class="line-art" />
+        <path d="M340,190 Q350,170 370,190 M340,210 Q350,230 370,210" class="line-art" /> <polyline points="450,400 480,300 520,220" class="line-art" />
+        <rect x="510" y="180" width="30" height="15" transform="rotate(-20 525 187)" class="line-art" style="fill: #555;" /> <rect x="350" y="510" width="100" height="50" rx="5" class="line-art" style="fill: #222;" />
+        <text x="400" y="545" text-anchor="middle" class="timer-text" font-size="24">00:01</text>
+        
+        <path d="M330,460 Q300,530 350,535" class="line-art" />
+        <path d="M470,460 Q500,530 450,535" class="line-art" />
+
+        <path d="M380,560 Q350,650 320,680" class="line-art" /> <path d="M420,560 Q450,650 480,680" class="line-art" /> <g transform="translate(320,680)">
+            <circle cx="0" cy="15" r="15" class="line-art" />
+            <line x1="-5" y1="0" x2="5" y2="0" class="line-art" />
+        </g>
+        
+        <g transform="translate(460,670)">
+            <rect x="0" y="0" width="40" height="30" class="line-art" />
+            <circle cx="12" cy="15" r="3" class="line-art" />
+            <circle cx="28" cy="15" r="3" class="line-art" />
+        </g>
+
+        <g transform="translate(580,280)">
+            <rect x="0" y="0" width="50" height="120" class="line-art" style="fill: #2a2a2a;" />
+            <circle cx="25" cy="35" r="15" class="line-art" />
+            <circle cx="25" cy="85" r="18" class="line-art" />
+        </g>
+
+        <g transform="translate(150,350)">
+            <path d="M0,0 Q-20,-50 -10,-80 Q20,-90 40,-60 L20,0" class="line-art" style="fill: #333;" />
+            <path d="M-10,0 L-30,20 M0,10 L-20,40 M20,10 L30,40" class="line-art" /> </g>
+
+        <line x1="680" y1="400" x2="680" y2="200" class="line-art" />
+        <circle cx="680" cy="200" r="8" class="line-art" style="fill: #444;" />
+        <ellipse cx="680" cy="400" rx="20" ry="5" class="line-art" />
+
+    </svg>
+</div>
+
+</body>
+</html>
