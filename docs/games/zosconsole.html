@@ -297,6 +297,7 @@
     margin-bottom: 12px;
     padding: 10px;
     border: 1px solid var(--border);
+    border-left: 3px solid var(--green-dim);
     animation: fade-in 0.3s ease;
   }
 
@@ -313,6 +314,11 @@
   .feed-expert { color: var(--green); font-weight: 700; font-size: 12px; text-transform: uppercase; letter-spacing: 1px; }
   .feed-operator { border-left-color: var(--text-muted); opacity: 0.85; }
   .feed-operator .feed-expert { color: var(--text-muted); }
+  .feed-async { border-left-color: #5865F2; }
+  .feed-async .feed-expert { color: #5865F2; }
+  .feed-error { border-left-color: #b5544a; }
+  .feed-error .feed-expert { color: #b5544a; }
+  .feed-error .feed-section-content { color: #b5544a; }
   .feed-time { color: var(--text-muted); font-size: 11px; }
 
   .feed-section { margin: 6px 0; }
@@ -323,8 +329,21 @@
     letter-spacing: 1px;
     text-transform: uppercase;
     margin-bottom: 2px;
+    cursor: pointer;
+    user-select: none;
+    -webkit-user-select: none;
+    display: flex;
+    align-items: center;
+    gap: 6px;
   }
-
+  .feed-section-label:active { opacity: 0.6; }
+  .feed-section-toggle {
+    display: inline-block;
+    font-size: 9px;
+    transition: transform 0.15s ease;
+    color: var(--text-muted);
+  }
+  .feed-section-toggle.collapsed { transform: rotate(-90deg); }
   .feed-section-content {
     color: var(--text-dim);
     font-size: 12px;
@@ -332,6 +351,7 @@
     white-space: pre-wrap;
     word-break: break-word;
   }
+  .feed-section-content.collapsed { display: none; }
 
   /* Memory list */
   .mem-node {
@@ -598,6 +618,8 @@
       <span><span class="status-label">LAST </span><span class="status-val" id="st-expert">--</span></span>
       <span><span class="status-label">AT </span><span class="status-val" id="st-time">--</span></span>
       <span id="st-alive" style="color:var(--green)">ALIVE</span>
+      <span><span class="status-label">ASYNC </span><span class="status-val" id="st-async" style="color:var(--text-muted)">IDLE</span></span>
+      <span id="st-lockout" style="font-size:10px"></span>
       <button id="theme-toggle" onclick="toggleTheme()">WHITE</button>
     </div>
   </div>
@@ -684,6 +706,7 @@
   var pendingSkill = null;
   var seenBufferHashes = {};
   var seenFeedbackHashes = {};
+  var seenTaskIds = {};
 
   // ─── THEME ───
   function toggleTheme() {
@@ -786,8 +809,12 @@
       .catch(function(e) { failures++; log('POLL buffer: ' + e.message, 'error'); })
       .then(function() { return pollFeedback(); })
       .catch(function(e) { failures++; log('POLL feedback: ' + e.message, 'error'); })
+      .then(function() { return pollAsync(); })
+      .catch(function(e) { failures++; log('POLL async: ' + e.message, 'error'); })
+      .then(function() { return pollLockouts(); })
+      .catch(function(e) { /* lockouts optional — no failure count */ })
       .then(function() {
-        if (failures === 3) {
+        if (failures === 4) {
           consecutiveFullFailures++;
           log('POLL #' + pollCount + ' -- all failed (' + consecutiveFullFailures + 'x)', 'error');
           if (consecutiveFullFailures >= 3) {
@@ -860,6 +887,93 @@
     });
   }
 
+  function pollAsync() {
+    return apiFetch('/kv/task_queue').then(function(data) {
+      if (!data.value) return;
+      var tasks;
+      try { tasks = JSON.parse(data.value); } catch (_) { return; }
+      if (!Array.isArray(tasks)) return;
+
+      // Update status bar counts
+      var pending = 0, running = 0;
+      tasks.forEach(function(t) {
+        if (t.status === 'pending') pending++;
+        if (t.status === 'running') running++;
+      });
+      var asyncEl = document.getElementById('st-async');
+      if (asyncEl) {
+        if (running > 0) {
+          asyncEl.textContent = running + ' RUN / ' + pending + ' Q';
+          asyncEl.style.color = 'var(--green)';
+        } else if (pending > 0) {
+          asyncEl.textContent = pending + ' QUEUED';
+          asyncEl.style.color = 'var(--green-dim)';
+        } else {
+          asyncEl.textContent = 'IDLE';
+          asyncEl.style.color = 'var(--text-muted)';
+        }
+      }
+
+      // Feed completed and failed tasks
+      tasks.forEach(function(t) {
+        if (t.status !== 'completed' && t.status !== 'failed') return;
+        var taskKey = 'task:' + t.id;
+        if (seenTaskIds[taskKey]) return;
+        seenTaskIds[taskKey] = true;
+
+        // Detect specialist from reason
+        var specialist = '';
+        var specMatch = t.reason ? t.reason.match(/SPECIALIST:\s*(\w+)/i) : null;
+        if (specMatch) specialist = specMatch[1].toUpperCase();
+
+        var source = t.status === 'failed' ? 'error' : (t.expert === 'autotool' ? 'autotool' : 'async');
+        var label = specialist || t.expert || 'ASYNC';
+
+        var entry = {
+          time: (t.completed_at || t.created_at || '').slice(11, 19) + ' UTC',
+          source: source,
+          raw: '',
+          sections: {}
+        };
+
+        // Build sections from task data
+        if (t.reason) entry.sections['TASK'] = label + ' — ' + t.reason.slice(0, 500);
+        if (t.status === 'failed') {
+          entry.sections['ERROR'] = t.result || 'Unknown failure';
+        } else if (t.result) {
+          entry.sections['RESULT'] = t.result.slice(0, 2000);
+        }
+        if (t.priority) entry.sections['PRIORITY'] = String(t.priority);
+
+        feedEntries.unshift(entry);
+        if (feedEntries.length > MAX_FEED) feedEntries = feedEntries.slice(0, MAX_FEED);
+      });
+
+      renderFeed();
+    });
+  }
+
+  function pollLockouts() {
+    return apiFetch('/kv/provider_lockouts').then(function(data) {
+      // This won't exist as a route yet — degrade gracefully
+      if (!data.value) return;
+      var lockoutEl = document.getElementById('st-lockout');
+      if (!lockoutEl) return;
+      try {
+        var lockouts = JSON.parse(data.value);
+        if (Array.isArray(lockouts) && lockouts.length > 0) {
+          lockoutEl.textContent = lockouts.length + ' LOCKED';
+          lockoutEl.style.color = '#b5544a';
+          lockoutEl.title = lockouts.map(function(l) { return l.provider + ':' + l.model + ' — ' + l.reason; }).join('\n');
+        } else {
+          lockoutEl.textContent = '';
+        }
+      } catch (_) {
+        lockoutEl.textContent = '';
+      }
+    });
+  }
+
   function simpleHash(str) {
     var hash = 0;
     for (var i = 0; i < str.length; i++) {
@@ -924,14 +1038,31 @@
     renderFeed();
   }
 
+  function toggleSection(labelEl) {
+    var toggle = labelEl.querySelector('.feed-section-toggle');
+    var content = labelEl.nextElementSibling;
+    if (!toggle || !content) return;
+    toggle.classList.toggle('collapsed');
+    content.classList.toggle('collapsed');
+  }
+
   function renderFeed() {
     var panel = document.getElementById('panel-feed');
     var html = '';
 
     feedEntries.forEach(function(entry) {
-      var label = entry.source === 'operator' ? 'OPERATOR' : entry.source === 'dreamer' ? 'ZOS' : 'EXPERT';
+      var label = entry.source === 'operator' ? 'OPERATOR'
+        : entry.source === 'dreamer' ? 'ZOS'
+        : entry.source === 'async' ? 'ASYNC'
+        : entry.source === 'autotool' ? 'AUTOTOOL'
+        : entry.source === 'error' ? 'ERROR'
+        : 'EXPERT';
+      var entryClass = 'feed-entry';
+      if (entry.source === 'operator') entryClass += ' feed-operator';
+      if (entry.source === 'error') entryClass += ' feed-error';
+      if (entry.source === 'async' || entry.source === 'autotool') entryClass += ' feed-async';
 
-      html += '<div class="feed-entry' + (entry.source === 'operator' ? ' feed-operator' : '') + '">';
+      html += '<div class="' + entryClass + '">';
       html += '<div class="feed-header">';
       html += '<span class="feed-expert">' + esc(label) + '</span>';
       html += '<span class="feed-time">' + esc(entry.time) + '</span>';
@@ -939,11 +1070,18 @@
 
       var sectionKeys = Object.keys(entry.sections);
       if (sectionKeys.length > 0) {
-        sectionKeys.forEach(function(key) {
+        // Sections expanded by default — high-signal for operator
+        var alwaysOpen = { 'MESSAGE_TO_OPERATOR': 1, 'EXPERT_CALL': 1, 'SYNTHESIS': 1, 'EXPERT_PROPOSAL': 1, 'ERROR': 1, 'RESULT': 1, 'TASK': 1 };
+        sectionKeys.forEach(function(key, si) {
           if (!entry.sections[key]) return;
+          var open = alwaysOpen[key] ? true : false;
+          var colClass = open ? '' : ' collapsed';
           html += '<div class="feed-section">';
-          html += '<div class="feed-section-label">' + esc(key) + '</div>';
-          html += '<div class="feed-section-content">' + esc(entry.sections[key]) + '</div>';
+          html += '<div class="feed-section-label" onclick="toggleSection(this)">';
+          html += '<span class="feed-section-toggle' + colClass + '">&#9660;</span>';
+          html += esc(key);
+          html += '</div>';
+          html += '<div class="feed-section-content' + colClass + '">' + esc(entry.sections[key]) + '</div>';
           html += '</div>';
         });
       } else {
