@@ -193,7 +193,7 @@ function resolveFlow(erode){
     const nd=T[nt.type],ie=opp(outE),nf=gf(nk);
     nf.edges[ie]=Math.max(nf.edges[ie]||0,tok);
 
-    if(nd.isRock){if(!erode||tok<=0)return;let outDir=opp(ie);const onB=hexes.some(h=>h.q===nbr(n.q,n.r,outDir).q&&h.r===nbr(n.q,n.r,outDir).r);if(!onB)outDir=(outDir+1)%6;const out=Math.max(0,tok-1);if(out===0){board[nk]={type:'alluvial',rot:0,mir:false,fanIn:ie};nf.draws.push({f:ie,t:-1,v:0});}else{board[nk]={type:'canyon',rot:0,mir:false,canyonIn:ie,canyonOut:outDir};nf.draws.push({f:ie,t:outDir,v:out});nf.edges[outDir]=Math.max(nf.edges[outDir]||0,out);trace(n.q,n.r,outDir,out);}return;}
+    if(nd.isRock){if(!erode||tok<=0)return;let outDir=opp(ie);const chkOn=d2=>hexes.some(h2=>h2.q===nbr(n.q,n.r,d2).q&&h2.r===nbr(n.q,n.r,d2).r);if(!chkOn(outDir)){let found=false;for(const off of[1,5,2,4]){const try2=(outDir+off)%6;if(try2!==ie&&chkOn(try2)){outDir=try2;found=true;break;}}if(!found)return;}const out=Math.max(0,tok-1);if(out===0){board[nk]={type:'alluvial',rot:0,mir:false,fanIn:ie};nf.draws.push({f:ie,t:-1,v:0});}else{board[nk]={type:'canyon',rot:0,mir:false,canyonIn:ie,canyonOut:outDir};nf.draws.push({f:ie,t:outDir,v:out});nf.edges[outDir]=Math.max(nf.edges[outDir]||0,out);trace(n.q,n.r,outDir,out);}return;}
     if(nd.isCanyon){const t2=board[nk];if(t2.canyonIn===ie){const out=Math.max(0,tok-1);if(out>0){nf.draws.push({f:ie,t:t2.canyonOut,v:out});nf.edges[t2.canyonOut]=Math.max(nf.edges[t2.canyonOut]||0,out);trace(n.q,n.r,t2.canyonOut,out);}}return;}
     if(nd.cat==='ter')return;
     if(nd.isFlooded){const t2=board[nk];if(t2.floodOut===undefined)return;if(!nf._floodTok)nf._floodTok=0;nf._floodTok+=tok;const out=Math.min(3,nf._floodTok);nf.draws=nf.draws.filter(d=>d.t!==t2.floodOut);nf.draws.push({f:ie,t:t2.floodOut,v:out});nf.edges[t2.floodOut]=out;vis.delete(nk+':'+t2.floodOut);trace(n.q,n.r,t2.floodOut,out);return;}
@@ -597,15 +597,13 @@ document.getElementById('grid').addEventListener('click',e=>{if(e.sourceCapabili
 function startGame(sourceType){
   board={};
   for(const h of hexes) board[hk(h.q,h.r)]={type:'rocky',rot:0,mir:false};
-  // Place starting source at center
-  board[hk(0,0)]={type:sourceType,rot:0,mir:false};
-  // Starting resources
-  res={seed:4,wood:0,wisdom:0,reed:0};
+  // Starting source goes to hand — player chooses placement
+  res={seed:0,wood:0,wisdom:0,reed:0};
   woodDeck=buildDeck(WOOD_CARDS);wisdomDeck=buildDeck(WISDOM_CARDS);
   woodShop=[null,null,null];wisdomShop=[null,null,null];
   fillShop(woodDeck,woodShop);fillShop(wisdomDeck,wisdomShop);
-  hand=[];handSel=null;turn=1;phase='place';bought=false;
-  lockedSlot=null;fl={};adjInfo={};logMsg=['Game started! Place your source, then END TURN to erode.'];
+  hand=[{id:sourceType,cost:{}}];handSel=0;turn=1;phase='place';bought=false;
+  lockedSlot=null;fl={};adjInfo={};logMsg=['Place your source, rotate it, then END TURN to erode.'];
   geyserPhase={};cisternStore={};caveStones={};romConfig={};pipeLink={};wells={};muxCfg={};
   renderAll();
 }
@@ -619,7 +617,7 @@ function showStart(){
     <button class="btn" style="background:#3A5060;color:#80C0E0;padding:12px 24px;font-size:12px" onclick="startGame('glacial')">Glacial Spring (3W)</button>
     <button class="btn" style="background:#344858;color:#80B0D0;padding:12px 24px;font-size:12px" onclick="startGame('snowmelt')">Snowmelt Spring (2W)</button>
     <button class="btn" style="background:#2E4250;color:#80A0C0;padding:12px 24px;font-size:12px" onclick="startGame('underground')">Underground Spring (1W)</button>
-    <div style="color:#404858;font-size:8px;margin-top:8px">Glacial: easy start. Underground: hard mode.</div>
+    <div style="color:#404858;font-size:8px;margin-top:8px">Erosion creates alluvial fans that produce seeds. Glacial carves deepest.</div>
   </div>`;
   document.getElementById('shopPanel').innerHTML='';
   document.getElementById('handPanel').innerHTML='';
