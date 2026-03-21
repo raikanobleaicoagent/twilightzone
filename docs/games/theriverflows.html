@@ -14,7 +14,7 @@ body{background:#131517;color:#c0d0e0;font-family:'SF Pro Text','Segoe UI',syste
 .sbtn{padding:3px 6px;border-radius:4px;border:none;font-size:8px;font-weight:600;cursor:pointer;}
 #grid{flex:1;position:relative;overflow:hidden;min-height:0;}
 #grid svg{width:100%;height:100%;display:block;}
-#shopPanel{background:#1A1C20;border-top:1px solid #252830;flex-shrink:0;padding:4px 6px;height:90px;min-height:90px;max-height:90px;overflow-y:auto;}
+#shopPanel{background:#1A1C20;border-top:1px solid #252830;flex-shrink:0;padding:4px 6px;height:100px;min-height:100px;max-height:100px;overflow-y:auto;}
 #shopPanel .label{font-size:7px;color:#4A5868;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:2px;}
 .shopRow{display:flex;gap:4px;margin-bottom:4px;align-items:center;}
 .shopCard{min-width:58px;height:40px;border-radius:6px;border:1px solid #2A2E35;background:#1E2024;
@@ -120,14 +120,18 @@ flooded:{name:'Flooded',s:'Flood',l:'!!!',cat:'wire',ports:[],fill:'#1E3858',str
 };
 
 // ─── Deck Definitions ───
-const WOOD_CARDS=[
+const WOOD_COMMON=[
 {id:'river',cost:{wood:1},n:8},{id:'creek',cost:{wood:1},n:6},{id:'bend',cost:{wood:1},n:4},
 {id:'narrows',cost:{wood:1},n:4},{id:'crevasse',cost:{wood:1},n:3},{id:'sinkhole',cost:{wood:1},n:3},
+];
+const WOOD_UNCOMMON=[
 {id:'tributary',cost:{wood:2},n:4},{id:'canal',cost:{wood:2},n:4},{id:'rapids',cost:{wood:2},n:3},
 {id:'dry_riverbed',cost:{wood:2},n:6},{id:'gorge',cost:{wood:2},n:4},{id:'shallows',cost:{wood:2},n:4},
 {id:'confluence',cost:{wood:2},n:4},{id:'ford',cost:{wood:2},n:4},{id:'spillway',cost:{wood:2},n:4},
 {id:'delta',cost:{wood:2},n:3},{id:'c_creek',cost:{wood:2},n:4},{id:'cistern',cost:{wood:2},n:4},
 {id:'cascade',cost:{wood:2},n:3},{id:'overflow',cost:{wood:2},n:3},{id:'siphon',cost:{wood:2},n:3},
+];
+const WOOD_RARE=[
 {id:'seesaw',cost:{wood:3},n:4},{id:'bridge',cost:{wood:3},n:3},{id:'waterfall',cost:{wood:3},n:3},
 ];
 const WISDOM_CARDS=[
@@ -172,8 +176,9 @@ let res={seed:0,wood:0,wisdom:0,reed:0};
 let logMsg=[];
 let geyserPhase={},cisternStore={},caveStones={},romConfig={},pipeLink={};
 let pipePlacing=null; // key of placed pipe_in waiting for pipe_out
-let woodDeck=[],wisdomDeck=[];
-let woodShop=[null,null,null],wisdomShop=[null,null,null];
+let woodComDeck=[],woodUncDeck=[],woodRareDeck=[],wisdomDeck=[];
+let woodShop=[null,null,null,null,null,null]; // 0-2=common, 3-4=uncommon, 5=rare
+let wisdomShop=[null,null,null];
 let lockedSlot=null; // {deck:'wood'|'wisdom', idx:0-2}
 let hand=[]; // array of {id, cost}
 let handSel=null; // index into hand
@@ -340,30 +345,37 @@ function renderGrid(){
 }
 
 // ─── Shop & Hand UI ───
-function fillShop(deck,shop){for(let i=0;i<3;i++){if(!shop[i]&&deck.length>0)shop[i]=deck.shift();}}
+function fillShop(deck,shop){for(let i=0;i<shop.length;i++){if(!shop[i]&&deck.length>0)shop[i]=deck.shift();}}
+function fillWoodShop(){
+  for(let i=0;i<3;i++){if(!woodShop[i]&&woodComDeck.length>0)woodShop[i]=woodComDeck.shift();}
+  for(let i=3;i<5;i++){if(!woodShop[i]&&woodUncDeck.length>0)woodShop[i]=woodUncDeck.shift();}
+  if(!woodShop[5]&&woodRareDeck.length>0)woodShop[5]=woodRareDeck.shift();
+}
+function getWoodDeckForSlot(i){return i<3?woodComDeck:i<5?woodUncDeck:woodRareDeck;}
+function shuffleDeck(d){for(let i=d.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[d[i],d[j]]=[d[j],d[i]];}}
 
 function renderShop(){
   const el=document.getElementById('shopPanel');
-  let h='<div style="display:flex;gap:8px">';
-  // Wood shop
-  h+='<div style="flex:1"><div class="label" style="color:#8B7020">Wood Shop</div><div class="shopRow">';
-  for(let i=0;i<3;i++){
+  const tierLbl=['C','C','C','U','U','R'];
+  const tierCol=['#6A8030','#6A8030','#6A8030','#8B7020','#8B7020','#C08030'];
+  let h='<div style="display:flex;gap:2px;flex-wrap:nowrap;overflow-x:auto">';
+  // Wood shop - 6 slots
+  for(let i=0;i<6;i++){
     const c=woodShop[i];
     const locked=lockedSlot&&lockedSlot.deck==='wood'&&lockedSlot.idx===i;
-    if(c){const t=T[c.id];h+=`<div class="shopCard${locked?' locked':''}" onclick="shopAction('wood',${i})"><span class="tl">${t.l}</span><span class="ts">${t.s}</span><span class="tc">${costStr(c.cost)}</span></div>`;}
-    else h+=`<div class="shopCard" style="opacity:0.3"><span class="ts">empty</span></div>`;
+    if(c){const t=T[c.id];h+=`<div class="shopCard${locked?' locked':''}" onclick="shopAction('wood',${i})" style="border-top:2px solid ${tierCol[i]}"><span class="tl">${t.l}</span><span class="ts">${t.s}</span><span class="tc">${costStr(c.cost)}</span></div>`;}
+    else h+=`<div class="shopCard" style="opacity:0.3;border-top:2px solid ${tierCol[i]}30"><span class="ts">--</span></div>`;
   }
-  h+='</div></div>';
-  // Wisdom shop
-  h+='<div style="flex:1"><div class="label" style="color:#B0B0C0">Wisdom Shop</div><div class="shopRow">';
+  // Divider
+  h+='<div style="width:1px;background:#303040;flex-shrink:0;margin:0 2px"></div>';
+  // Wisdom shop - 3 slots
   for(let i=0;i<3;i++){
     const c=wisdomShop[i];
     const locked=lockedSlot&&lockedSlot.deck==='wisdom'&&lockedSlot.idx===i;
-    if(c){const t=T[c.id];h+=`<div class="shopCard${locked?' locked':''}" onclick="shopAction('wisdom',${i})"><span class="tl">${t.l}</span><span class="ts">${t.s}</span><span class="tc">${costStr(c.cost)}</span></div>`;}
-    else h+=`<div class="shopCard" style="opacity:0.3"><span class="ts">empty</span></div>`;
+    if(c){const t=T[c.id];h+=`<div class="shopCard${locked?' locked':''}" onclick="shopAction('wisdom',${i})" style="border-top:2px solid #B0B0C0"><span class="tl">${t.l}</span><span class="ts">${t.s}</span><span class="tc">${costStr(c.cost)}</span></div>`;}
+    else h+=`<div class="shopCard" style="opacity:0.3;border-top:2px solid #B0B0C030"><span class="ts">--</span></div>`;
   }
-  h+='</div></div></div>';
-  // Actions
+  h+='</div>';
   h+='<div style="display:flex;gap:4px;margin-top:2px;flex-wrap:wrap">';
   h+=`<button class="sbtn" style="background:${res.seed>=2?'#2A3820':'#1A1C20'};color:${res.seed>=2?'#80C080':'#404040'}" onclick="colonize()">Colonize 2sd</button>`;
   h+=`<button class="sbtn" style="background:${res.seed>=3?'#3A3020':'#1A1C20'};color:${res.seed>=3?'#C0A060':'#404040'}" onclick="recover()">Recover 3sd</button>`;
@@ -374,14 +386,14 @@ function renderShop(){
 
 function renderHand(){
   const el=document.getElementById('handPanel');
-  let h='<div style="display:flex;align-items:center;gap:4px"><span class="label" style="color:#5A7888;margin-right:4px">Hand('+hand.length+'/5)</span><div class="handRow">';
+  let h='<div style="display:flex;align-items:center;gap:4px"><span class="label" style="color:#5A7888;margin-right:4px">Hand('+hand.length+'/6)</span><div class="handRow">';
   for(let i=0;i<hand.length;i++){
     const c=hand[i],t=T[c.id];
     h+=`<div class="handCard${handSel===i?' sel':''}" onclick="selectHand(${i})"><span class="tl">${t.l}</span><span class="ts">${t.s}</span></div>`;
   }
   if(hand.length===0) h+='<span style="font-size:8px;color:#303848">Empty — buy from shop</span>';
   h+='</div>';
-  if(hand.length>5) h+=`<button class="sbtn" style="background:#4A2020;color:#FF9090;margin-left:4px" onclick="discardHand()">Discard</button>`;
+  if(hand.length>6) h+=`<button class="sbtn" style="background:#4A2020;color:#FF9090;margin-left:4px" onclick="discardHand()">Discard</button>`;
   h+='</div>';
   el.innerHTML=h;
 }
@@ -442,10 +454,10 @@ window.shopAction=function(deck,idx){
   if(lockedSlot&&lockedSlot.deck===deck&&lockedSlot.idx===idx){lockedSlot=null;renderAll();return;}
 
   // Try to buy
-  if(!bought&&canAfford(card.cost)&&hand.length<5){
+  if(!bought&&canAfford(card.cost)&&hand.length<6){
     payCost(card.cost);hand.push(card);shop[idx]=null;
-    const dk=deck==='wood'?woodDeck:wisdomDeck;
-    fillShop(dk,shop);
+    if(deck==='wood'){const dk=getWoodDeckForSlot(idx);if(dk.length>0)shop[idx]=dk.shift();}
+    else{fillShop(wisdomDeck,wisdomShop);}
     bought=true;
     renderAll();return;
   }
@@ -475,19 +487,17 @@ window.recover=function(){
 window.rerollSlot=function(){
   if(phase!=='shop'||res.reed<2)return;
   res.reed-=2;
-  // Reroll all non-locked slots
-  for(let i=0;i<3;i++){
+  // Return non-locked wood cards to their tier decks
+  for(let i=0;i<6;i++){
     if(lockedSlot&&lockedSlot.deck==='wood'&&lockedSlot.idx===i)continue;
-    if(woodShop[i]){woodDeck.push(woodShop[i]);woodShop[i]=null;}
+    if(woodShop[i]){getWoodDeckForSlot(i).push(woodShop[i]);woodShop[i]=null;}
   }
   for(let i=0;i<3;i++){
     if(lockedSlot&&lockedSlot.deck==='wisdom'&&lockedSlot.idx===i)continue;
     if(wisdomShop[i]){wisdomDeck.push(wisdomShop[i]);wisdomShop[i]=null;}
   }
-  // Shuffle and refill
-  for(let i=woodDeck.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[woodDeck[i],woodDeck[j]]=[woodDeck[j],woodDeck[i]];}
-  for(let i=wisdomDeck.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[wisdomDeck[i],wisdomDeck[j]]=[wisdomDeck[j],wisdomDeck[i]];}
-  fillShop(woodDeck,woodShop);fillShop(wisdomDeck,wisdomShop);
+  shuffleDeck(woodComDeck);shuffleDeck(woodUncDeck);shuffleDeck(woodRareDeck);shuffleDeck(wisdomDeck);
+  fillWoodShop();fillShop(wisdomDeck,wisdomShop);
   renderAll();
 };
 
@@ -503,9 +513,10 @@ window.discardHand=function(){
   if(hand.length<=5)return;
   // Discard last card back to bottom of its source deck
   const c=hand.pop();
-  // Determine which deck it came from
   if(WISDOM_CARDS.some(w=>w.id===c.id)) wisdomDeck.push(c);
-  else woodDeck.push(c);
+  else if(WOOD_RARE.some(w=>w.id===c.id)) woodRareDeck.push(c);
+  else if(WOOD_UNCOMMON.some(w=>w.id===c.id)) woodUncDeck.push(c);
+  else woodComDeck.push(c);
   renderAll();
 };
 
@@ -532,18 +543,17 @@ window.endTurn=function(){
   const pts=[];if(h.seed)pts.push('+'+h.seed+'sd');if(h.wood)pts.push('+'+h.wood+'wd');if(h.wisdom)pts.push('+'+h.wisdom+'wi');if(h.reed)pts.push('+'+h.reed+'rd');
   if(pts.length)msgs.push(pts.join(' '));
   turn++;logMsg=msgs.length>0?msgs:['--'];
-  // Refresh shop: return non-locked cards to deck, shuffle, refill
-  for(let i=0;i<3;i++){
+  // Refresh shop: return non-locked cards to tier decks, shuffle, refill
+  for(let i=0;i<6;i++){
     if(lockedSlot&&lockedSlot.deck==='wood'&&lockedSlot.idx===i)continue;
-    if(woodShop[i]){woodDeck.push(woodShop[i]);woodShop[i]=null;}
+    if(woodShop[i]){getWoodDeckForSlot(i).push(woodShop[i]);woodShop[i]=null;}
   }
   for(let i=0;i<3;i++){
     if(lockedSlot&&lockedSlot.deck==='wisdom'&&lockedSlot.idx===i)continue;
     if(wisdomShop[i]){wisdomDeck.push(wisdomShop[i]);wisdomShop[i]=null;}
   }
-  for(let i=woodDeck.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[woodDeck[i],woodDeck[j]]=[woodDeck[j],woodDeck[i]];}
-  for(let i=wisdomDeck.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[wisdomDeck[i],wisdomDeck[j]]=[wisdomDeck[j],wisdomDeck[i]];}
-  fillShop(woodDeck,woodShop);fillShop(wisdomDeck,wisdomShop);
+  shuffleDeck(woodComDeck);shuffleDeck(woodUncDeck);shuffleDeck(woodRareDeck);shuffleDeck(wisdomDeck);
+  fillWoodShop();fillShop(wisdomDeck,wisdomShop);
   // Next turn
   phase='shop';bought=false;handSel=null;bSel=null;
   renderAll();
@@ -640,9 +650,10 @@ function startGame(sourceType){
     res={seed:1,wood:0,wisdom:0,reed:0};
     hand=[{id:sourceType,cost:{}}];
   }
-  woodDeck=buildDeck(WOOD_CARDS);wisdomDeck=buildDeck(WISDOM_CARDS);
-  woodShop=[null,null,null];wisdomShop=[null,null,null];
-  fillShop(woodDeck,woodShop);fillShop(wisdomDeck,wisdomShop);
+  woodComDeck=buildDeck(WOOD_COMMON);woodUncDeck=buildDeck(WOOD_UNCOMMON);woodRareDeck=buildDeck(WOOD_RARE);
+  wisdomDeck=buildDeck(WISDOM_CARDS);
+  woodShop=[null,null,null,null,null,null];wisdomShop=[null,null,null];
+  fillWoodShop();fillShop(wisdomDeck,wisdomShop);
   handSel=0;turn=1;phase='place';bought=false;
   lockedSlot=null;fl={};adjInfo={};logMsg=['Place your source, rotate it, then END TURN to erode.'];
   geyserPhase={};cisternStore={};caveStones={};romConfig={};pipeLink={};wells={};muxCfg={};
