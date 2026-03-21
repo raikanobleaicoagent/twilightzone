@@ -5,16 +5,16 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
 <title>The River Flows</title>
 <style>
-*{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
+*{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent;touch-action:manipulation;}
 body{background:#131517;color:#c0d0e0;font-family:'SF Pro Text','Segoe UI',system-ui,sans-serif;
   overflow:hidden;position:fixed;width:100%;height:100%;user-select:none;-webkit-user-select:none;}
 #app{display:flex;flex-direction:column;height:100dvh;width:100vw;}
-.bar{display:flex;align-items:center;padding:4px 8px;background:#1A1C20;border-bottom:1px solid #252830;flex-shrink:0;gap:4px;flex-wrap:wrap;min-height:32px;}
+.bar{display:flex;align-items:center;padding:4px 8px;background:#1A1C20;border-bottom:1px solid #252830;flex-shrink:0;gap:4px;flex-wrap:wrap;height:34px;min-height:34px;max-height:34px;overflow:hidden;}
 .btn{padding:4px 8px;border-radius:5px;border:none;font-size:9px;font-weight:600;cursor:pointer;white-space:nowrap;}
 .sbtn{padding:3px 6px;border-radius:4px;border:none;font-size:8px;font-weight:600;cursor:pointer;}
-#grid{flex:1;position:relative;overflow:hidden;}
+#grid{flex:1;position:relative;overflow:hidden;min-height:0;}
 #grid svg{width:100%;height:100%;display:block;}
-#shopPanel{background:#1A1C20;border-top:1px solid #252830;flex-shrink:0;padding:4px 6px;}
+#shopPanel{background:#1A1C20;border-top:1px solid #252830;flex-shrink:0;padding:4px 6px;height:90px;min-height:90px;max-height:90px;overflow-y:auto;}
 #shopPanel .label{font-size:7px;color:#4A5868;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:2px;}
 .shopRow{display:flex;gap:4px;margin-bottom:4px;align-items:center;}
 .shopCard{min-width:58px;height:40px;border-radius:6px;border:1px solid #2A2E35;background:#1E2024;
@@ -24,7 +24,7 @@ body{background:#131517;color:#c0d0e0;font-family:'SF Pro Text','Segoe UI',syste
 .shopCard .tc{font-size:6px;color:#6A7888;position:absolute;bottom:1px;right:3px;}
 .shopCard.locked{border-color:#D0A840;background:#252820;}
 .shopCard.locked::after{content:'L';position:absolute;top:1px;right:3px;font-size:6px;color:#D0A840;font-weight:700;}
-#handPanel{background:#181A1E;border-top:1px solid #222530;flex-shrink:0;padding:4px 6px;}
+#handPanel{background:#181A1E;border-top:1px solid #222530;flex-shrink:0;padding:4px 6px;height:48px;min-height:48px;max-height:48px;overflow:hidden;}
 .handRow{display:flex;gap:4px;align-items:center;overflow-x:auto;-webkit-overflow-scrolling:touch;}
 .handRow::-webkit-scrollbar{display:none;}
 .handCard{min-width:52px;height:38px;border-radius:6px;border:1px solid #2A2E35;background:#1E2024;
@@ -275,6 +275,7 @@ function growTerrain(){
       let fed=false;if(sf)for(const d of sf.draws)if(d.t===opp(tile.fanIn)&&d.v>0)fed=true;
       if(!fed){ch[k]='desert';continue;}
       if(st&&!T[st.type].isCanyon&&!T[st.type].isRock&&T[st.type].cat!=='ter'&&T[st.type].cat!=='src'){ch[k]='delta_upgrade';continue;}
+      continue; // fed by canyon — fan is stable, skip flooding
     }
     if(dir>0){if(['barren','alluvial','scrubland','grassland','forest','oldgrowth'].includes(ty)){ch[k]=dir>=3?'lake':dir>=2?'pond':'wetland';}else if(ty==='wetland'&&dir>=2)ch[k]='pond';else if(ty==='pond'&&dir>=3)ch[k]='lake';continue;}
     if(maf>=2&&['barren','alluvial','scrubland','grassland'].includes(ty)){ch[k]='wetland';continue;}
