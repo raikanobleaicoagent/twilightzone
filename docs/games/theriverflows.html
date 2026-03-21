@@ -472,9 +472,21 @@ window.recover=function(){
 
 window.rerollSlot=function(){
   if(phase!=='shop'||res.reed<2)return;
-  phase='reroll_pick';
+  res.reed-=2;
+  // Reroll all non-locked slots
+  for(let i=0;i<3;i++){
+    if(lockedSlot&&lockedSlot.deck==='wood'&&lockedSlot.idx===i)continue;
+    if(woodShop[i]){woodDeck.push(woodShop[i]);woodShop[i]=null;}
+  }
+  for(let i=0;i<3;i++){
+    if(lockedSlot&&lockedSlot.deck==='wisdom'&&lockedSlot.idx===i)continue;
+    if(wisdomShop[i]){wisdomDeck.push(wisdomShop[i]);wisdomShop[i]=null;}
+  }
+  // Shuffle and refill
+  for(let i=woodDeck.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[woodDeck[i],woodDeck[j]]=[woodDeck[j],woodDeck[i]];}
+  for(let i=wisdomDeck.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[wisdomDeck[i],wisdomDeck[j]]=[wisdomDeck[j],wisdomDeck[i]];}
+  fillShop(woodDeck,woodShop);fillShop(wisdomDeck,wisdomShop);
   renderAll();
-  document.getElementById('ctxBar').innerHTML=`<span style="font-size:9px;color:#60C0A0">Tap a shop card to reroll (2 reed)</span> <button class="sbtn" style="background:#252830;color:#5A6878" onclick="cancelAction()">Cancel</button>`;
 };
 
 window.cancelAction=function(){phase='shop';renderAll();};
@@ -518,7 +530,17 @@ window.endTurn=function(){
   const pts=[];if(h.seed)pts.push('+'+h.seed+'sd');if(h.wood)pts.push('+'+h.wood+'wd');if(h.wisdom)pts.push('+'+h.wisdom+'wi');if(h.reed)pts.push('+'+h.reed+'rd');
   if(pts.length)msgs.push(pts.join(' '));
   turn++;logMsg=msgs.length>0?msgs:['--'];
-  // Refill shop
+  // Refresh shop: return non-locked cards to deck, shuffle, refill
+  for(let i=0;i<3;i++){
+    if(lockedSlot&&lockedSlot.deck==='wood'&&lockedSlot.idx===i)continue;
+    if(woodShop[i]){woodDeck.push(woodShop[i]);woodShop[i]=null;}
+  }
+  for(let i=0;i<3;i++){
+    if(lockedSlot&&lockedSlot.deck==='wisdom'&&lockedSlot.idx===i)continue;
+    if(wisdomShop[i]){wisdomDeck.push(wisdomShop[i]);wisdomShop[i]=null;}
+  }
+  for(let i=woodDeck.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[woodDeck[i],woodDeck[j]]=[woodDeck[j],woodDeck[i]];}
+  for(let i=wisdomDeck.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[wisdomDeck[i],wisdomDeck[j]]=[wisdomDeck[j],wisdomDeck[i]];}
   fillShop(woodDeck,woodShop);fillShop(wisdomDeck,wisdomShop);
   // Next turn
   phase='shop';bought=false;handSel=null;bSel=null;
@@ -559,10 +581,6 @@ function handleTap(cx,cy){
     if(board[k]&&board[k].type==='desert'){res.seed-=3;board[k]={type:'scrubland',rot:0,mir:false};fl={};adjInfo={};}
     phase='shop';renderAll();return;
   }
-  if(phase==='reroll_pick'){
-    // Find which shop slot was clicked (handled via shopAction for reroll)
-    phase='shop';renderAll();return;
-  }
 
   // Pipe pair: second tap places pipe_out
   if(phase==='place'&&pipePlacing){
@@ -601,23 +619,6 @@ function handleTap(cx,cy){
   }
   renderAll();
 }
-
-// Reroll via shop card tap
-const origShopAction=window.shopAction;
-window.shopAction=function(deck,idx){
-  if(phase==='reroll_pick'){
-    if(res.reed<2)return;
-    const locked=lockedSlot&&lockedSlot.deck===deck&&lockedSlot.idx===idx;
-    if(locked){phase='shop';renderAll();return;} // Can't reroll locked
-    const shop=deck==='wood'?woodShop:wisdomShop;
-    const dk=deck==='wood'?woodDeck:wisdomDeck;
-    if(shop[idx]){dk.push(shop[idx]);for(let i=dk.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[dk[i],dk[j]]=[dk[j],dk[i]];}}
-    shop[idx]=dk.length>0?dk.shift():null;
-    res.reed-=2;
-    phase='shop';renderAll();return;
-  }
-  origShopAction(deck,idx);
-};
 
 let tStart={x:0,y:0,moved:false};
 document.getElementById('grid').addEventListener('touchstart',e=>{if(e.touches.length===1)tStart={x:e.touches[0].clientX,y:e.touches[0].clientY,moved:false};},{passive:true});
