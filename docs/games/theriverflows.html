@@ -90,7 +90,7 @@ dammed:{name:'Dammed Spring',s:'NOT',l:'NOT',cat:'gate',gate:'not',notPow:2,port
 karst:{name:'Karst Cave',s:'NAND',l:'NAND',cat:'gate',gate:'nand',notPow:2,ports:[{e:5,d:'i'},{e:4,d:'i'},{e:2,d:'o'}],fill:'#3A3830',str:'#4C4A42',band:'#B84030'},
 artesian:{name:'Artesian Well',s:'NOR',l:'NOR',cat:'gate',gate:'nor',notPow:2,ports:[{e:5,d:'i'},{e:4,d:'i'},{e:2,d:'o'}],fill:'#2E3840',str:'#404A52',band:'#B84030'},
 seesaw:{name:'Seesaw Falls',s:'XOR',l:'XOR',cat:'gate',gate:'xor',ports:[{e:5,d:'i'},{e:4,d:'i'},{e:2,d:'o'}],fill:'#3A4040',str:'#4C5252',band:'#B84030'},
-delta:{name:'River Delta',s:'Delta',l:'DLT',cat:'gate',gate:'delta',ports:[{e:0,d:'i'},{e:1,d:'o'},{e:2,d:'o'},{e:3,d:'o'},{e:4,d:'o'},{e:5,d:'o'}],fill:'#3A4A44',str:'#4C5C56',band:'#B84030'},
+delta:{name:'River Delta',s:'Delta',l:'DLT',cat:'gate',gate:'delta',ports:[{e:0,d:'i'},{e:2,d:'o'},{e:3,d:'o'},{e:4,d:'o'}],fill:'#3A4A44',str:'#4C5C56',band:'#B84030'},
 sinkhole:{name:'Sinkhole',s:'Sink',l:'SNK',cat:'util',ports:[{e:0,d:'i'}],fill:'#282828',str:'#3A3A3A',band:'#606068'},
 beaver:{name:'Beaver Dam',s:'MUX',l:'MUX',cat:'util',gate:'mux',ports:[{e:0,d:'i'},{e:2,d:'o'},{e:4,d:'o'}],fill:'#4A4030',str:'#5C5242',band:'#606068'},
 c_creek:{name:'Constructed Creek',s:'C.Creek',l:'TAP',cat:'util',gate:'tap',ports:[{e:2,d:'o'}],fill:'#3A4A48',str:'#4C5C5A',band:'#606068'},
@@ -211,7 +211,7 @@ function resolveFlow(erode){
     if(nd.gate==='or_add'){const ins=nd.ports.filter(p=>p.d==='i').map(p=>tp(nt,p.e));const ao=tp(nt,nd.ports.find(p=>p.d==='o').e);if(!ins.includes(ie))return;nf._gi[ie]=tok;const sum=Math.min(3,Object.values(nf._gi).reduce((a,b)=>a+b,0));nf.draws=nf.draws.filter(d=>d.t!==ao);Object.keys(nf._gi).forEach(i2=>nf.draws.push({f:parseInt(i2),t:ao,v:sum}));vis.delete(nk+':'+ao);trace(n.q,n.r,ao,sum);return;}
     if(nd.gate==='or_min'){const ins=nd.ports.filter(p=>p.d==='i').map(p=>tp(nt,p.e));const ao=tp(nt,nd.ports.find(p=>p.d==='o').e);if(!ins.includes(ie))return;nf._gi[ie]=tok;const vals=Object.values(nf._gi).filter(v=>v>0);if(vals.length>0){const mv=Math.min(...vals);nf.draws=nf.draws.filter(d=>d.t!==ao);nf.draws.push({f:ie,t:ao,v:mv});vis.delete(nk+':'+ao);trace(n.q,n.r,ao,mv);}return;}
     if(nd.gate==='or_max'){const ins=nd.ports.filter(p=>p.d==='i').map(p=>tp(nt,p.e));const ao=tp(nt,nd.ports.find(p=>p.d==='o').e);if(!ins.includes(ie))return;nf._gi[ie]=tok;const vals=Object.values(nf._gi).filter(v=>v>0);if(vals.length>0){const mv=Math.max(...vals);nf.draws=nf.draws.filter(d=>d.t!==ao);nf.draws.push({f:ie,t:ao,v:mv});vis.delete(nk+':'+ao);trace(n.q,n.r,ao,mv);}return;}
-    if(nd.gate==='delta'){const ai=tp(nt,nd.ports.find(p=>p.d==='i').e);if(ai!==ie||tok<1)return;nd.ports.filter(p=>p.d==='o').forEach(op=>{const ao=tp(nt,op.e);nf.draws.push({f:ie,t:ao,v:1});nf.edges[ao]=Math.max(nf.edges[ao]||0,1);trace(n.q,n.r,ao,1);});return;}
+    if(nd.gate==='delta'){const ai=tp(nt,nd.ports.find(p=>p.d==='i').e);if(ai!==ie||tok<1)return;const dOuts=nd.ports.filter(p=>p.d==='o').map(op=>tp(nt,op.e));dOuts.forEach(ao=>{nf.draws.push({f:ie,t:ao,v:1});nf.edges[ao]=Math.max(nf.edges[ao]||0,1);});dOuts.forEach(ao=>{trace(n.q,n.r,ao,1);});return;}
     if(nd.gate==='split'){const ai=tp(nt,nd.ports.find(p=>p.d==='i').e);if(ai!==ie)return;const outs=nd.ports.filter(p=>p.d==='o').map(p=>tp(nt,p.e));const hi=Math.ceil(tok/2),lo=Math.floor(tok/2);if(outs[0]!==undefined&&hi>0){nf.draws.push({f:ie,t:outs[0],v:hi});nf.edges[outs[0]]=hi;trace(n.q,n.r,outs[0],hi);}if(outs[1]!==undefined&&lo>0){nf.draws.push({f:ie,t:outs[1],v:lo});nf.edges[outs[1]]=lo;trace(n.q,n.r,outs[1],lo);}return;}
     if(nd.gate==='cross'){const pAi=tp(nt,5),pAo=tp(nt,2),pBi=tp(nt,0),pBo=tp(nt,3);if(ie===pAi){nf.draws.push({f:ie,t:pAo,v:tok});trace(n.q,n.r,pAo,tok);}else if(ie===pBi){nf.draws.push({f:ie,t:pBo,v:tok});trace(n.q,n.r,pBo,tok);}return;}
     if(nd.gate==='mux'){const ai=tp(nt,nd.ports.find(p=>p.d==='i').e);if(ai!==ie)return;const outs=nd.ports.filter(p=>p.d==='o').map(p=>tp(nt,p.e));const cfg=muxCfg[nk]||0;if(cfg===0||cfg===2){if(outs[0]!==undefined){const v=cfg===2?Math.ceil(tok/2):tok;nf.draws.push({f:ie,t:outs[0],v});trace(n.q,n.r,outs[0],v);}}if(cfg===1||cfg===2){if(outs[1]!==undefined){const v=cfg===2?Math.floor(tok/2):tok;nf.draws.push({f:ie,t:outs[1],v});trace(n.q,n.r,outs[1],v);}}return;}
@@ -280,7 +280,7 @@ function growTerrain(){
     if(dir>0){if(['barren','alluvial','scrubland','grassland','forest','oldgrowth'].includes(ty)){ch[k]=dir>=3?'lake':dir>=2?'pond':'wetland';}else if(ty==='wetland'&&dir>=2)ch[k]='pond';else if(ty==='pond'&&dir>=3)ch[k]='lake';continue;}
     if(maf>=2&&['barren','alluvial','scrubland','grassland'].includes(ty)){ch[k]='wetland';continue;}
     if(fc>0){if(ty==='barren'||ty==='alluvial')ch[k]='scrubland';else if(ty==='scrubland')ch[k]='grassland';else if(ty==='grassland')ch[k]='forest';else if(ty==='forest')ch[k]='oldgrowth';}
-    else{if(ty==='oldgrowth')ch[k]='forest';else if(ty==='forest')ch[k]='grassland';}
+    else{if(ty==='oldgrowth')ch[k]='forest';else if(ty==='forest')ch[k]='grassland';else if(ty==='wetland')ch[k]='scrubland';else if(ty==='pond')ch[k]='wetland';else if(ty==='lake')ch[k]='pond';}
   }
   for(const[k,tile]of Object.entries(board)){
     if(tile.type!=='desert')continue;const[q,r]=k.split(',').map(Number);
