@@ -398,9 +398,7 @@ function renderTop(){
   const pl=phase==='shop'?'SHOP':phase==='place'?'PLACE':'';
   if(pl) h+=`<span class="phase" style="color:${pc};border:1px solid ${pc}30">${pl}</span>`;
   h+=`<button class="btn" style="background:#252830;color:#5A6878;margin-left:4px" onclick="toggleDel()">${rmMode?'DEL!':'DEL'}</button>`;
-  if(phase==='shop') h+=`<button class="btn" style="background:#1A4A68;color:#80C0E0;margin-left:4px" onclick="preview()">PREVIEW</button>`;
   if(phase==='shop') h+=`<button class="btn" style="background:#1A5A30;color:#80D0A0;margin-left:4px" onclick="endShop()">PLACE ></button>`;
-  if(phase==='place') h+=`<button class="btn" style="background:#1A4A68;color:#80C0E0;margin-left:4px" onclick="preview()">PREVIEW</button>`;
   if(phase==='place') h+=`<button class="btn" style="background:#1A5A30;color:#80D0A0;margin-left:4px" onclick="endTurn()">END TURN</button>`;
   el.innerHTML=h;
 }
@@ -526,8 +524,6 @@ window.endTurn=function(){
   phase='shop';bought=false;handSel=null;bSel=null;
   renderAll();
 };
-
-window.preview=function(){resolveFlow();calcAdj();renderGrid();};
 
 window.toggleDel=function(){rmMode=!rmMode;bSel=null;handSel=null;renderAll();};
 window.doRot=function(dir){if(!bSel||!board[bSel])return;board[bSel].rot=(board[bSel].rot+(dir==='cw'?1:5))%6;fl={};adjInfo={};renderAll();};
