@@ -96,6 +96,7 @@ beaver:{name:'Beaver Dam',s:'MUX',l:'MUX',cat:'util',gate:'mux',ports:[{e:0,d:'i
 c_creek:{name:'Constructed Creek',s:'C.Creek',l:'TAP',cat:'util',gate:'tap',ports:[{e:2,d:'o'}],fill:'#3A4A48',str:'#4C5C5A',band:'#606068'},
 pipe_in:{name:'Pipe In',s:'PipeIn',l:'v',cat:'util',gate:'pipe_in',ports:[{e:5,d:'i'}],fill:'#3A3A44',str:'#4C4C56',band:'#606068'},
 pipe_out:{name:'Pipe Out',s:'PipeOut',l:'^',cat:'util',gate:'pipe_out',ports:[{e:2,d:'o'}],fill:'#3A3A44',str:'#4C4C56',band:'#606068'},
+pipe_pair:{name:'Pipe Pair',s:'Pipes',l:'v^',cat:'util',ports:[],fill:'#3A3A44',str:'#4C4C56',band:'#606068'},
 cistern:{name:'Cistern',s:'Cistern',l:'CIS',cat:'mem',gate:'cistern',ports:[{e:5,d:'i'},{e:2,d:'o'}],fill:'#2E3848',str:'#404A5A',band:'#B0B0C0'},
 cave_spring:{name:'Cave Spring',s:'CaveSR',l:'SR',cat:'mem',gate:'cave',notPow:1,ports:[{e:5,d:'i'},{e:4,d:'i'},{e:2,d:'o'}],fill:'#2A3038',str:'#3C424A',band:'#B0B0C0'},
 ref_pool:{name:'Reflecting Pool',s:'ROM',l:'ROM',cat:'mem',gate:'rom',ports:[{e:5,d:'i'},{e:4,d:'i'},{e:2,d:'o'}],fill:'#2A3040',str:'#3C4252',band:'#B0B0C0'},
@@ -132,7 +133,7 @@ const WISDOM_CARDS=[
 {id:'dammed',cost:{wood:3,wisdom:1},n:4},{id:'karst',cost:{wood:3,wisdom:1},n:4},
 {id:'artesian',cost:{wood:3,wisdom:1},n:3},{id:'beaver',cost:{wood:3,wisdom:1},n:3},
 {id:'cave_spring',cost:{wood:3,wisdom:1},n:3},{id:'well',cost:{wood:2,wisdom:2},n:2},
-{id:'pipe_in',cost:{wood:2,wisdom:1},n:2},{id:'pipe_out',cost:{wood:2,wisdom:1},n:2},
+{id:'pipe_pair',cost:{wood:4,wisdom:2},n:2},
 {id:'ref_pool',cost:{wisdom:3},n:3},
 ];
 
@@ -169,6 +170,7 @@ let turn=0,phase='shop'; // shop, place, resolve
 let res={seed:0,wood:0,wisdom:0,reed:0};
 let logMsg=[];
 let geyserPhase={},cisternStore={},caveStones={},romConfig={},pipeLink={};
+let pipePlacing=null; // key of placed pipe_in waiting for pipe_out
 let woodDeck=[],wisdomDeck=[];
 let woodShop=[null,null,null],wisdomShop=[null,null,null];
 let lockedSlot=null; // {deck:'wood'|'wisdom', idx:0-2}
@@ -252,9 +254,12 @@ function calcAdj(){
       if(nt&&(nt.type==='pond'||nt.type==='lake')){fc++;maf=Math.max(maf,1);}
       if(nt&&T[nt.type].isFan&&nt.fanIn!==undefined){const fi=nt.fanIn;if([(fi+2)%6,(fi+3)%6,(fi+4)%6].includes(opp(e))){fc++;maf=Math.max(maf,1);}}
       if(!nf)continue;
-      if(nt&&T[nt.type].isCanyon)continue;
-      if(nf.draws.some(d=>d.v>0&&d.t>=0)){fc++;for(const d of nf.draws)if(d.v>0&&d.t>=0)maf=Math.max(maf,d.v);}
+      // Direct input: flow aimed at this terrain tile (always checked, even from sources)
       for(const d of nf.draws){if(d.t===opp(e)&&d.v>0)dir=Math.max(dir,d.v);}
+      // Skip adjacency bonus from canyons and non-underground sources
+      if(nt&&T[nt.type].isCanyon)continue;
+      if(nt&&T[nt.type].cat==='src'&&nt.type!=='underground')continue;
+      if(nf.draws.some(d=>d.v>0&&d.t>=0)){fc++;for(const d of nf.draws)if(d.v>0&&d.t>=0)maf=Math.max(maf,d.v);}
     }
     adjInfo[k]={flowCount:fc,maxAdjFlow:maf,direct:dir};
   }
@@ -416,7 +421,8 @@ function renderCtx(){
   } else if(phase==='shop'){
     el.innerHTML=`<span style="font-size:9px;color:#D0A840">Buy tiles, colonize, or reroll. Then tap PLACE.</span>`;
   } else if(phase==='place'){
-    el.innerHTML=handSel!==null?`<span style="font-size:9px;color:#80C0E0">Tap grid to place ${T[hand[handSel].id].s}. Tap placed tile to edit.</span>`:
+    el.innerHTML=pipePlacing?`<span style="font-size:9px;color:#8080C0">Tap hex for Pipe Out</span> <button class="sbtn" style="background:#252830;color:#5A6878" onclick="cancelPipe()">Cancel</button>`:
+    handSel!==null?`<span style="font-size:9px;color:#80C0E0">Tap grid to place ${T[hand[handSel].id]?T[hand[handSel].id].s:hand[handSel].id}. Tap placed tile to edit.</span>`:
     `<span style="font-size:9px;color:#80C0E0">Select from hand or tap placed tile to edit. END TURN when done.</span>`;
   } else {
     el.innerHTML='';
@@ -528,6 +534,15 @@ window.doMir=function(){if(!bSel||!board[bSel])return;board[bSel].mir=!board[bSe
 window.toggleWell=function(){if(!bSel)return;wells[bSel]=!wells[bSel];renderAll();};
 window.cycleMux=function(){if(!bSel)return;muxCfg[bSel]=((muxCfg[bSel]||0)+1)%3;renderAll();};
 window.desel=function(){bSel=null;renderAll();};
+window.cancelPipe=function(){
+  if(pipePlacing){
+    // Revert pipe_in back to rocky
+    board[pipePlacing]={type:'rocky',rot:0,mir:false};
+    // Put pipe pair card back in hand
+    hand.push({id:'pipe_pair',cost:{wood:4,wisdom:2}});
+    pipePlacing=null;fl={};adjInfo={};renderAll();
+  }
+};
 
 // ─── Grid Input ───
 function s2h(cx,cy){const svg=document.querySelector('#grid svg');if(!svg)return null;const r=svg.getBoundingClientRect();const sx=x0+((cx-r.left)/r.width)*vW,sy=y0+((cy-r.top)/r.height)*vH;let best=null,bd=S*0.88;for(const h of hexes){const p=h2p(h.q,h.r);const d=Math.sqrt((p.x-sx)**2+(p.y-sy)**2);if(d<bd){best=h;bd=d;}}return best;}
@@ -552,10 +567,30 @@ function handleTap(cx,cy){
     phase='shop';renderAll();return;
   }
 
+  // Pipe pair: second tap places pipe_out
+  if(phase==='place'&&pipePlacing){
+    if(board[k]&&board[k].type==='rocky'){
+      board[k]={type:'pipe_out',rot:0,mir:false};
+      pipeLink[k]=pipePlacing;
+      pipePlacing=null;fl={};adjInfo={};
+      renderAll();return;
+    }
+  }
+
   // Normal placement from hand
   if(phase==='place'&&handSel!==null){
     if(board[k]&&(board[k].type==='rocky'||!board[k])){
       const card=hand[handSel];
+      // Pipe pair: first tap places pipe_in, wait for second
+      if(card.id==='pipe_pair'){
+        board[k]={type:'pipe_in',rot:0,mir:false};
+        pipePlacing=k;
+        hand.splice(handSel,1);
+        handSel=null;fl={};adjInfo={};
+        renderAll();
+        document.getElementById('ctxBar').innerHTML=`<span style="font-size:9px;color:#8080C0">Tap another hex to place Pipe Out</span> <button class="sbtn" style="background:#252830;color:#5A6878" onclick="cancelPipe()">Cancel</button>`;
+        return;
+      }
       board[k]={type:card.id,rot:0,mir:false};
       hand.splice(handSel,1);
       handSel=null;fl={};adjInfo={};
@@ -605,6 +640,7 @@ function startGame(sourceType){
   hand=[{id:sourceType,cost:{}}];handSel=0;turn=1;phase='place';bought=false;
   lockedSlot=null;fl={};adjInfo={};logMsg=['Place your source, rotate it, then END TURN to erode.'];
   geyserPhase={};cisternStore={};caveStones={};romConfig={};pipeLink={};wells={};muxCfg={};
+  pipePlacing=null;
   renderAll();
 }
 
