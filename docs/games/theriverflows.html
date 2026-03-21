@@ -114,6 +114,7 @@ lake:{name:'Lake',s:'Lake',l:'O',cat:'ter',ports:[],fill:'#1E3050',str:'#304262'
 desert:{name:'Desert',s:'Desert',l:'***',cat:'ter',ports:[],fill:'#504830',str:'#625A42',band:'#5A7A4A'},
 rocky:{name:'Rocky Shield',s:'Rock',l:'###',cat:'ter',ports:[],fill:'#3A3A3A',str:'#4C4C4C',band:'#606060',isRock:1},
 canyon:{name:'Canyon',s:'Canyon',l:'VVV',cat:'wire',ports:[],fill:'#2A2420',str:'#3C3632',band:'#604830',isCanyon:1},
+cave:{name:'Cave',s:'Cave',l:'()',cat:'ter',ports:[],fill:'#1A1A1E',str:'#2C2C32',band:'#404048',isCave:1},
 alluvial:{name:'Alluvial Fan',s:'A.Fan',l:'<>',cat:'ter',ports:[],fill:'#4A4430',str:'#5C5642',band:'#5A7A4A',isFan:1},
 flooded:{name:'Flooded',s:'Flood',l:'!!!',cat:'wire',ports:[],fill:'#1E3858',str:'#30506E',band:'#2870A0',isFlooded:1},
 };
@@ -195,8 +196,9 @@ function resolveFlow(erode){
     const nd=T[nt.type],ie=opp(outE),nf=gf(nk);
     nf.edges[ie]=Math.max(nf.edges[ie]||0,tok);
 
-    if(nd.isRock){if(!erode||tok<=0)return;let outDir=opp(ie);const chkOn=d2=>hexes.some(h2=>h2.q===nbr(n.q,n.r,d2).q&&h2.r===nbr(n.q,n.r,d2).r);if(!chkOn(outDir)){let found=false;for(const off of[1,5,2,4]){const try2=(outDir+off)%6;if(try2!==ie&&chkOn(try2)){outDir=try2;found=true;break;}}if(!found)return;}const out=Math.max(0,tok-1);if(out===0){board[nk]={type:'alluvial',rot:0,mir:false,fanIn:ie};nf.draws.push({f:ie,t:-1,v:0});}else{board[nk]={type:'canyon',rot:0,mir:false,canyonIn:ie,canyonOut:outDir};nf.draws.push({f:ie,t:outDir,v:out});nf.edges[outDir]=Math.max(nf.edges[outDir]||0,out);trace(n.q,n.r,outDir,out);}return;}
+    if(nd.isRock){if(!erode||tok<=0)return;const srcTile=board[k];const fromCanyon=srcTile&&T[srcTile.type].isCanyon;let outDir=opp(ie);const chkOn=d2=>hexes.some(h2=>h2.q===nbr(n.q,n.r,d2).q&&h2.r===nbr(n.q,n.r,d2).r);if(!chkOn(outDir)){let found=false;for(const off of[1,5,2,4]){const try2=(outDir+off)%6;if(try2!==ie&&chkOn(try2)){outDir=try2;found=true;break;}}if(!found)return;}const out=Math.max(0,tok-1);if(out===0&&fromCanyon){board[nk]={type:'alluvial',rot:0,mir:false,fanIn:ie};nf.draws.push({f:ie,t:-1,v:0});}else if(out===0){board[nk]={type:'cave',rot:0,mir:false};nf.draws.push({f:ie,t:-1,v:0});}else{board[nk]={type:'canyon',rot:0,mir:false,canyonIn:ie,canyonOut:outDir};nf.draws.push({f:ie,t:outDir,v:out});nf.edges[outDir]=Math.max(nf.edges[outDir]||0,out);trace(n.q,n.r,outDir,out);}return;}
     if(nd.isCanyon){const t2=board[nk];if(t2.canyonIn===ie){const out=Math.max(0,tok-1);if(out>0){nf.draws.push({f:ie,t:t2.canyonOut,v:out});nf.edges[t2.canyonOut]=Math.max(nf.edges[t2.canyonOut]||0,out);trace(n.q,n.r,t2.canyonOut,out);}}return;}
+    if(nd.isCave){nf.draws.push({f:ie,t:-1,v:tok});return;}
     if(nd.cat==='ter')return;
     if(nd.isFlooded){const t2=board[nk];if(t2.floodOut===undefined)return;if(!nf._floodTok)nf._floodTok=0;nf._floodTok+=tok;const out=Math.min(3,nf._floodTok);nf.draws=nf.draws.filter(d=>d.t!==t2.floodOut);nf.draws.push({f:ie,t:t2.floodOut,v:out});nf.edges[t2.floodOut]=out;vis.delete(nk+':'+t2.floodOut);trace(n.q,n.r,t2.floodOut,out);return;}
     if(erode&&nd.ports&&nd.ports.length>0){const vi2=nd.ports.filter(p=>p.d==='i'||p.d==='i2'||p.d==='b').map(p=>tp(nt,p.e));if(!vi2.includes(ie)){const op=nd.ports.find(p=>p.d==='o'||p.d==='o2');const fo=op?tp(nt,op.e):opp(ie);board[nk]={type:'flooded',rot:0,mir:false,floodOut:fo};const out=Math.min(3,tok);nf.draws.push({f:ie,t:fo,v:out});nf.edges[fo]=out;trace(n.q,n.r,fo,out);return;}}
@@ -630,12 +632,18 @@ document.getElementById('grid').addEventListener('click',e=>{if(e.sourceCapabili
 function startGame(sourceType){
   board={};
   for(const h of hexes) board[hk(h.q,h.r)]={type:'rocky',rot:0,mir:false};
-  // Starting source goes to hand — player chooses placement
-  res={seed:0,wood:0,wisdom:0,reed:0};
+  // Starting hand and resources vary by difficulty
+  if(sourceType==='underground'){
+    res={seed:2,wood:0,wisdom:0,reed:0};
+    hand=[{id:sourceType,cost:{}},{id:'river',cost:{}}];
+  } else {
+    res={seed:1,wood:0,wisdom:0,reed:0};
+    hand=[{id:sourceType,cost:{}}];
+  }
   woodDeck=buildDeck(WOOD_CARDS);wisdomDeck=buildDeck(WISDOM_CARDS);
   woodShop=[null,null,null];wisdomShop=[null,null,null];
   fillShop(woodDeck,woodShop);fillShop(wisdomDeck,wisdomShop);
-  hand=[{id:sourceType,cost:{}}];handSel=0;turn=1;phase='place';bought=false;
+  handSel=0;turn=1;phase='place';bought=false;
   lockedSlot=null;fl={};adjInfo={};logMsg=['Place your source, rotate it, then END TURN to erode.'];
   geyserPhase={};cisternStore={};caveStones={};romConfig={};pipeLink={};wells={};muxCfg={};
   pipePlacing=null;
@@ -648,10 +656,10 @@ function showStart(){
   el.innerHTML=`<div style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;gap:12px;padding:20px">
     <div style="color:#4A88AA;font-size:14px;font-weight:700;letter-spacing:2px;text-transform:uppercase">The River Flows</div>
     <div style="color:#5A6878;font-size:10px;margin-bottom:8px">Choose your starting water source</div>
-    <button class="btn" style="background:#3A5060;color:#80C0E0;padding:12px 24px;font-size:12px" onclick="startGame('glacial')">Glacial Spring (3W)</button>
-    <button class="btn" style="background:#344858;color:#80B0D0;padding:12px 24px;font-size:12px" onclick="startGame('snowmelt')">Snowmelt Spring (2W)</button>
-    <button class="btn" style="background:#2E4250;color:#80A0C0;padding:12px 24px;font-size:12px" onclick="startGame('underground')">Underground Spring (1W)</button>
-    <div style="color:#404858;font-size:8px;margin-top:8px">Erosion creates alluvial fans that produce seeds. Glacial carves deepest.</div>
+    <button class="btn" style="background:#3A5060;color:#80C0E0;padding:12px 24px;font-size:12px" onclick="startGame('glacial')">Glacial Spring (3W) +1sd</button>
+    <button class="btn" style="background:#344858;color:#80B0D0;padding:12px 24px;font-size:12px" onclick="startGame('snowmelt')">Snowmelt Spring (2W) +1sd</button>
+    <button class="btn" style="background:#2E4250;color:#80A0C0;padding:12px 24px;font-size:12px" onclick="startGame('underground')">Underground Spring (1W) +2sd +River</button>
+    <div style="color:#404858;font-size:8px;margin-top:8px">Glacial carves deepest. Underground gets a river + extra seeds.</div>
   </div>`;
   document.getElementById('shopPanel').innerHTML='';
   document.getElementById('handPanel').innerHTML='';
